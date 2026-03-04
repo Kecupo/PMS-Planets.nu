@@ -1,0 +1,27 @@
+[gd_scene load_steps=4 format=3 uid="uid://oy6ayxqtmx7p"]
+
+[ext_resource type="PackedScene" uid="uid://ts1y6rhkcfc1" path="res://Scenes/Menu_oben/Menu_oben.tscn" id="1_3oyhn"]
+[ext_resource type="Script" uid="uid://clkkwl0uv2wd7" path="res://Scripts/Data/star_map.gd" id="2_jtp7b"]
+[ext_resource type="Script" uid="uid://d2qsbdye8wahv" path="res://Scripts/CameraController.gd" id="3_mg0pj"]
+
+[node name="Layout_Design" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 300.0
+offset_bottom = 100.0
+scale = Vector2(1, 0.038)
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="MenuOben" parent="." instance=ExtResource("1_3oyhn")]
+position = Vector2(105.06717, -2101.4434)
+
+[node name="World" type="Node2D" parent="."]
+
+[node name="StarMap" type="Node2D" parent="World"]
+script = ExtResource("2_jtp7b")
+
+[node name="Camera2D" type="Camera2D" parent="World/StarMap"]
+zoom = Vector2(0.5, 0.5)
+limit_enabled = false
+script = ExtResource("3_mg0pj")

@@ -1,0 +1,16 @@
+[gd_scene load_steps=3 format=3 uid="uid://8xx1d7wrwkxh"]
+
+[ext_resource type="Script" uid="uid://clkkwl0uv2wd7" path="res://Scripts/Data/star_map.gd" id="1_q8ait"]
+[ext_resource type="Script" uid="uid://d2qsbdye8wahv" path="res://Scripts/CameraController.gd" id="2_b6ekq"]
+
+[node name="Node2D" type="Node2D"]
+
+[node name="World" type="Node2D" parent="."]
+
+[node name="StarMap" type="Node2D" parent="World"]
+script = ExtResource("1_q8ait")
+
+[node name="Camera2D" type="Camera2D" parent="World/StarMap"]
+zoom = Vector2(0.5, 0.5)
+limit_enabled = false
+script = ExtResource("2_b6ekq")

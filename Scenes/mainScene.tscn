@@ -1,0 +1,569 @@
+[gd_scene load_steps=8 format=3 uid="uid://bnsqwdjkdym6h"]
+
+[ext_resource type="Theme" uid="uid://ddulqnf2odnd2" path="res://Scenes/config.tres" id="1_0vbqt"]
+[ext_resource type="PackedScene" uid="uid://ts1y6rhkcfc1" path="res://Scenes/Menu_oben/Menu_oben.tscn" id="2_m8nr8"]
+[ext_resource type="Script" uid="uid://c3ql4w3j0jgt1" path="res://Scripts/Services/planet_info_panel.gd" id="3_47rga"]
+[ext_resource type="Script" uid="uid://clkkwl0uv2wd7" path="res://Scripts/Data/star_map.gd" id="3_hewda"]
+[ext_resource type="Script" uid="uid://d2qsbdye8wahv" path="res://Scripts/CameraController.gd" id="4_m8nr8"]
+[ext_resource type="Script" uid="uid://cs0vymexrrcmt" path="res://Scenes/status_content.gd" id="4_yyxd1"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_47rga"]
+bg_color = Color(0.08235294, 0.07450981, 0.08235294, 0.9411765)
+
+[node name="MainUI" type="Control"]
+layout_mode = 3
+anchors_preset = 10
+anchor_right = 1.0
+grow_horizontal = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+mouse_filter = 1
+theme = ExtResource("1_0vbqt")
+
+[node name="UILayer" type="CanvasLayer" parent="."]
+layer = 2
+
+[node name="UIRoot" type="Control" parent="UILayer"]
+custom_minimum_size = Vector2(1280, 800)
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_bottom = 800.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+mouse_filter = 1
+
+[node name="RootLayout" type="VBoxContainer" parent="UILayer/UIRoot"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_bottom = -800.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+mouse_filter = 2
+theme_override_constants/separation = 0
+
+[node name="ColorRect" type="ColorRect" parent="UILayer/UIRoot/RootLayout"]
+custom_minimum_size = Vector2(300, 40)
+layout_mode = 2
+size_flags_vertical = 0
+color = Color(0.12156863, 0.12156863, 0.12156863, 1)
+
+[node name="MenuOben" parent="UILayer/UIRoot/RootLayout/ColorRect" instance=ExtResource("2_m8nr8")]
+custom_minimum_size = Vector2(600, 40)
+layout_mode = 0
+anchors_preset = 0
+anchor_right = 0.0
+offset_right = 600.0
+offset_bottom = 40.0
+grow_horizontal = 1
+
+[node name="OverlayRoot" type="Control" parent="UILayer/UIRoot/RootLayout"]
+unique_name_in_owner = true
+modulate = Color(0.81960785, 0.93333334, 0.9411765, 1)
+custom_minimum_size = Vector2(477, 708)
+layout_mode = 2
+size_flags_horizontal = 0
+mouse_filter = 2
+
+[node name="PlanetInfoPanel" type="PanelContainer" parent="UILayer/UIRoot/RootLayout/OverlayRoot"]
+custom_minimum_size = Vector2(200, 400)
+layout_mode = 0
+offset_left = 8.0
+offset_top = 7.0
+offset_right = 485.0
+offset_bottom = 715.0
+pivot_offset = Vector2(10, 10)
+focus_mode = 1
+mouse_filter = 1
+theme_override_styles/panel = SubResource("StyleBoxFlat_47rga")
+script = ExtResource("3_47rga")
+
+[node name="MarginContainer" type="MarginContainer" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel"]
+layout_mode = 2
+
+[node name="Content" type="VBoxContainer" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="HeaderRow" type="HBoxContainer" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content"]
+layout_mode = 2
+
+[node name="PlanetIdLabel" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/HeaderRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(50, 20)
+layout_mode = 2
+vertical_alignment = 1
+
+[node name="PlanetNameLabel" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/HeaderRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(120, 20)
+layout_mode = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PlanetOwnerLabel" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/HeaderRow"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="CoordTempLabel" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/HeaderRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 2
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="PlanetFcLabel" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/HeaderRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="Separator" type="HSeparator" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content"]
+layout_mode = 2
+
+[node name="EconomySection" type="VBoxContainer" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content"]
+custom_minimum_size = Vector2(0, 280)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="SectionLabel" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection"]
+custom_minimum_size = Vector2(0, 150)
+layout_mode = 2
+text = "  ECONOMY"
+
+[node name="GridContainer" type="GridContainer" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel"]
+layout_mode = 1
+offset_left = 22.0
+offset_top = 28.0
+offset_right = 443.0
+offset_bottom = 283.0
+columns = 3
+
+[node name="L_Megacredits" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+custom_minimum_size = Vector2(100, 20)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Megacredits"
+
+[node name="V_Megacredits" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(100, 20)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "10000"
+horizontal_alignment = 2
+
+[node name="M_Megacredits" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+size_flags_horizontal = 10
+horizontal_alignment = 2
+
+[node name="L_Supplies" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+text = "Supplies"
+
+[node name="V_Supplies" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="M_Supplies" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="L_Colonists" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+custom_minimum_size = Vector2(0, 2)
+layout_mode = 2
+text = "Colonists"
+
+[node name="V_Colonists" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="M_Colonists_Growth" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="L_ColonistTax" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+layout_mode = 2
+text = "Taxrate"
+
+[node name="V_ColonistTaxSpin" type="SpinBox" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(50, 0)
+layout_mode = 2
+alignment = 2
+
+[node name="M_ColonistTaxIncome" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="L_ColonistHappy" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+layout_mode = 2
+text = "Happiness"
+
+[node name="V_ColonistHappy" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="M_ColonistHappyDelta" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="V_NativeRace" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+text = "Natives"
+
+[node name="V_NativeGov" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="M_NativeGovTaxFactor" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="V_NativeClans" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="M_Natives_Growth" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="M_NativeMaxClans" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="L_NativeTax" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Taxrate"
+
+[node name="V_NativeTaxSpin" type="SpinBox" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+alignment = 2
+
+[node name="M_NativeTaxIncome" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="L_NativeHappy" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Happiness"
+
+[node name="V_NativeHappy" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="M_NativeHappyDelta" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="Separator2" type="HSeparator" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content"]
+layout_mode = 2
+
+[node name="InustrySection" type="VBoxContainer" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content"]
+custom_minimum_size = Vector2(0, 130)
+layout_mode = 2
+
+[node name="SectionTitle" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection"]
+custom_minimum_size = Vector2(0, 150)
+layout_mode = 2
+text = "  INDUSTRY"
+
+[node name="GridContainer" type="GridContainer" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 30.0
+offset_right = 436.0
+offset_bottom = 134.0
+columns = 4
+
+[node name="L_Factories" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
+custom_minimum_size = Vector2(100, 20)
+layout_mode = 2
+text = "Factories"
+horizontal_alignment = 1
+
+[node name="L_Mines" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
+custom_minimum_size = Vector2(100, 20)
+layout_mode = 2
+text = "Mines"
+horizontal_alignment = 1
+
+[node name="L_Defense" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
+custom_minimum_size = Vector2(100, 20)
+layout_mode = 2
+text = "Defense"
+horizontal_alignment = 1
+
+[node name="Label" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
+custom_minimum_size = Vector2(100, 3)
+layout_mode = 2
+
+[node name="V_Factories" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="V_Mines" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="V_Defense" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="Label2" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
+layout_mode = 2
+text = "Actual"
+
+[node name="M_Factories_Max" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="M_Mines_Max" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="M_Defense_Max" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="L_Maximum" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
+layout_mode = 2
+text = "Maximum"
+
+[node name="Separator3" type="HSeparator" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content"]
+layout_mode = 2
+
+[node name="MineralSection" type="VBoxContainer" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content"]
+custom_minimum_size = Vector2(0, 200)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="SectionTitel" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection"]
+layout_mode = 2
+text = "  MINERALS"
+
+[node name="GridContainer" type="GridContainer" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel"]
+layout_mode = 0
+offset_left = 22.0
+offset_top = 22.0
+offset_right = 398.0
+offset_bottom = 177.0
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 10
+columns = 5
+
+[node name="Label" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="Header_Surface" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
+custom_minimum_size = Vector2(75, 0)
+layout_mode = 2
+text = "Surface"
+horizontal_alignment = 2
+
+[node name="Header_Ground" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
+custom_minimum_size = Vector2(75, 0)
+layout_mode = 2
+text = "Ground"
+horizontal_alignment = 2
+
+[node name="Header_Density" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
+custom_minimum_size = Vector2(75, 0)
+layout_mode = 2
+text = "Density"
+horizontal_alignment = 2
+
+[node name="Mining" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
+custom_minimum_size = Vector2(75, 0)
+layout_mode = 2
+text = "Mining"
+horizontal_alignment = 2
+
+[node name="Row_Neut_Label" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
+layout_mode = 2
+text = "Neutronium"
+
+[node name="V_Neut_Surface" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "10000"
+horizontal_alignment = 2
+
+[node name="V_Neut_Ground" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "10000"
+horizontal_alignment = 2
+
+[node name="V_Neut_Density" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "95%"
+horizontal_alignment = 2
+
+[node name="M_Neut_Mining" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "1000"
+horizontal_alignment = 2
+
+[node name="Row_Dura_Label" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
+layout_mode = 2
+text = "Duranium"
+
+[node name="V_Dura_Surface" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="V_Dura_Ground" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="V_Dura_Density" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="M_Dura_Mining" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="Row_Trit_Label" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
+layout_mode = 2
+text = "Tritanium"
+
+[node name="V_Trit_Surface" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="V_Trit_Ground" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="V_Trit_Density" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="M_Trit_Mining" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="Row_Moly_Label" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
+layout_mode = 2
+text = "Molybenium"
+
+[node name="V_Moly_Surface" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="V_Moly_Ground" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="V_Moly_Density" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="M_Moly_Mining" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 2
+
+[node name="StatusBar" type="PanelContainer" parent="UILayer/UIRoot/RootLayout"]
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+size_flags_vertical = 10
+mouse_filter = 2
+
+[node name="StatusContent" type="HBoxContainer" parent="UILayer/UIRoot/RootLayout/StatusBar"]
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+alignment = 1
+script = ExtResource("4_yyxd1")
+
+[node name="Turn" type="Label" parent="UILayer/UIRoot/RootLayout/StatusBar/StatusContent"]
+layout_mode = 2
+theme_type_variation = &"HeaderMedium"
+text = "Turn:"
+
+[node name="TurnLabel" type="Label" parent="UILayer/UIRoot/RootLayout/StatusBar/StatusContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"HeaderMedium"
+
+[node name="Rase" type="Label" parent="UILayer/UIRoot/RootLayout/StatusBar/StatusContent"]
+layout_mode = 2
+theme_type_variation = &"HeaderMedium"
+text = "          Race:"
+
+[node name="RaceLabel" type="Label" parent="UILayer/UIRoot/RootLayout/StatusBar/StatusContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"HeaderMedium"
+
+[node name="World" type="Node2D" parent="."]
+
+[node name="StarMap" type="Node2D" parent="World"]
+script = ExtResource("3_hewda")
+
+[node name="Camera2D" type="Camera2D" parent="World/StarMap"]
+zoom = Vector2(0.3, 0.3)
+limit_enabled = false
+script = ExtResource("4_m8nr8")

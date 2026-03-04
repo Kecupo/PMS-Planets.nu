@@ -1,0 +1,68 @@
+[gd_scene load_steps=3 format=3 uid="uid://ts1y6rhkcfc1"]
+
+[ext_resource type="Theme" uid="uid://y02mad4xcnqr" path="res://Scenes/Menu_oben/Menu_oben.tres" id="1_ks12s"]
+[ext_resource type="Script" uid="uid://dmrqdvk7mj6d4" path="res://Scripts/planets_menu.gd" id="1_wigab"]
+
+[node name="MenuOben" type="PanelContainer"]
+top_level = true
+custom_minimum_size = Vector2(0, 30)
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 30.0
+grow_horizontal = 2
+
+[node name="PlanetsMenu" type="HBoxContainer" parent="."]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+mouse_filter = 0
+script = ExtResource("1_wigab")
+
+[node name="LoginButton" type="MenuButton" parent="PlanetsMenu"]
+z_index = 1
+custom_minimum_size = Vector2(80, 30)
+layout_mode = 2
+theme_override_colors/font_pressed_color = Color(0.050980393, 0.05490196, 1, 1)
+theme_override_colors/font_hover_color = Color(0.97265625, 0.02659607, 0.02659607, 1)
+toggle_mode = false
+text = "Login
+"
+icon_alignment = 1
+
+[node name="SelectButton" type="MenuButton" parent="PlanetsMenu"]
+layout_mode = 2
+theme_override_colors/font_pressed_color = Color(0.2750473, 0.029785156, 0.953125, 1)
+theme_override_colors/font_hover_color = Color(0.97265625, 0.02659607, 0.02659607, 1)
+text = "Select game
+"
+
+[node name="UploadButton" type="MenuButton" parent="PlanetsMenu"]
+custom_minimum_size = Vector2(80, 30)
+layout_mode = 2
+theme_type_variation = &"FlatMenuButton"
+theme_override_colors/font_pressed_color = Color(0.2750473, 0.029785156, 0.953125, 1)
+theme_override_colors/font_hover_color = Color(0.97265625, 0.02659607, 0.02659607, 1)
+text = "Upload Turn"
+icon_alignment = 1
+switch_on_hover = true
+
+[node name="ConfigButton" type="MenuButton" parent="PlanetsMenu"]
+layout_mode = 2
+theme_override_colors/font_pressed_color = Color(0.2750473, 0.029785156, 0.953125, 1)
+theme_override_colors/font_hover_color = Color(0.97265625, 0.02659607, 0.02659607, 1)
+text = "Config"
+
+[node name="ManageButton" type="MenuButton" parent="PlanetsMenu"]
+layout_mode = 2
+theme_override_colors/font_pressed_color = Color(0.2750473, 0.029785156, 0.953125, 1)
+theme_override_colors/font_hover_color = Color(0.97265625, 0.02659607, 0.02659607, 1)
+text = "Auto-Manage"
+
+[node name="QuitButton" type="MenuButton" parent="PlanetsMenu"]
+custom_minimum_size = Vector2(80, 30)
+layout_mode = 2
+theme = ExtResource("1_ks12s")
+theme_override_colors/font_pressed_color = Color(0.2750473, 0.029785156, 0.953125, 1)
+theme_override_colors/font_hover_color = Color(0.97265625, 0.02659607, 0.02659607, 1)
+text = "Quit     "
+expand_icon = true

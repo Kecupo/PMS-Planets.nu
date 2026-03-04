@@ -1,0 +1,7 @@
+[gd_resource type="Theme" load_steps=2 format=3 uid="uid://c5m1ca7p2457e"]
+
+[ext_resource type="FontFile" uid="uid://bq0xlebkt7eef" path="res://fonts/space-wham.ttf" id="1_mrd5p"]
+
+[resource]
+default_font = ExtResource("1_mrd5p")
+CheckBox/colors/checkbox_unchecked_color = Color(0.0033694997, 0, 0, 1)

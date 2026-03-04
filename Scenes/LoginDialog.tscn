@@ -1,0 +1,56 @@
+[gd_scene load_steps=2 format=3 uid="uid://wvxcqu83d0dh"]
+
+[ext_resource type="Script" uid="uid://cnbh771dgoprk" path="res://Scripts/login_dialog.gd" id="1_0jpsd"]
+
+[node name="LoginDialogWindow" type="Window"]
+oversampling_override = 1.0
+title = "Login Window"
+transient = true
+exclusive = true
+script = ExtResource("1_0jpsd")
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_right = 12
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+alignment = 1
+
+[node name="UsernameEdit" type="LineEdit" parent="MarginContainer/VBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Username"
+alignment = 3
+
+[node name="PasswordEdit" type="LineEdit" parent="MarginContainer/VBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Password"
+alignment = 3
+secret = true
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="LoginButton" type="Button" parent="MarginContainer/VBoxContainer/HBoxContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(30, 20)
+layout_mode = 2
+size_flags_horizontal = 6
+text = "OK"
+
+[node name="CloseButton" type="Button" parent="MarginContainer/VBoxContainer/HBoxContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(30, 20)
+layout_mode = 2
+size_flags_horizontal = 6
+text = "Close"

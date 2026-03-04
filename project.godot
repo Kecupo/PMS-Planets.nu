@@ -1,0 +1,53 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="Tutorial"
+run/main_scene="uid://bnsqwdjkdym6h"
+config/features=PackedStringArray("4.5", "Forward Plus")
+
+[autoload]
+
+PlanetsApi="*res://Scripts/PlanetsApi.gd"
+GameState="*res://Scripts/game_state.gd"
+Planet_Math="*res://Scripts/Services/PlanetMath.gd"
+Orders_Store="*res://Scripts/Services/OdersStore.gd"
+RandAI_Config="*res://Scripts/Data/RandAIConfig.gd"
+GameSession="*res://Scripts/GameSession.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=800
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[dotnet]
+
+project/assembly_name="Tutorial"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/tnowe_extra_controls/plugin.cfg")
+
+[global_group]
+
+login_dialog=""
+
+[gui]
+
+theme/custom="Dark"
+theme/custom_font="uid://dk37wsk7dvbbe"
+
+[rendering]
+
+renderer/rendering_method="mobile"
+viewport/transparent_background=true
