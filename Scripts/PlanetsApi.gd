@@ -18,6 +18,7 @@ var _pending_save_player_id: int = 0
 var _pending_save_wrapper: Dictionary = {}
 var _pending_save_forsave: bool = false
 var _pending_username: String = ""
+var _pending_save_rst: Dictionary = {}
 var api_key: String = ""
 var current_request: RequestType = RequestType.NONE
 @onready var http: HTTPRequest = HTTPRequest.new()
@@ -62,15 +63,13 @@ func _handle_login_response(data: Dictionary) -> void:
 # TURN RESPONSE
 # =========================
 func _handle_turn_response(data: Dictionary) -> void:
-	GameState.load_turn_from_parsed_wrapper(data)
 	print("Turn data received")
 	GameState.save_turn(data)
 	emit_signal("turn_downloaded", data)
 
-	# Wenn dies ein forsave-Download war und ein Save aussteht, direkt Save auslösen
-	if _pending_save_forsave and _pending_save_game_id > 0:
+	if _pending_save_forsave and _pending_save_game_id > 0 and not _pending_save_rst.is_empty():
 		_pending_save_forsave = false
-		_save_turn_with_savekey(data)
+		_save_turn_with_savekey_and_merge(data)
 # =========================
 # LOGIN
 # =========================
@@ -199,13 +198,19 @@ func save_turn(wrapper: Dictionary, game_id: int, player_id: int) -> void:
 	if game_id <= 0:
 		_handle_error("Invalid game_id")
 		return
+	if not wrapper.has("rst"):
+		_handle_error("Wrapper has no rst")
+		return
+	var rst_v: Variant = wrapper["rst"]
+	if not (rst_v is Dictionary):
+		_handle_error("Wrapper rst is not a Dictionary")
+		return
 
-	# Wrapper nur als "change source" behalten (deine lokalen Änderungen / Orders)
-	_pending_save_wrapper = wrapper
 	_pending_save_game_id = game_id
 	_pending_save_player_id = player_id
+	_pending_save_rst = rst_v as Dictionary  # <-- Änderungen puffern
 
-	# 1) Direkt vor Save: frischen wrapper + savekey holen
+	# jetzt frischen savekey holen
 	download_turn(game_id, true)
 
 	var url: String = "http://api.planets.nu/game/save"
@@ -247,7 +252,7 @@ func logout() -> void:
 	api_key = ""
 	# optional: weitere session infos zurücksetzen
 
-func _save_turn_with_savekey(fresh_wrapper: Dictionary) -> void:
+func _save_turn_with_savekey_and_merge(fresh_wrapper: Dictionary) -> void:
 	if not fresh_wrapper.has("rst"):
 		emit_signal("save_failed", "Fresh wrapper has no rst")
 		return
@@ -256,29 +261,18 @@ func _save_turn_with_savekey(fresh_wrapper: Dictionary) -> void:
 	if typeof(savekey_v) != TYPE_STRING or String(savekey_v).is_empty():
 		emit_signal("save_failed", "No savekey in forsave wrapper")
 		return
-
 	var savekey: String = String(savekey_v)
 
-	# 2) Hier müssen die Änderungen im RST drin sein.
-	# Da du Tax/FC aktuell direkt in GameState.last_turn_json/rst schreibst:
-	# -> wir nehmen fresh rst und überschreiben die planet orders aus GameState.last_turn_json["rst"].
-	#
-	# Minimal robust: benutze komplett GameState.last_turn_json["rst"] falls vorhanden,
-	# aber setze savekey aus fresh wrapper.
+	var fresh_rst: Dictionary = fresh_wrapper["rst"] as Dictionary
+	_merge_rst_planet_changes(fresh_rst, _pending_save_rst)
 
-	var rst_to_save: Dictionary
-	var gs_rst_v: Variant = GameState.last_turn_json.get("rst")
-	if gs_rst_v is Dictionary:
-		rst_to_save = gs_rst_v as Dictionary
-	else:
-		# fallback: save the fresh rst (better than nothing)
-		rst_to_save = fresh_wrapper["rst"] as Dictionary
+	# Optional Debug: zeig 1 Planet-Wert vor dem Save
+	#print("DEBUG save: first planet tax =", ...)
 
-	# turn ist oft im rst.game.turn
 	var turn_num: int = 0
-	var rst_game_v: Variant = rst_to_save.get("game")
-	if rst_game_v is Dictionary:
-		var g: Dictionary = rst_game_v as Dictionary
+	var game_v: Variant = fresh_rst.get("game")
+	if game_v is Dictionary:
+		var g: Dictionary = game_v as Dictionary
 		var tv: Variant = g.get("turn", 0)
 		if typeof(tv) == TYPE_INT:
 			turn_num = int(tv)
@@ -288,29 +282,77 @@ func _save_turn_with_savekey(fresh_wrapper: Dictionary) -> void:
 	var payload: Dictionary = {
 		"apikey": api_key,
 		"gameid": _pending_save_game_id,
-		"playerid": _pending_save_player_id, # kann bei aktiven games evtl. optional sein; schadet aber nicht
+		"playerid": _pending_save_player_id,
 		"turn": turn_num,
 		"savekey": savekey,
-		"rst": rst_to_save
+		"rst": fresh_rst
 	}
 
 	var json: String = JSON.stringify(payload)
 	var headers: PackedStringArray = ["Content-Type: application/json"]
 
 	current_request = RequestType.SAVE_TURN
-
-	var err: int = http.request(
-		"http://api.planets.nu/game/save",
-		headers,
-		HTTPClient.METHOD_POST,
-		json
-	)
-
+	var err: int = http.request("http://api.planets.nu/game/save", headers, HTTPClient.METHOD_POST, json)
 	if err != OK:
 		_handle_error("HTTPRequest error: " + str(err))
 		return
 
-	# pending reset (wir lassen game/player stehen, aber wrapper leeren)
-	_pending_save_wrapper = {}
+	# pending leeren
+	_pending_save_rst = {}
 	_pending_save_game_id = 0
 	_pending_save_player_id = 0
+	
+static func _merge_rst_planet_changes(fresh_rst: Dictionary, pending_rst: Dictionary) -> void:
+	var f_v: Variant = fresh_rst.get("planets")
+	var p_v: Variant = pending_rst.get("planets")
+	if not (f_v is Array) or not (p_v is Array):
+		return
+
+	var fresh_planets: Array = f_v as Array
+	var pending_planets: Array = p_v as Array
+
+	# Map pending by id
+	var pending_by_id: Dictionary = {}
+	for it in pending_planets:
+		if it is Dictionary:
+			var d: Dictionary = it as Dictionary
+			var id_v: Variant = d.get("id", -1)
+			var pid: int = -1
+			if typeof(id_v) == TYPE_INT:
+				pid = int(id_v)
+			elif typeof(id_v) == TYPE_FLOAT:
+				pid = int(float(id_v))
+			if pid >= 0:
+				pending_by_id[pid] = d
+
+	# Apply selected fields
+	for i in range(fresh_planets.size()):
+		var it2: Variant = fresh_planets[i]
+		if not (it2 is Dictionary):
+			continue
+		var fd: Dictionary = it2 as Dictionary
+
+		var id2_v: Variant = fd.get("id", -1)
+		var pid2: int = -1
+		if typeof(id2_v) == TYPE_INT:
+			pid2 = int(id2_v)
+		elif typeof(id2_v) == TYPE_FLOAT:
+			pid2 = int(float(id2_v))
+
+		if pid2 < 0 or not pending_by_id.has(pid2):
+			continue
+
+		var pd: Dictionary = pending_by_id[pid2] as Dictionary
+
+		# Patch ONLY the fields we manage
+		if pd.has("colonisttaxrate"):
+			fd["colonisttaxrate"] = pd["colonisttaxrate"]
+		if pd.has("nativetaxrate"):
+			fd["nativetaxrate"] = pd["nativetaxrate"]
+		if pd.has("friendlycode"):
+			fd["friendlycode"] = pd["friendlycode"]
+
+		# write back (Array holds Dictionary ref, but keep explicit)
+		fresh_planets[i] = fd
+
+	fresh_rst["planets"] = fresh_planets
