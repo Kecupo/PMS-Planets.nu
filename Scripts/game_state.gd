@@ -302,11 +302,24 @@ func is_my_planet(p: PlanetData) -> bool:
 
 	return oid == my_player_id
 func set_planet_colonist_taxrate(planet_id: int, tax: int) -> void:
-	_set_planet_taxrate_in_model(planet_id, false, clamp(tax, 0, 100))
+	var v: int = clamp(tax, 0, 100)
+
+	# 1) Wrapper patchen
+	_set_planet_field_in_rst(planet_id, "colonisttaxrate", v)
+
+	# 2) Model patchen
+	_set_planet_taxrate_in_model(planet_id, false, v)
+
+	# 3) persist latest_turn.json
+	_save_latest_turn_json()
+
 	emit_signal("orders_changed")
 
 func set_planet_native_taxrate(planet_id: int, tax: int) -> void:
-	_set_planet_taxrate_in_model(planet_id, true, clamp(tax, 0, 100))
+	var v: int = clamp(tax, 0, 100)
+	_set_planet_field_in_rst(planet_id, "nativetaxrate", v)
+	_set_planet_taxrate_in_model(planet_id, true, v)
+	_save_latest_turn_json()
 	emit_signal("orders_changed")
 
 func _set_planet_taxrate_in_turn_json(planet_id: int, key: String, value: int) -> void:
@@ -386,3 +399,42 @@ func clear_api_credentials() -> void:
 		var err: Error = DirAccess.remove_absolute(abs_path)
 		if err != OK:
 			push_error("Failed to delete api_key.json: " + str(err))
+
+func _set_planet_field_in_rst(planet_id: int, key: String, value: Variant) -> void:
+	if last_turn_json.is_empty():
+		push_error("GameState: last_turn_json empty, cannot patch rst")
+		return
+
+	var rst_v: Variant = last_turn_json.get("rst")
+	if not (rst_v is Dictionary):
+		push_error("GameState: last_turn_json has no rst Dictionary")
+		return
+	var rst: Dictionary = rst_v as Dictionary
+
+	var planets_v: Variant = rst.get("planets")
+	if not (planets_v is Array):
+		push_error("GameState: rst.planets is not an Array")
+		return
+	var arr: Array = planets_v as Array
+
+	for i in range(arr.size()):
+		var it: Variant = arr[i]
+		if not (it is Dictionary):
+			continue
+		var pd: Dictionary = it as Dictionary
+
+		var id_v: Variant = pd.get("id", -1)
+		var pid: int = -1
+		if typeof(id_v) == TYPE_INT:
+			pid = int(id_v)
+		elif typeof(id_v) == TYPE_FLOAT:
+			pid = int(float(id_v))
+
+		if pid == planet_id:
+			pd[key] = value
+			arr[i] = pd
+			rst["planets"] = arr
+			last_turn_json["rst"] = rst
+			return
+
+	push_error("GameState: planet id not found in rst.planets: " + str(planet_id))
