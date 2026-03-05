@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="Tutorial"
+config/name="PMS"
 run/main_scene="uid://bnsqwdjkdym6h"
 config/features=PackedStringArray("4.5", "Forward Plus")
 

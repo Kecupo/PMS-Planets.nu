@@ -11,6 +11,12 @@ signal turn_downloaded(turn_data: Dictionary)
 signal turn_download_failed(reason: String)
 signal games_listed(games: Array[Dictionary])
 signal games_list_failed(reason: String)
+signal save_success(response: Dictionary)
+signal save_failed(reason: String)
+var _pending_save_game_id: int = 0
+var _pending_save_player_id: int = 0
+var _pending_save_wrapper: Dictionary = {}
+var _pending_save_forsave: bool = false
 var _pending_username: String = ""
 var api_key: String = ""
 var current_request: RequestType = RequestType.NONE
@@ -57,9 +63,14 @@ func _handle_login_response(data: Dictionary) -> void:
 # =========================
 func _handle_turn_response(data: Dictionary) -> void:
 	GameState.load_turn_from_parsed_wrapper(data)
+	print("Turn data received")
 	GameState.save_turn(data)
 	emit_signal("turn_downloaded", data)
 
+	# Wenn dies ein forsave-Download war und ein Save aussteht, direkt Save auslösen
+	if _pending_save_forsave and _pending_save_game_id > 0:
+		_pending_save_forsave = false
+		_save_turn_with_savekey(data)
 # =========================
 # LOGIN
 # =========================
@@ -81,7 +92,7 @@ func login(username: String, password: String) -> void:
 # =========================
 # TURN DOWNLOAD
 # =========================
-func download_turn(game_id: int) -> void:
+func download_turn(game_id: int, forsave: bool = false) -> void:
 	# lazy inject
 	if api_key.is_empty() and not GameState.api_key.is_empty():
 		api_key = GameState.api_key
@@ -95,12 +106,15 @@ func download_turn(game_id: int) -> void:
 		+ "?gameid=" + str(game_id)
 		+ "&apikey=" + api_key.uri_encode()
 		)
+	if forsave:
+		url += "&forsave=true"
 
+	_pending_save_forsave = forsave
 	current_request = RequestType.LOAD_TURN
+
 	var err: int = http.request(url)
 	if err != OK:
 		_handle_error("HTTPRequest error: " + str(err))
-
 # =========================
 # HTTP CALLBACK
 # =========================
@@ -136,8 +150,16 @@ func _on_request_completed(result: int, response_code: int,_headers: PackedStrin
 				_handle_error("Invalid JSON (LOAD_TURN expected Dictionary)")
 		
 		RequestType.SAVE_TURN:
-			print("Save response:", data_v)
-			
+			if data_v is Dictionary:
+				var d: Dictionary = data_v as Dictionary
+				if d.get("success", false) == true:
+					emit_signal("save_success", d)
+				else:
+					var reason: String = String(d.get("error", "Save failed"))
+					emit_signal("save_failed", reason)
+			else:
+				_handle_error("Invalid JSON (SAVE_TURN expected Dictionary)")
+				
 		RequestType.LIST_GAMES:
 			if data_v is Array:
 				var arr: Array = data_v as Array
@@ -174,6 +196,17 @@ func save_turn(wrapper: Dictionary, game_id: int, player_id: int) -> void:
 	if api_key.is_empty():
 		_handle_error("No API key")
 		return
+	if game_id <= 0:
+		_handle_error("Invalid game_id")
+		return
+
+	# Wrapper nur als "change source" behalten (deine lokalen Änderungen / Orders)
+	_pending_save_wrapper = wrapper
+	_pending_save_game_id = game_id
+	_pending_save_player_id = player_id
+
+	# 1) Direkt vor Save: frischen wrapper + savekey holen
+	download_turn(game_id, true)
 
 	var url: String = "http://api.planets.nu/game/save"
 
@@ -213,3 +246,71 @@ func _urlencode_form(fields: Dictionary) -> String:
 func logout() -> void:
 	api_key = ""
 	# optional: weitere session infos zurücksetzen
+
+func _save_turn_with_savekey(fresh_wrapper: Dictionary) -> void:
+	if not fresh_wrapper.has("rst"):
+		emit_signal("save_failed", "Fresh wrapper has no rst")
+		return
+
+	var savekey_v: Variant = fresh_wrapper.get("savekey", "")
+	if typeof(savekey_v) != TYPE_STRING or String(savekey_v).is_empty():
+		emit_signal("save_failed", "No savekey in forsave wrapper")
+		return
+
+	var savekey: String = String(savekey_v)
+
+	# 2) Hier müssen die Änderungen im RST drin sein.
+	# Da du Tax/FC aktuell direkt in GameState.last_turn_json/rst schreibst:
+	# -> wir nehmen fresh rst und überschreiben die planet orders aus GameState.last_turn_json["rst"].
+	#
+	# Minimal robust: benutze komplett GameState.last_turn_json["rst"] falls vorhanden,
+	# aber setze savekey aus fresh wrapper.
+
+	var rst_to_save: Dictionary
+	var gs_rst_v: Variant = GameState.last_turn_json.get("rst")
+	if gs_rst_v is Dictionary:
+		rst_to_save = gs_rst_v as Dictionary
+	else:
+		# fallback: save the fresh rst (better than nothing)
+		rst_to_save = fresh_wrapper["rst"] as Dictionary
+
+	# turn ist oft im rst.game.turn
+	var turn_num: int = 0
+	var rst_game_v: Variant = rst_to_save.get("game")
+	if rst_game_v is Dictionary:
+		var g: Dictionary = rst_game_v as Dictionary
+		var tv: Variant = g.get("turn", 0)
+		if typeof(tv) == TYPE_INT:
+			turn_num = int(tv)
+		elif typeof(tv) == TYPE_FLOAT:
+			turn_num = int(float(tv))
+
+	var payload: Dictionary = {
+		"apikey": api_key,
+		"gameid": _pending_save_game_id,
+		"playerid": _pending_save_player_id, # kann bei aktiven games evtl. optional sein; schadet aber nicht
+		"turn": turn_num,
+		"savekey": savekey,
+		"rst": rst_to_save
+	}
+
+	var json: String = JSON.stringify(payload)
+	var headers: PackedStringArray = ["Content-Type: application/json"]
+
+	current_request = RequestType.SAVE_TURN
+
+	var err: int = http.request(
+		"http://api.planets.nu/game/save",
+		headers,
+		HTTPClient.METHOD_POST,
+		json
+	)
+
+	if err != OK:
+		_handle_error("HTTPRequest error: " + str(err))
+		return
+
+	# pending reset (wir lassen game/player stehen, aber wrapper leeren)
+	_pending_save_wrapper = {}
+	_pending_save_game_id = 0
+	_pending_save_player_id = 0
