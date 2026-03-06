@@ -231,51 +231,89 @@ func logout() -> void:
 
 func _save_turn_with_savekey_and_merge(fresh_wrapper: Dictionary) -> void:
 	print("_save_turn_with_savekey_and_merge called")
-	if not fresh_wrapper.has("rst"):
-		emit_signal("save_failed", "Fresh wrapper has no rst")
+
+	var savekey_v: Variant = fresh_wrapper.get("savekey", "")
+	if typeof(savekey_v) != TYPE_STRING:
+		emit_signal("save_failed", "No savekey string in fresh wrapper")
 		return
-	var savekey: String = _extract_savekey(fresh_wrapper)
+
+	var savekey: String = String(savekey_v)
 	print("SAVEKEY =", savekey)
 
 	if savekey.is_empty():
-		emit_signal("save_failed", "No savekey in fresh wrapper")
+		emit_signal("save_failed", "Empty savekey in fresh wrapper")
 		return
-	var fresh_rst: Dictionary = fresh_wrapper["rst"] as Dictionary
+
+	var fresh_rst_v: Variant = fresh_wrapper.get("rst")
+	if not (fresh_rst_v is Dictionary):
+		emit_signal("save_failed", "Fresh wrapper has no rst Dictionary")
+		return
+	var fresh_rst: Dictionary = fresh_rst_v as Dictionary
+
 	_merge_rst_planet_changes(fresh_rst, _pending_save_rst)
 
 	var turn_num: int = 0
-	var game_v: Variant = fresh_rst.get("game")
-	if game_v is Dictionary:
-		var g: Dictionary = game_v as Dictionary
-		var tv: Variant = g.get("turn", 0)
-		if typeof(tv) == TYPE_INT:
-			turn_num = int(tv)
-		elif typeof(tv) == TYPE_FLOAT:
-			turn_num = int(float(tv))
+	var settings_v: Variant = fresh_rst.get("settings")
+	if settings_v is Dictionary:
+		var settings: Dictionary = settings_v as Dictionary
+		var t_v: Variant = settings.get("turn", 0)
+		if typeof(t_v) == TYPE_INT:
+			turn_num = int(t_v)
+		elif typeof(t_v) == TYPE_FLOAT:
+			turn_num = int(float(t_v))
 
-	var payload: Dictionary = {
+	if turn_num <= 0:
+		emit_signal("save_failed", "Could not extract turn number from rst.settings.turn")
+		return
+
+	var test_planet_id: int = 364
+	var merged_planet: Dictionary = _find_planet_dict_by_id(fresh_rst, test_planet_id)
+	if merged_planet.is_empty():
+		emit_signal("save_failed", "Planet 364 not found in fresh rst")
+		return
+
+	var fc_v: Variant = merged_planet.get("friendlycode", "")
+	var fc: String = ""
+	if typeof(fc_v) == TYPE_STRING:
+		fc = String(fc_v)
+
+	var planet_save: Dictionary = merged_planet.duplicate(true)
+	planet_save["friendlycode"] = fc
+	planet_save["changed"] = 2
+
+	print("Uploading Planet364 FC =", fc)
+
+	var fields: Dictionary = {
 	"gameid": str(_pending_save_game_id),
 	"playerid": str(_pending_save_player_id),
 	"turn": str(turn_num),
-	"version": "1",
 	"savekey": savekey,
 	"apikey": api_key,
-	"saveindex": "2"
+	"saveindex": "0"
 }
 
-	var json: String = JSON.stringify(payload)
-	var headers: PackedStringArray = ["Content-Type: application/json"]
+	fields["Planet" + str(test_planet_id)] = JSON.stringify(planet_save)
+
+	# Für diesen Test genau EIN Save-Objekt
+	fields["keycount"] = "1"
+
+	var body: String = _urlencode_form(fields)
+	print("SAVE BODY =", body.substr(0, 300))
+
+	var headers: PackedStringArray = ["Content-Type: application/x-www-form-urlencoded"]
 
 	current_request = RequestType.SAVE_TURN
-	var err: int = http.request("http://api.planets.nu/game/save", headers, HTTPClient.METHOD_POST, json)
-	if err != OK:
-		emit_signal("save_failed", "No savekey in fresh wrapper")
-		return
 
-	# pending leeren
-	_pending_save_rst = {}
-	_pending_save_game_id = 0
-	_pending_save_player_id = 0
+	var err: int = http.request(
+		"http://api.planets.nu/game/save",
+		headers,
+		HTTPClient.METHOD_POST,
+		body
+	)
+
+	if err != OK:
+		_handle_error("HTTPRequest error: " + str(err))
+		return
 	
 static func _merge_rst_planet_changes(fresh_rst: Dictionary, pending_rst: Dictionary) -> void:
 	var f_v: Variant = fresh_rst.get("planets")
@@ -337,3 +375,26 @@ func _extract_savekey(wrapper: Dictionary) -> String:
 	if typeof(sk_v) == TYPE_STRING:
 		return String(sk_v)
 	return ""
+
+static func _find_planet_dict_by_id(rst: Dictionary, planet_id: int) -> Dictionary:
+	var planets_v: Variant = rst.get("planets")
+	if not (planets_v is Array):
+		return {}
+
+	var planets: Array = planets_v as Array
+	for it in planets:
+		if not (it is Dictionary):
+			continue
+		var pd: Dictionary = it as Dictionary
+
+		var id_v: Variant = pd.get("id", -1)
+		var pid: int = -1
+		if typeof(id_v) == TYPE_INT:
+			pid = int(id_v)
+		elif typeof(id_v) == TYPE_FLOAT:
+			pid = int(float(id_v))
+
+		if pid == planet_id:
+			return pd
+
+	return {}
