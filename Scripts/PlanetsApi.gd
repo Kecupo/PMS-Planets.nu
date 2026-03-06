@@ -67,9 +67,9 @@ func _handle_turn_response(data: Dictionary) -> void:
 	GameState.save_turn(data)
 	emit_signal("turn_downloaded", data)
 
-	if _pending_save_forsave and _pending_save_game_id > 0 and not _pending_save_rst.is_empty():
+	if _pending_save_forsave:
 		_pending_save_forsave = false
-		_save_turn_with_savekey_and_merge(data)
+		_save_turn_with_savekey(data)
 # =========================
 # LOGIN
 # =========================
@@ -201,6 +201,7 @@ func save_turn(wrapper: Dictionary, game_id: int, player_id: int) -> void:
 	if not wrapper.has("rst"):
 		_handle_error("Wrapper has no rst")
 		return
+
 	var rst_v: Variant = wrapper["rst"]
 	if not (rst_v is Dictionary):
 		_handle_error("Wrapper rst is not a Dictionary")
@@ -208,37 +209,11 @@ func save_turn(wrapper: Dictionary, game_id: int, player_id: int) -> void:
 
 	_pending_save_game_id = game_id
 	_pending_save_player_id = player_id
-	_pending_save_rst = rst_v as Dictionary  # <-- Änderungen puffern
+	_pending_save_rst = rst_v as Dictionary
+	_pending_save_forsave = true
 
-	# jetzt frischen savekey holen
+	# Nur frischen savekey holen – noch NICHT speichern
 	download_turn(game_id, true)
-
-	var url: String = "http://api.planets.nu/game/save"
-
-	var payload: Dictionary = {
-		"apikey": api_key,
-		"gameid": game_id,
-		"playerid": player_id,
-		"rst": wrapper["rst"]
-	}
-
-	var json: String = JSON.stringify(payload)
-
-	current_request = RequestType.SAVE_TURN
-
-	var headers: PackedStringArray = [
-		"Content-Type: application/json"
-	]
-
-	var err: int = http.request(
-		url,
-		headers,
-		HTTPClient.METHOD_POST,
-		json
-	)
-
-	if err != OK:
-		_handle_error("HTTPRequest error: " + str(err))
 
 func _urlencode_form(fields: Dictionary) -> String:
 	var parts: PackedStringArray = PackedStringArray()
@@ -356,3 +331,57 @@ static func _merge_rst_planet_changes(fresh_rst: Dictionary, pending_rst: Dictio
 		fresh_planets[i] = fd
 
 	fresh_rst["planets"] = fresh_planets
+
+func _save_turn_with_savekey(fresh_wrapper: Dictionary) -> void:
+	var savekey_v: Variant = fresh_wrapper.get("savekey", "")
+	if typeof(savekey_v) != TYPE_STRING or String(savekey_v).is_empty():
+		_handle_error("No savekey in forsave wrapper")
+		return
+
+	var savekey: String = String(savekey_v)
+
+	var fresh_rst_v: Variant = fresh_wrapper.get("rst")
+	if not (fresh_rst_v is Dictionary):
+		_handle_error("Fresh wrapper has no rst")
+		return
+	var fresh_rst: Dictionary = fresh_rst_v as Dictionary
+
+	# Hier müssen deine lokal gepufferten Änderungen in fresh_rst gemerged werden
+	_merge_rst_planet_changes(fresh_rst, _pending_save_rst)
+
+	var turn_num: int = 0
+	var game_v: Variant = fresh_rst.get("game")
+	if game_v is Dictionary:
+		var g: Dictionary = game_v as Dictionary
+		var t_v: Variant = g.get("turn", 0)
+		if typeof(t_v) == TYPE_INT:
+			turn_num = int(t_v)
+		elif typeof(t_v) == TYPE_FLOAT:
+			turn_num = int(float(t_v))
+
+	var payload: Dictionary = {
+		"apikey": api_key,
+		"gameid": _pending_save_game_id,
+		"playerid": _pending_save_player_id,
+		"turn": turn_num,
+		"savekey": savekey,
+		"rst": fresh_rst
+	}
+
+	var json: String = JSON.stringify(payload)
+
+	current_request = RequestType.SAVE_TURN
+
+	var headers: PackedStringArray = [
+		"Content-Type: application/json"
+	]
+
+	var err: int = http.request(
+		"http://api.planets.nu/game/save",
+		headers,
+		HTTPClient.METHOD_POST,
+		json
+	)
+
+	if err != OK:
+		_handle_error("HTTPRequest error: " + str(err))
