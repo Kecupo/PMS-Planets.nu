@@ -11,6 +11,7 @@ static func apply_to_planets(
 	planet_math: Node,
 	rng: RandomNumberGenerator
 ) -> void:
+	GameState.begin_batch_changes()
 	_apply_fc_special_case(my_planets, cfg, rng)
 	_apply_fc_randomize_others(my_planets, cfg, rng)
 
@@ -68,7 +69,7 @@ static func apply_to_planets(
 
 		GameState.set_planet_native_taxrate(planet_id, nat_tax)
 		GameState.set_planet_colonist_taxrate(planet_id, col_tax)
-
+	GameState.end_batch_changes()
 # -----------------------------------------------------------------------------
 # Strict helpers: avoid Variant inference
 # -----------------------------------------------------------------------------

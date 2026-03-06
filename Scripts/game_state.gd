@@ -19,7 +19,8 @@ var planet_tax_overrides: Dictionary = {}
 var username: String = ""
 var my_planets: Array[PlanetData] = []
 var my_planets_by_id: Dictionary = {} # int -> PlanetData
-
+var _batch_mode: bool = false
+var _batch_dirty: bool = false
 const API_KEY_FILE: String = "user://api_key.json"
 # -------------------------
 # Laufzeitdaten
@@ -309,19 +310,22 @@ func set_planet_colonist_taxrate(planet_id: int, tax: int) -> void:
 
 	# 2) Model patchen
 	_set_planet_taxrate_in_model(planet_id, false, v)
-
-	# 3) persist latest_turn.json
-	_save_latest_turn_json()
-
-	emit_signal("orders_changed")
-
+	if _batch_mode:
+		_batch_dirty = true
+	else:
+		_save_latest_turn_json()
+		emit_signal("orders_changed")
+		
 func set_planet_native_taxrate(planet_id: int, tax: int) -> void:
 	var v: int = clamp(tax, 0, 100)
 	_set_planet_field_in_rst(planet_id, "nativetaxrate", v)
 	_set_planet_taxrate_in_model(planet_id, true, v)
-	_save_latest_turn_json()
-	emit_signal("orders_changed")
-
+	if _batch_mode:
+		_batch_dirty = true
+	else:
+		_save_latest_turn_json()
+		emit_signal("orders_changed")
+		
 func _set_planet_taxrate_in_turn_json(planet_id: int, key: String, value: int) -> void:
 	if last_turn_json.is_empty():
 		push_error("No turn json loaded")
@@ -457,3 +461,14 @@ func set_planet_friendlycode(planet_id: int, fc: String) -> void:
 	_save_latest_turn_json()
 
 	emit_signal("orders_changed")
+
+func begin_batch_changes() -> void:
+	_batch_mode = true
+	_batch_dirty = false
+
+func end_batch_changes() -> void:
+	_batch_mode = false
+	if _batch_dirty:
+		_save_latest_turn_json()
+		emit_signal("orders_changed")
+	_batch_dirty = false
