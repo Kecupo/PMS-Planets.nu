@@ -438,3 +438,22 @@ func _set_planet_field_in_rst(planet_id: int, key: String, value: Variant) -> vo
 			return
 
 	push_error("GameState: planet id not found in rst.planets: " + str(planet_id))
+
+func set_planet_friendlycode(planet_id: int, fc: String) -> void:
+	var s: String = fc.strip_edges()
+	if s.length() > 3:
+		s = s.substr(0, 3)
+
+	# 1) RST wrapper patchen
+	_set_planet_field_in_rst(planet_id, "friendlycode", s)
+
+	# 2) Model patchen
+	for p in planets:
+		if int(p.planet_id) == planet_id:
+			p.friendlycode = s
+			break
+
+	# 3) persist
+	_save_latest_turn_json()
+
+	emit_signal("orders_changed")

@@ -282,7 +282,7 @@ static func _apply_fc_special_case(my_planets: Array, cfg: Node, rng: RandomNumb
 		if special.has(fc_u):
 			var new_fc: String = _permute_case(rng, fc_u)
 			if new_fc != fc:
-				p.friendlycode = new_fc
+				GameState.set_planet_friendlycode(int(p.planet_id), new_fc)
 			
 static func _apply_fc_randomize_others(my_planets: Array, cfg: Node, rng: RandomNumberGenerator) -> void:
 	if not cfg.randomize_other_fcs:
@@ -296,7 +296,7 @@ static func _apply_fc_randomize_others(my_planets: Array, cfg: Node, rng: Random
 			continue
 
 		var new_fc: String = _rand_fc(rng, cfg)
-		p.friendlycode = new_fc
+		GameState.set_planet_friendlycode(int(p.planet_id), new_fc)
 
 static func _rand_fc(rng: RandomNumberGenerator, cfg: Node) -> String:
 	const LETTERS: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
