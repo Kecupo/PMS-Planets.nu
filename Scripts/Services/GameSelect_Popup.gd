@@ -92,7 +92,7 @@ func _on_item_activated(index: int) -> void:
 	, CONNECT_ONE_SHOT)
 
 
-	PlanetsApi.download_turn(gid)  # ohne playerid
+	PlanetsApi.download_turn(gid, GameState.my_player_id)  # ohne playerid
 
 func _select_game_id(gid: int) -> void:
 	GameState.set_current_game(gid, GameState.my_player_id)
@@ -115,4 +115,4 @@ func _select_game_id(gid: int) -> void:
 		status_label.text = "Turn download failed: " + reason
 	, CONNECT_ONE_SHOT)
 
-	PlanetsApi.download_turn(gid)
+	PlanetsApi.download_turn(gid, GameState.my_player_id)

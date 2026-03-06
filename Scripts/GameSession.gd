@@ -32,4 +32,4 @@ func select_game(game_id: int, player_id: int) -> void:
 		push_error("Turn download failed: " + reason)
 	, CONNECT_ONE_SHOT)
 
-	PlanetsApi.download_turn(game_id)
+	PlanetsApi.download_turn(game_id, player_id, false)
