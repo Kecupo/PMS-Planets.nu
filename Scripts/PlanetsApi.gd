@@ -289,13 +289,13 @@ func _save_turn_with_savekey_and_merge(fresh_wrapper: Dictionary) -> void:
 	"turn": str(turn_num),
 	"savekey": savekey,
 	"apikey": api_key,
-	"saveindex": "0"
+	"saveindex": "2"
 }
-
+	fields["version"] = "1"
 	fields["Planet" + str(test_planet_id)] = JSON.stringify(planet_save)
 
 	# Für diesen Test genau EIN Save-Objekt
-	fields["keycount"] = "1"
+	fields["keycount"] = "9"
 
 	var body: String = _urlencode_form(fields)
 	print("SAVE BODY =", body.substr(0, 300))
