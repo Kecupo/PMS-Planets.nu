@@ -279,15 +279,30 @@ func _save_turn_with_savekey_and_merge(fresh_wrapper: Dictionary) -> void:
 	"gameid": str(_pending_save_game_id),
 	"playerid": str(_pending_save_player_id),
 	"turn": str(turn_num),
+	"version": "3.02",
 	"savekey": savekey,
 	"apikey": api_key,
 	"saveindex": "2"
 }
-	fields["version"] = "3.02"
-	fields["Planet" + str(test_planet_id)] = _mkt_pack_body(planet_save)
 
-	# Für diesen Test genau EIN Save-Objekt
-	fields["keycount"] = "9"
+	var command_count: int = 0
+	var my_planets: Array[PlanetData] = GameState.get_my_planets()
+
+	for p in my_planets:
+		var planet_id: int = int(p.planet_id)
+		if not _planet_has_relevant_changes(fresh_rst, _pending_save_rst, planet_id):
+			continue
+		var packed_planet: String = _pack_planet_command(fresh_rst, _pending_save_rst, planet_id)
+		if packed_planet.is_empty():
+			continue
+
+		fields["Planet" + str(planet_id)] = packed_planet
+		command_count += 1
+	if command_count <= 0:
+		emit_signal("save_failed", "No planet commands to upload")
+		return
+		
+	fields["keycount"] = str(8 + command_count)
 
 	var body: String = _urlencode_form(fields)
 	print("SAVE BODY =", body.substr(0, 300))
@@ -484,3 +499,55 @@ static func _mkt_pack_body(fields: Dictionary) -> String:
 		parts.append(key_s + ":::" + val_s)
 
 	return "|||".join(parts)
+static func _pack_planet_command(orig_rst: Dictionary, pending_rst: Dictionary, planet_id: int) -> String:
+	var cmd: Dictionary = _build_planet_save_command(orig_rst, pending_rst, planet_id)
+	if cmd.is_empty():
+		return ""
+
+	var parts: PackedStringArray = PackedStringArray()
+
+	parts.append("Id:::" + _pack_field_value(cmd.get("Id", 0)))
+	parts.append("FriendlyCode:::" + _pack_field_value(cmd.get("FriendlyCode", "")))
+	parts.append("Mines:::" + _pack_field_value(cmd.get("Mines", 0)))
+	parts.append("Factories:::" + _pack_field_value(cmd.get("Factories", 0)))
+	parts.append("Defense:::" + _pack_field_value(cmd.get("Defense", 0)))
+	parts.append("TargetMines:::" + _pack_field_value(cmd.get("TargetMines", 0)))
+	parts.append("TargetFactories:::" + _pack_field_value(cmd.get("TargetFactories", 0)))
+	parts.append("TargetDefense:::" + _pack_field_value(cmd.get("TargetDefense", 0)))
+	parts.append("BuiltMines:::" + _pack_field_value(cmd.get("BuiltMines", 0)))
+	parts.append("BuiltFactories:::" + _pack_field_value(cmd.get("BuiltFactories", 0)))
+	parts.append("BuiltDefense:::" + _pack_field_value(cmd.get("BuiltDefense", 0)))
+	parts.append("MegaCredits:::" + _pack_field_value(cmd.get("MegaCredits", 0)))
+	parts.append("Supplies:::" + _pack_field_value(cmd.get("Supplies", 0)))
+	parts.append("SuppliesSold:::" + _pack_field_value(cmd.get("SuppliesSold", 0)))
+	parts.append("Neutronium:::" + _pack_field_value(cmd.get("Neutronium", 0)))
+	parts.append("Molybdenum:::" + _pack_field_value(cmd.get("Molybdenum", 0)))
+	parts.append("Duranium:::" + _pack_field_value(cmd.get("Duranium", 0)))
+	parts.append("Tritanium:::" + _pack_field_value(cmd.get("Tritanium", 0)))
+	parts.append("Clans:::" + _pack_field_value(cmd.get("Clans", 0)))
+	parts.append("ColonistTaxRate:::" + _pack_field_value(cmd.get("ColonistTaxRate", 0)))
+	parts.append("NativeTaxRate:::" + _pack_field_value(cmd.get("NativeTaxRate", 0)))
+	parts.append("BuildingStarbase:::" + _pack_field_value(cmd.get("BuildingStarbase", "false")))
+	parts.append("NativeHappyChange:::" + _pack_field_value(cmd.get("NativeHappyChange", 0)))
+	parts.append("ColHappyChange:::" + _pack_field_value(cmd.get("ColHappyChange", 0)))
+	parts.append("ColChange:::" + _pack_field_value(cmd.get("ColChange", 0)))
+	parts.append("ReadyStatus:::" + _pack_field_value(cmd.get("ReadyStatus", 0)))
+
+	return "|||".join(parts)
+static func _planet_has_relevant_changes(orig_rst: Dictionary, pending_rst: Dictionary, planet_id: int) -> bool:
+	var orig_planet: Dictionary = _find_planet_dict_by_id(orig_rst, planet_id)
+	var mod_planet: Dictionary = _find_planet_dict_by_id(pending_rst, planet_id)
+
+	if orig_planet.is_empty() or mod_planet.is_empty():
+		return false
+
+	if String(orig_planet.get("friendlycode", "")) != String(mod_planet.get("friendlycode", "")):
+		return true
+
+	if _to_int(orig_planet.get("colonisttaxrate", 0)) != _to_int(mod_planet.get("colonisttaxrate", 0)):
+		return true
+
+	if _to_int(orig_planet.get("nativetaxrate", 0)) != _to_int(mod_planet.get("nativetaxrate", 0)):
+		return true
+
+	return false
