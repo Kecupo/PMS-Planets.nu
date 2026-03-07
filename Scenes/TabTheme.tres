@@ -1,3 +1,7 @@
 [gd_resource type="Theme" format=3 uid="uid://bxd4w007q566o"]
 
 [resource]
+CheckButton/colors/button_checked_color = Color(0.1641388, 0.96875, 0.049194336, 1)
+CheckButton/colors/button_unchecked_color = Color(0.96875, 0.056762695, 0.056762695, 1)
+CheckButton/colors/font_color = Color(0.94509804, 0.18682596, 0.062745094, 1)
+CheckButton/colors/font_pressed_color = Color(0.43567228, 0.9453125, 0.051696777, 1)

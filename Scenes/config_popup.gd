@@ -38,7 +38,11 @@ func _ready() -> void:
 	_wire_native_tab()
 	# Initial pull
 	sync_from_config()
-
+	_update_check_color(chk_perm_case)
+	_update_check_color(chk_randomize)
+	_update_check_color(chk_nat_cap)
+	_update_check_color(chk_col_cap_mode)
+	
 func open_popup() -> void:
 	# beim Öffnen immer aktuellen Spiel-Stand laden
 	if GameState.current_game_id > 0:
@@ -118,7 +122,10 @@ func sync_from_config() -> void:
 	_sync_fc_tab_from_config()
 	_sync_colonist_tab_from_config()
 	_sync_native_tab_from_config()
-
+	_update_check_color(chk_perm_case)
+	_update_check_color(chk_randomize)
+	_update_check_color(chk_nat_cap)
+	_update_check_color(chk_col_cap_mode)
 	_syncing = false
 
 func _sync_native_tab_from_config() -> void:
@@ -193,7 +200,8 @@ func _on_chk_perm_case_toggled(on: bool) -> void:
 		return
 	RandAI_Config.permute_special_fcs_case = on
 	RandAI_Config.mark_dirty()
-
+	_update_check_color(chk_perm_case)
+	
 func _on_txt_never_changed() -> void:
 	if _syncing:
 		return
@@ -333,7 +341,11 @@ func _on_col_cap_mode_toggled(on: bool) -> void:
 
 	_update_colonist_cap_controls()
 
-
+func _update_check_color(btn: CheckButton) -> void:
+	if btn.button_pressed:
+		btn.add_theme_color_override("font_color", Color(0.2, 0.9, 0.2)) # grün
+	else:
+		btn.add_theme_color_override("font_color", Color(0.9, 0.2, 0.2)) # rot
 
 func _on_col_cap_target_changed(_on: bool) -> void:
 	if _syncing:

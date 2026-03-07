@@ -1,9 +1,10 @@
-[gd_scene load_steps=17 format=3 uid="uid://bsu1td676iiwc"]
+[gd_scene load_steps=18 format=3 uid="uid://bsu1td676iiwc"]
 
 [ext_resource type="Script" uid="uid://c1n0eqjwfpf33" path="res://Scenes/config_popup.gd" id="1_kx6hq"]
 [ext_resource type="ButtonGroup" uid="uid://bhkfvknhr47us" path="res://Scenes/BG_ColTaxMethod.tres" id="2_0issk"]
 [ext_resource type="ButtonGroup" uid="uid://bht4hv716fus7" path="res://Scenes/RB_Col_tax.tres" id="2_cq0wd"]
 [ext_resource type="ButtonGroup" uid="uid://x6d68ollrcar" path="res://Scenes/BG_ColCapTarget.tres" id="3_cq0wd"]
+[ext_resource type="Theme" uid="uid://bxd4w007q566o" path="res://Scenes/TabTheme.tres" id="4_22vw3"]
 
 [sub_resource type="Theme" id="Theme_kx6hq"]
 
@@ -224,6 +225,7 @@ layout_mode = 2
 [node name="ChkColCapModeEnabled" type="CheckButton" parent="RootVBox/Tabs/Tax Colonists/MarginContainer/VBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme = ExtResource("4_22vw3")
 text = "Use cap mode taxation for max clan planets"
 
 [node name="HBoxContainer" type="HBoxContainer" parent="RootVBox/Tabs/Tax Colonists/MarginContainer/VBoxContainer"]
