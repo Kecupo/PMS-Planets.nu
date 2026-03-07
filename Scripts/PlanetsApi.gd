@@ -232,6 +232,9 @@ func logout() -> void:
 func _save_turn_with_savekey_and_merge(fresh_wrapper: Dictionary) -> void:
 	print("_save_turn_with_savekey_and_merge called")
 
+	# -------------------------
+	# savekey
+	# -------------------------
 	var savekey_v: Variant = fresh_wrapper.get("savekey", "")
 	if typeof(savekey_v) != TYPE_STRING:
 		emit_signal("save_failed", "No savekey string in fresh wrapper")
@@ -244,14 +247,25 @@ func _save_turn_with_savekey_and_merge(fresh_wrapper: Dictionary) -> void:
 		emit_signal("save_failed", "Empty savekey in fresh wrapper")
 		return
 
+	# -------------------------
+	# fresh rst
+	# -------------------------
 	var fresh_rst_v: Variant = fresh_wrapper.get("rst")
 	if not (fresh_rst_v is Dictionary):
 		emit_signal("save_failed", "Fresh wrapper has no rst Dictionary")
 		return
 	var fresh_rst: Dictionary = fresh_rst_v as Dictionary
 
-	_merge_rst_planet_changes(fresh_rst, _pending_save_rst)
+	# -------------------------
+	# pending rst
+	# -------------------------
+	if _pending_save_rst.is_empty():
+		emit_signal("save_failed", "Pending save rst is empty")
+		return
 
+	# -------------------------
+	# turn number
+	# -------------------------
 	var turn_num: int = 0
 	var settings_v: Variant = fresh_rst.get("settings")
 	if settings_v is Dictionary:
@@ -266,49 +280,67 @@ func _save_turn_with_savekey_and_merge(fresh_wrapper: Dictionary) -> void:
 		emit_signal("save_failed", "Could not extract turn number from rst.settings.turn")
 		return
 
-	var test_planet_id: int = 364
-
-	var planet_save: Dictionary = _build_planet_save_command(fresh_rst, _pending_save_rst, test_planet_id)
-	if planet_save.is_empty():
-		emit_signal("save_failed", "Could not build save command for planet 364")
-		return
-
-	print("Uploading Planet364 FC =", String(planet_save.get("FriendlyCode", "")))
-
+	# -------------------------
+	# build request fields
+	# -------------------------
 	var fields: Dictionary = {
-	"gameid": str(_pending_save_game_id),
-	"playerid": str(_pending_save_player_id),
-	"turn": str(turn_num),
-	"version": "3.02",
-	"savekey": savekey,
-	"apikey": api_key,
-	"saveindex": "2"
-}
+		"gameid": str(_pending_save_game_id),
+		"playerid": str(_pending_save_player_id),
+		"turn": str(turn_num),
+		"version": "3.02",
+		"savekey": savekey,
+		"apikey": api_key,
+		"saveindex": "2"
+	}
 
+	# -------------------------
+	# add changed planets
+	# -------------------------
 	var command_count: int = 0
 	var my_planets: Array[PlanetData] = GameState.get_my_planets()
 
+	print("My planets for upload:", my_planets.size())
+
 	for p in my_planets:
+		if p == null:
+			continue
+
 		var planet_id: int = int(p.planet_id)
+
 		if not _planet_has_relevant_changes(fresh_rst, _pending_save_rst, planet_id):
 			continue
+
 		var packed_planet: String = _pack_planet_command(fresh_rst, _pending_save_rst, planet_id)
 		if packed_planet.is_empty():
+			print("Skipping planet", planet_id, "(could not pack)")
 			continue
 
 		fields["Planet" + str(planet_id)] = packed_planet
 		command_count += 1
+
+		print("Uploading planet", planet_id)
+
 	if command_count <= 0:
-		emit_signal("save_failed", "No planet commands to upload")
+		emit_signal("save_failed", "No changed own planets found for upload")
 		return
-		
+
+	# Perl reference: keycount = 8 + scalar(@commands)
 	fields["keycount"] = str(8 + command_count)
 
+	# -------------------------
+	# build POST body
+	# -------------------------
 	var body: String = _urlencode_form(fields)
-	print("SAVE BODY =", body.substr(0, 300))
+	print("Planet command count:", command_count)
+	print("SAVE BODY =", body.substr(0, min(500, body.length())))
 
-	var headers: PackedStringArray = ["Content-Type: application/x-www-form-urlencoded"]
+	var headers: PackedStringArray = [
+		"Content-Type: application/x-www-form-urlencoded; charset=UTF-8"
+	]
 
+	# -------------------------
+	# send
+	# -------------------------
 	current_request = RequestType.SAVE_TURN
 
 	var err: int = http.request(
@@ -499,6 +531,7 @@ static func _mkt_pack_body(fields: Dictionary) -> String:
 		parts.append(key_s + ":::" + val_s)
 
 	return "|||".join(parts)
+	
 static func _pack_planet_command(orig_rst: Dictionary, pending_rst: Dictionary, planet_id: int) -> String:
 	var cmd: Dictionary = _build_planet_save_command(orig_rst, pending_rst, planet_id)
 	if cmd.is_empty():
