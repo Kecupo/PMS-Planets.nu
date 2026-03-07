@@ -267,21 +267,13 @@ func _save_turn_with_savekey_and_merge(fresh_wrapper: Dictionary) -> void:
 		return
 
 	var test_planet_id: int = 364
-	var merged_planet: Dictionary = _find_planet_dict_by_id(fresh_rst, test_planet_id)
-	if merged_planet.is_empty():
-		emit_signal("save_failed", "Planet 364 not found in fresh rst")
+
+	var planet_save: Dictionary = _build_planet_save_command(fresh_rst, _pending_save_rst, test_planet_id)
+	if planet_save.is_empty():
+		emit_signal("save_failed", "Could not build save command for planet 364")
 		return
 
-	var fc_v: Variant = merged_planet.get("friendlycode", "")
-	var fc: String = ""
-	if typeof(fc_v) == TYPE_STRING:
-		fc = String(fc_v)
-
-	var planet_save: Dictionary = merged_planet.duplicate(true)
-	planet_save["friendlycode"] = fc
-	planet_save["changed"] = 2
-
-	print("Uploading Planet364 FC =", fc)
+	print("Uploading Planet364 FC =", String(planet_save.get("FriendlyCode", "")))
 
 	var fields: Dictionary = {
 	"gameid": str(_pending_save_game_id),
@@ -398,3 +390,80 @@ static func _find_planet_dict_by_id(rst: Dictionary, planet_id: int) -> Dictiona
 			return pd
 
 	return {}
+
+static func _build_planet_save_command(orig_rst: Dictionary, pending_rst: Dictionary, planet_id: int) -> Dictionary:
+
+	var orig_planet: Dictionary = _find_planet_dict_by_id(orig_rst, planet_id)
+	var mod_planet: Dictionary = _find_planet_dict_by_id(pending_rst, planet_id)
+
+	if orig_planet.is_empty() or mod_planet.is_empty():
+		return {}
+
+	var orig_mines: int = _to_int(orig_planet.get("mines", 0))
+	var orig_factories: int = _to_int(orig_planet.get("factories", 0))
+	var orig_defense: int = _to_int(orig_planet.get("defense", 0))
+
+	var mod_mines: int = _to_int(mod_planet.get("mines", 0))
+	var mod_factories: int = _to_int(mod_planet.get("factories", 0))
+	var mod_defense: int = _to_int(mod_planet.get("defense", 0))
+
+	var orig_built_mines: int = _to_int(orig_planet.get("builtmines", 0))
+	var orig_built_factories: int = _to_int(orig_planet.get("builtfactories", 0))
+	var orig_built_defense: int = _to_int(orig_planet.get("builtdefense", 0))
+
+	var cmd: Dictionary = {}
+
+	cmd["Id"] = planet_id
+	cmd["FriendlyCode"] = String(mod_planet.get("friendlycode", ""))
+
+	cmd["Mines"] = mod_mines
+	cmd["Factories"] = mod_factories
+	cmd["Defense"] = mod_defense
+
+	cmd["TargetMines"] = _to_int(orig_planet.get("targetmines", 0))
+	cmd["TargetFactories"] = _to_int(orig_planet.get("targetfactories", 0))
+	cmd["TargetDefense"] = _to_int(orig_planet.get("targetdefense", 0))
+
+	cmd["BuiltMines"] = mod_mines - orig_mines + orig_built_mines
+	cmd["BuiltFactories"] = mod_factories - orig_factories + orig_built_factories
+	cmd["BuiltDefense"] = mod_defense - orig_defense + orig_built_defense
+
+	cmd["MegaCredits"] = _to_int(mod_planet.get("megacredits", 0))
+	cmd["Supplies"] = _to_int(mod_planet.get("supplies", 0))
+	cmd["SuppliesSold"] = _to_int(mod_planet.get("suppliessold", 0))
+
+	cmd["Neutronium"] = _to_int(mod_planet.get("neutronium", 0))
+	cmd["Molybdenum"] = _to_int(mod_planet.get("molybdenum", 0))
+	cmd["Duranium"] = _to_int(mod_planet.get("duranium", 0))
+	cmd["Tritanium"] = _to_int(mod_planet.get("tritanium", 0))
+
+	cmd["Clans"] = _to_int(mod_planet.get("clans", 0))
+	cmd["ColonistTaxRate"] = _to_int(mod_planet.get("colonisttaxrate", 0))
+	cmd["NativeTaxRate"] = _to_int(mod_planet.get("nativetaxrate", 0))
+
+	cmd["BuildingStarbase"] = _to_bool_string(mod_planet.get("buildingstarbase", false))
+
+	cmd["NativeHappyChange"] = _to_int(orig_planet.get("nativehappychange", 0))
+	cmd["ColHappyChange"] = _to_int(orig_planet.get("colhappychange", 0))
+	cmd["ColChange"] = _to_int(orig_planet.get("colchange", 0))
+	cmd["ReadyStatus"] = _to_int(orig_planet.get("readystatus", 0))
+
+	return cmd
+	
+static func _to_int(v: Variant) -> int:
+	if typeof(v) == TYPE_INT:
+		return int(v)
+	if typeof(v) == TYPE_FLOAT:
+		return int(float(v))
+	if typeof(v) == TYPE_STRING:
+		return int(String(v).to_int())
+	return 0
+
+
+static func _to_bool_string(v: Variant) -> String:
+	if v is bool:
+		if bool(v):
+			return "true"
+		else:
+			return "false"
+	return "false"
