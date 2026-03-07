@@ -127,7 +127,7 @@ func _on_request_completed(result: int, response_code: int,_headers: PackedStrin
 	print("HTTP completed:", result, response_code, "finished_request:", finished_request)
 
 	var text: String = body.get_string_from_utf8()
-	print("RESPONSE HEAD:", text.substr(0, 120))
+	print("RESPONSE HEAD:", text.substr(0,320))
 
 	if response_code != 200:
 		_handle_error("HTTP " + str(response_code))
@@ -284,7 +284,7 @@ func _save_turn_with_savekey_and_merge(fresh_wrapper: Dictionary) -> void:
 	"saveindex": "2"
 }
 	fields["version"] = "3.02"
-	fields["Planet" + str(test_planet_id)] = JSON.stringify(planet_save)
+	fields["Planet" + str(test_planet_id)] = _mkt_pack_body(planet_save)
 
 	# Für diesen Test genau EIN Save-Objekt
 	fields["keycount"] = "9"
@@ -467,3 +467,20 @@ static func _to_bool_string(v: Variant) -> String:
 		else:
 			return "false"
 	return "false"
+
+static func _pack_field_value(v: Variant) -> String:
+	var s: String = str(v)
+	s = s.replace("|", "_")
+	s = s.replace("&", "_")
+	return s
+
+
+static func _mkt_pack_body(fields: Dictionary) -> String:
+	var parts: PackedStringArray = PackedStringArray()
+
+	for k in fields.keys():
+		var key_s: String = String(k)
+		var val_s: String = _pack_field_value(fields[k])
+		parts.append(key_s + ":::" + val_s)
+
+	return "|||".join(parts)
