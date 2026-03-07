@@ -87,51 +87,90 @@ func _wire_native_tab() -> void:
 func sync_from_config() -> void:
 	_syncing = true
 
-	# 0=OFF, 1=MIN_CLANS, 2=MIN_INCOME
+	# ---------- Colonist Gate ----------
 	var gate_mode: int = int(RandAI_Config.col_tax_gate_mode)
 
 	rb_col_gate_off.button_pressed = (gate_mode == 0)
 	rb_col_gate_min_clans.button_pressed = (gate_mode == 1)
 	rb_col_gate_min_income.button_pressed = (gate_mode == 2)
 
-	# Spin Werte
 	spin_col_min_clans.value = float(RandAI_Config.col_tax_min_clans)
 	spin_col_min_income.value = float(RandAI_Config.col_tax_min_income_mc)
 
-	# Methode
+	# ---------- Colonist Method ----------
 	var method: int = int(RandAI_Config.col_tax_method)
+
 	rb_col_method_growth.button_pressed = (method == 0)
 	rb_col_method_growth_plus.button_pressed = (method == 1)
 
-	# Cap Mode
+	# ---------- Colonist Cap ----------
 	chk_col_cap_mode.button_pressed = bool(RandAI_Config.col_tax_cap_enabled)
 
-	# Cap Target
 	var cap_target: int = int(RandAI_Config.col_tax_happy_target)
+
 	rb_col_cap_70.button_pressed = (cap_target == 70)
 	rb_col_cap_40.button_pressed = (cap_target == 40)
 
 	_update_colonist_gate_controls()
 	_update_colonist_cap_controls()
 
+	# ---------- Native Tab ----------
+	_sync_fc_tab_from_config()
+	_sync_colonist_tab_from_config()
 	_sync_native_tab_from_config()
 
 	_syncing = false
 
 func _sync_native_tab_from_config() -> void:
-	chk_nat_tax_enabled.button_pressed = bool(RandAI_Config.nat_tax_enabled)
+
+	chk_nat_tax_enabled.button_pressed = RandAI_Config.nat_tax_enabled
 
 	var m: int = int(RandAI_Config.nat_tax_method)
+
 	btn_nat_method_growth.button_pressed = (m == 0)
 	btn_nat_method_growth_plus.button_pressed = (m == 1)
 
 	chk_nat_cap.button_pressed = bool(RandAI_Config.nat_tax_cap_enabled)
 
 	var tgt: int = int(RandAI_Config.nat_tax_happy_target)
+
 	btn_nat_cap_70.button_pressed = (tgt == 70)
 	btn_nat_cap_40.button_pressed = (tgt == 40)
 
 	_update_native_controls()
+	
+func _sync_fc_tab_from_config() -> void:
+	chk_perm_case.button_pressed = bool(RandAI_Config.permute_special_fcs_case)
+	txt_never.text = String(RandAI_Config.fc_never_change_raw)
+	chk_randomize.button_pressed = bool(RandAI_Config.randomize_other_fcs)
+	
+func _sync_colonist_tab_from_config() -> void:
+	# Gate: 0 = OFF, 1 = MIN_CLANS, 2 = MIN_INCOME
+	var gate_mode: int = int(RandAI_Config.col_tax_gate_mode)
+
+	rb_col_gate_off.button_pressed = (gate_mode == 0)
+	rb_col_gate_min_clans.button_pressed = (gate_mode == 1)
+	rb_col_gate_min_income.button_pressed = (gate_mode == 2)
+
+	# Thresholds
+	spin_col_min_clans.value = float(RandAI_Config.col_tax_min_clans)
+	spin_col_min_income.value = float(RandAI_Config.col_tax_min_income_mc)
+
+	# Method: 0 = Growth Tax, 1 = Growth Tax Plus
+	var method: int = int(RandAI_Config.col_tax_method)
+	rb_col_method_growth.button_pressed = (method == 0)
+	rb_col_method_growth_plus.button_pressed = (method == 1)
+
+	# Cap mode
+	chk_col_cap_mode.button_pressed = bool(RandAI_Config.col_tax_cap_enabled)
+
+	# Target happiness
+	var cap_target: int = int(RandAI_Config.col_tax_happy_target)
+	rb_col_cap_70.button_pressed = (cap_target == 70)
+	rb_col_cap_40.button_pressed = (cap_target == 40)
+
+	_update_colonist_gate_controls()
+	_update_colonist_cap_controls()
 	
 func _update_native_controls() -> void:
 	var on: bool = chk_nat_tax_enabled.button_pressed
@@ -288,8 +327,8 @@ func _on_col_cap_mode_toggled(on: bool) -> void:
 	if _syncing:
 		return
 
-	if "col_tax_cap_mode_enabled" in RandAI_Config:
-		RandAI_Config.col_tax_cap_mode_enabled = on
+	if "col_tax_cap_enabled" in RandAI_Config:
+		RandAI_Config.col_tax_cap_enabled = on
 		RandAI_Config.mark_dirty()
 
 	_update_colonist_cap_controls()
@@ -304,6 +343,6 @@ func _on_col_cap_target_changed(_on: bool) -> void:
 	if rb_col_cap_40.button_pressed:
 		target = 40
 
-	if "col_tax_cap_happy_target" in RandAI_Config:
-		RandAI_Config.col_tax_cap_happy_target = target
+	if "col_tax_happy_target" in RandAI_Config:
+		RandAI_Config.col_tax_happy_target = target
 		RandAI_Config.mark_dirty()
