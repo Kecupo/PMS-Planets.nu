@@ -23,6 +23,7 @@ func open_and_load() -> void:
 	popup_centered()
 	grab_focus()
 	_refresh()
+	
 func _on_item_clicked(index: int, _pos: Vector2, _button: int) -> void:
 	if index < 0 or index >= _games.size():
 		return

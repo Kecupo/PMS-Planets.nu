@@ -280,6 +280,7 @@ func set_current_game(game_id: int, player_id: int) -> void:
 	# Config pro Spiel laden
 	RandAI_Config.set_current_game(game_id)
 	emit_signal("game_changed", game_id)
+	
 func get_my_race_id() -> int:
 	return my_race_id
 

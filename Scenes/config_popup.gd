@@ -87,69 +87,50 @@ func _wire_native_tab() -> void:
 func sync_from_config() -> void:
 	_syncing = true
 
-	# --- Gate defaults: falls Config noch nicht erweitert ist,
-	# kannst du vorerst hart setzen oder später ersetzen.
-	# Ich nehme hier an, dass du später RandAI_Config.col_tax_gate_mode nutzt:
 	# 0=OFF, 1=MIN_CLANS, 2=MIN_INCOME
-	var gate_mode: int = 1
-	if "col_tax_gate_mode" in RandAI_Config:
-		gate_mode = int(RandAI_Config.col_tax_gate_mode)
+	var gate_mode: int = int(RandAI_Config.col_tax_gate_mode)
 
 	rb_col_gate_off.button_pressed = (gate_mode == 0)
 	rb_col_gate_min_clans.button_pressed = (gate_mode == 1)
 	rb_col_gate_min_income.button_pressed = (gate_mode == 2)
 
 	# Spin Werte
-	var min_clans: int = 10000
-	if "col_tax_min_clans" in RandAI_Config:
-		min_clans = int(RandAI_Config.col_tax_min_clans)
-	spin_col_min_clans.value = float(min_clans)
+	spin_col_min_clans.value = float(RandAI_Config.col_tax_min_clans)
+	spin_col_min_income.value = float(RandAI_Config.col_tax_min_income_mc)
 
-	var min_income: int = 100
-	if "col_tax_min_income_mc" in RandAI_Config:
-		min_income = int(RandAI_Config.col_tax_min_income_mc)
-	spin_col_min_income.value = float(min_income)
-
-	# Methode: 0=GrowthTax, 1=GrowthTaxPlus
-	var method: int = 0
-	if "col_tax_method" in RandAI_Config:
-		method = int(RandAI_Config.col_tax_method)
+	# Methode
+	var method: int = int(RandAI_Config.col_tax_method)
 	rb_col_method_growth.button_pressed = (method == 0)
 	rb_col_method_growth_plus.button_pressed = (method == 1)
 
 	# Cap Mode
-	var cap_enabled: bool = false
-	if "col_tax_cap_mode_enabled" in RandAI_Config:
-		cap_enabled = bool(RandAI_Config.col_tax_cap_mode_enabled)
-	chk_col_cap_mode.button_pressed = cap_enabled
+	chk_col_cap_mode.button_pressed = bool(RandAI_Config.col_tax_cap_enabled)
 
-	# Cap Target: 70 oder 40 (als int 70/40 oder 0/1 – wir nehmen hier int)
-	var cap_target: int = 70
-	if "col_tax_cap_happy_target" in RandAI_Config:
-		cap_target = int(RandAI_Config.col_tax_cap_happy_target)
+	# Cap Target
+	var cap_target: int = int(RandAI_Config.col_tax_happy_target)
 	rb_col_cap_70.button_pressed = (cap_target == 70)
 	rb_col_cap_40.button_pressed = (cap_target == 40)
 
-	# UI enable/disable abhängig von Auswahl
 	_update_colonist_gate_controls()
 	_update_colonist_cap_controls()
+
+	_sync_native_tab_from_config()
 
 	_syncing = false
 
 func _sync_native_tab_from_config() -> void:
-	# Gate
-	var gate: int = RandAI_Config.nat_tax_gate_mode
-	chk_nat_tax_enabled.button_pressed = (gate == 0)
-	# Method
+	chk_nat_tax_enabled.button_pressed = bool(RandAI_Config.nat_tax_enabled)
+
 	var m: int = int(RandAI_Config.nat_tax_method)
 	btn_nat_method_growth.button_pressed = (m == 0)
 	btn_nat_method_growth_plus.button_pressed = (m == 1)
 
-	# Cap
-	chk_nat_cap.button_pressed = RandAI_Config.nat_tax_cap_enabled
+	chk_nat_cap.button_pressed = bool(RandAI_Config.nat_tax_cap_enabled)
+
 	var tgt: int = int(RandAI_Config.nat_tax_happy_target)
 	btn_nat_cap_70.button_pressed = (tgt == 70)
 	btn_nat_cap_40.button_pressed = (tgt == 40)
+
 	_update_native_controls()
 	
 func _update_native_controls() -> void:

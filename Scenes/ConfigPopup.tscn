@@ -80,9 +80,10 @@ theme_override_fonts/font = SubResource("FontVariation_kx6hq")
 theme_override_styles/tabbar_background = SubResource("StyleBoxTexture_kx6hq")
 theme_override_styles/tab_hovered = SubResource("StyleBoxFlat_4bn5k")
 theme_override_styles/tab_selected = SubResource("StyleBoxFlat_0issk")
-current_tab = 0
+current_tab = 1
 
 [node name="Tax Natives" type="VBoxContainer" parent="RootVBox/Tabs"]
+visible = false
 layout_mode = 2
 theme = SubResource("Theme_joxi8")
 metadata/_tab_index = 0
@@ -137,7 +138,6 @@ layout_mode = 2
 text = "... down to hapiness 40"
 
 [node name="Tax Colonists" type="VBoxContainer" parent="RootVBox/Tabs"]
-visible = false
 layout_mode = 2
 metadata/_tab_index = 1
 
@@ -159,13 +159,11 @@ horizontal_alignment = 1
 layout_mode = 2
 columns = 2
 
-[node name="RbColGateOff" type="Button" parent="RootVBox/Tabs/Tax Colonists/MarginContainer/VBoxContainer/GridContainer"]
+[node name="RbColGateOff" type="CheckButton" parent="RootVBox/Tabs/Tax Colonists/MarginContainer/VBoxContainer/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
-toggle_mode = true
 button_group = ExtResource("2_cq0wd")
 text = "Tax Colonist on/off"
-alignment = 0
 
 [node name="Label" type="Label" parent="RootVBox/Tabs/Tax Colonists/MarginContainer/VBoxContainer/GridContainer"]
 layout_mode = 2
