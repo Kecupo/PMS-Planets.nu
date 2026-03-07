@@ -289,7 +289,7 @@ func _save_turn_with_savekey_and_merge(fresh_wrapper: Dictionary) -> void:
 	"turn": str(turn_num),
 	"savekey": savekey,
 	"apikey": api_key,
-	"saveindex": "2"
+	"saveindex": "0"
 }
 	fields["version"] = "1"
 	fields["Planet" + str(test_planet_id)] = JSON.stringify(planet_save)
