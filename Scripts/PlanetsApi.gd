@@ -289,9 +289,9 @@ func _save_turn_with_savekey_and_merge(fresh_wrapper: Dictionary) -> void:
 	"turn": str(turn_num),
 	"savekey": savekey,
 	"apikey": api_key,
-	"saveindex": "0"
+	"saveindex": "2"
 }
-	fields["version"] = "1"
+	fields["version"] = "3.02"
 	fields["Planet" + str(test_planet_id)] = JSON.stringify(planet_save)
 
 	# Für diesen Test genau EIN Save-Objekt
