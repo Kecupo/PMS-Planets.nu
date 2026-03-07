@@ -38,11 +38,7 @@ func _ready() -> void:
 	_wire_native_tab()
 	# Initial pull
 	sync_from_config()
-	_update_check_color(chk_perm_case)
-	_update_check_color(chk_randomize)
-	_update_check_color(chk_nat_cap)
-	_update_check_color(chk_col_cap_mode)
-	
+	_apply_config_button_themes(self)
 func open_popup() -> void:
 	# beim Öffnen immer aktuellen Spiel-Stand laden
 	if GameState.current_game_id > 0:
@@ -122,10 +118,6 @@ func sync_from_config() -> void:
 	_sync_fc_tab_from_config()
 	_sync_colonist_tab_from_config()
 	_sync_native_tab_from_config()
-	_update_check_color(chk_perm_case)
-	_update_check_color(chk_randomize)
-	_update_check_color(chk_nat_cap)
-	_update_check_color(chk_col_cap_mode)
 	_syncing = false
 
 func _sync_native_tab_from_config() -> void:
@@ -358,3 +350,45 @@ func _on_col_cap_target_changed(_on: bool) -> void:
 	if "col_tax_happy_target" in RandAI_Config:
 		RandAI_Config.col_tax_happy_target = target
 		RandAI_Config.mark_dirty()
+
+func _make_check_button_theme() -> Theme:
+	var th: Theme = Theme.new()
+
+	# unchecked → rot
+	th.set_color("font_color", "CheckButton", Color(0.9, 0.2, 0.2))
+	th.set_color("font_hover_color", "CheckButton", Color(1.0, 0.3, 0.3))
+
+	# checked → grün
+	th.set_color("font_pressed_color", "CheckButton", Color(0.2, 0.9, 0.2))
+	th.set_color("font_hover_pressed_color", "CheckButton", Color(0.3, 1.0, 0.3))
+	th.set_color("font_focus_color", "CheckButton", Color(0.2, 0.9, 0.2))
+
+	return th
+func _make_toggle_button_theme() -> Theme:
+	var th: Theme = Theme.new()
+
+	th.set_color("font_color", "Button", Color(0.9, 0.2, 0.2))
+	th.set_color("font_hover_color", "Button", Color(1.0, 0.3, 0.3))
+
+	th.set_color("font_pressed_color", "Button", Color(0.2, 0.9, 0.2))
+	th.set_color("font_hover_pressed_color", "Button", Color(0.3, 1.0, 0.3))
+	th.set_color("font_focus_color", "Button", Color(0.2, 0.9, 0.2))
+
+	return th
+func _apply_config_button_themes(root: Node) -> void:
+	var check_theme: Theme = _make_check_button_theme()
+	var toggle_theme: Theme = _make_toggle_button_theme()
+
+	_apply_themes_recursive(root, check_theme, toggle_theme)
+func _apply_themes_recursive(node: Node, check_theme: Theme, toggle_theme: Theme) -> void:
+
+	if node is CheckButton:
+		node.theme = check_theme
+
+	elif node is Button:
+		# Toggle-Buttons (deine Radio-Button-Ersatz-Buttons)
+		if (node as Button).toggle_mode:
+			node.theme = toggle_theme
+
+	for c in node.get_children():
+		_apply_themes_recursive(c, check_theme, toggle_theme)
