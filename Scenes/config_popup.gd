@@ -215,11 +215,10 @@ func _on_col_tax_mode_selected(idx: int) -> void:
 	_update_col_tax_controls()
 	
 func _update_col_tax_controls() -> void:
-	var mode: int = RandAI_Config.col_tax_mode
-	spin_col_min_clans.editable = (mode == RandAI_Config.ColTaxMode.MIN_CLANS)
-	spin_col_min_income.editable = (mode == RandAI_Config.ColTaxMode.MIN_INCOME)
+	var mode_n: int = RandAI_Config.col_tax_mode
+	spin_col_min_clans.editable = (mode_n == RandAI_Config.ColTaxMode.MIN_CLANS)
+	spin_col_min_income.editable = (mode_n == RandAI_Config.ColTaxMode.MIN_INCOME)
 	RandAI_Config.mark_dirty()
-
 
 func _on_nat_enabled_toggled(on: bool) -> void:
 	if _syncing: return
@@ -234,8 +233,13 @@ func _on_nat_method_changed(_on: bool) -> void:
 
 func _on_nat_cap_toggled(on: bool) -> void:
 	if _syncing: return
-	RandAI_Config.nat_tax_cap_enabled = on
-	RandAI_Config.mark_dirty()
+	if on:
+		if RandAI_Config.nat_tax_happy_target != 40 and RandAI_Config.nat_tax_happy_target != 70:
+			RandAI_Config.nat_tax_happy_target = 40
+
+		btn_nat_cap_40.button_pressed = (RandAI_Config.nat_tax_happy_target == 40)
+		btn_nat_cap_70.button_pressed = (RandAI_Config.nat_tax_happy_target == 70)
+	#RandAI_Config.mark_dirty()
 	_update_native_controls()
 
 func _on_nat_cap_target_changed(_on: bool) -> void:
@@ -270,7 +274,6 @@ func _update_colonist_cap_controls() -> void:
 		rb_col_cap_70.focus_mode = Control.FOCUS_ALL
 		rb_col_cap_40.focus_mode = Control.FOCUS_ALL
 
-
 # -------------------------
 # Handlers (ohne Lambdas)
 # -------------------------
@@ -293,7 +296,6 @@ func _on_col_gate_changed(_on: bool) -> void:
 
 	_update_colonist_gate_controls()
 
-
 func _on_col_min_clans_changed(v: float) -> void:
 	if _syncing:
 		return
@@ -301,14 +303,12 @@ func _on_col_min_clans_changed(v: float) -> void:
 		RandAI_Config.col_tax_min_clans = int(v)
 		RandAI_Config.mark_dirty()
 
-
 func _on_col_min_income_changed(v: float) -> void:
 	if _syncing:
 		return
 	if "col_tax_min_income_mc" in RandAI_Config:
 		RandAI_Config.col_tax_min_income_mc = int(v)
 		RandAI_Config.mark_dirty()
-
 
 func _on_col_method_changed(_on: bool) -> void:
 	if _syncing:
@@ -322,14 +322,17 @@ func _on_col_method_changed(_on: bool) -> void:
 		RandAI_Config.col_tax_method = method
 		RandAI_Config.mark_dirty()
 
-
 func _on_col_cap_mode_toggled(on: bool) -> void:
 	if _syncing:
 		return
 
-	if "col_tax_cap_enabled" in RandAI_Config:
-		RandAI_Config.col_tax_cap_enabled = on
-		RandAI_Config.mark_dirty()
+	if on:
+		# Default Ziel: 40
+		if RandAI_Config.col_tax_happy_target != 40 and RandAI_Config.col_tax_happy_target != 70:
+			RandAI_Config.col_tax_happy_target = 40
+
+		rb_col_cap_40.button_pressed = (RandAI_Config.col_tax_happy_target == 40)
+		rb_col_cap_70.button_pressed = (RandAI_Config.col_tax_happy_target == 70)
 
 	_update_colonist_cap_controls()
 
