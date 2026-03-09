@@ -105,9 +105,11 @@ func download_turn(game_id: int, player_id, forsave: bool = false) -> void:
 	var url: String = (
 		"https://api.planets.nu/game/loadturn"
 		+ "?gameid=" + str(game_id)
-		+ "&playerid=" + str(player_id)
-		+ "&apikey=" + api_key.uri_encode()
 		)
+		
+	if player_id > 0:
+		url += "&playerid=" + str(player_id)
+	url += "&apikey=" + api_key.uri_encode()
 	if forsave:
 		url += "&forsave=true"
 

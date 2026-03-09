@@ -177,7 +177,7 @@ func _update_native_controls() -> void:
 	btn_nat_method_growth.disabled = not on
 	btn_nat_method_growth_plus.disabled = not on
 
-	chk_nat_cap.disabled = not on
+	chk_nat_cap.disabled = false
 	var cap_on: bool = on and chk_nat_cap.button_pressed
 	btn_nat_cap_70.disabled = not cap_on
 	btn_nat_cap_40.disabled = not cap_on

@@ -69,7 +69,7 @@ func _on_item_activated(index: int) -> void:
 	var gid: int = int(id_v) if typeof(id_v) == TYPE_INT else int(float(id_v))
 
 	# Spiel setzen
-	GameState.set_current_game(gid, GameState.current_player_id)
+	GameState.set_current_game(gid)
 
 	# Lokal laden (falls vorhanden)
 	var local_turn: int = 0
@@ -96,7 +96,7 @@ func _on_item_activated(index: int) -> void:
 	PlanetsApi.download_turn(gid, GameState.my_player_id)  # ohne playerid
 
 func _select_game_id(gid: int) -> void:
-	GameState.set_current_game(gid, GameState.my_player_id)
+	GameState.set_current_game(gid)
 
 	var local_turn: int = 0
 	var local_loaded: bool = GameState.load_latest_turn_from_disk()

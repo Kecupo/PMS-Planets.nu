@@ -272,9 +272,9 @@ func save_api_credentials(new_username: String, new_api_key: String) -> void:
 	f.store_string(JSON.stringify(d))
 	f.close()
 
-func set_current_game(game_id: int, player_id: int) -> void:
+func set_current_game(game_id: int) -> void:
 	current_game_id = game_id
-	my_player_id = player_id
+	#my_player_id = player_id
 	GameStorage.ensure_game_dir(game_id)
 	Orders_Store.load_for_game(game_id)
 	# Config pro Spiel laden
