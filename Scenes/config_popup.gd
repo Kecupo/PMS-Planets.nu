@@ -209,7 +209,14 @@ func _on_chk_randomize_toggled(on: bool) -> void:
 func _on_col_tax_mode_selected(idx: int) -> void:
 	if _syncing:
 		return
+	var gate_mode: int = 1
 
+	if rb_col_gate_off.button_pressed:
+		gate_mode = 0
+	elif rb_col_gate_min_income.button_pressed:
+		gate_mode = 2
+	else:
+		gate_mode = 1
 	RandAI_Config.col_tax_mode = idx
 	RandAI_Config.mark_dirty()
 	_update_col_tax_controls()
