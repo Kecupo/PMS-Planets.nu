@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=3 uid="uid://bsu1td676iiwc"]
+[gd_scene load_steps=16 format=3 uid="uid://bsu1td676iiwc"]
 
 [ext_resource type="Script" uid="uid://c1n0eqjwfpf33" path="res://Scenes/config_popup.gd" id="1_kx6hq"]
 [ext_resource type="ButtonGroup" uid="uid://bhkfvknhr47us" path="res://Scenes/BG_ColTaxMethod.tres" id="2_0issk"]
@@ -38,13 +38,6 @@ TabContainer/styles/tab_hovered = SubResource("StyleBoxFlat_cq0wd")
 TabContainer/styles/tab_selected = SubResource("StyleBoxFlat_22vw3")
 TabContainer/styles/tab_unselected = SubResource("StyleBoxFlat_ffiky")
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_joxi8"]
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.48046875, 0.46733093, 0.46733093, 1)
-
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_w7xoa"]
 bg_color = Color(0.98046875, 0.73535156, 0.73535156, 1)
 border_width_left = 5
@@ -80,9 +73,10 @@ theme_override_fonts/font = SubResource("FontVariation_kx6hq")
 theme_override_styles/tabbar_background = SubResource("StyleBoxTexture_kx6hq")
 theme_override_styles/tab_hovered = SubResource("StyleBoxFlat_4bn5k")
 theme_override_styles/tab_selected = SubResource("StyleBoxFlat_0issk")
-current_tab = 0
+current_tab = 1
 
 [node name="Tax Natives" type="VBoxContainer" parent="RootVBox/Tabs"]
+visible = false
 layout_mode = 2
 theme = SubResource("Theme_joxi8")
 metadata/_tab_index = 0
@@ -138,7 +132,6 @@ layout_mode = 2
 text = "... down to hapiness 40"
 
 [node name="Tax Colonists" type="VBoxContainer" parent="RootVBox/Tabs"]
-visible = false
 layout_mode = 2
 metadata/_tab_index = 1
 
@@ -188,7 +181,6 @@ rounded = true
 [node name="RbColGateMinIncome" type="Button" parent="RootVBox/Tabs/Tax Colonists/MarginContainer/VBoxContainer/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_styles/normal = SubResource("StyleBoxFlat_joxi8")
 theme_override_styles/hover = SubResource("StyleBoxFlat_w7xoa")
 toggle_mode = true
 button_group = ExtResource("2_cq0wd")
