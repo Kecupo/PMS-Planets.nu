@@ -209,8 +209,8 @@ func _on_chk_randomize_toggled(on: bool) -> void:
 func _on_col_tax_mode_selected(idx: int) -> void:
 	if _syncing:
 		return
+		
 	var gate_mode: int = 1
-
 	if rb_col_gate_off.button_pressed:
 		gate_mode = 0
 	elif rb_col_gate_min_income.button_pressed:
@@ -257,15 +257,21 @@ func _on_nat_cap_target_changed(_on: bool) -> void:
 # UI State helpers
 # -------------------------
 func _update_colonist_gate_controls() -> void:
-	# Spinboxes nur aktiv, wenn der zugehörige Radio gewählt ist
-	var clans_on: bool = rb_col_gate_min_clans.button_pressed
-	var income_on: bool = rb_col_gate_min_income.button_pressed
 
-	spin_col_min_clans.editable = clans_on
-	spin_col_min_clans.focus_mode = Control.FOCUS_ALL if clans_on else Control.FOCUS_NONE
+	var tax_enabled: bool = rb_col_gate_off.button_pressed
 
-	spin_col_min_income.editable = income_on
-	spin_col_min_income.focus_mode = Control.FOCUS_ALL if income_on else Control.FOCUS_NONE
+	rb_col_gate_off.disabled = not tax_enabled
+	rb_col_gate_min_clans.disabled = not tax_enabled
+	rb_col_gate_min_income.disabled = not tax_enabled
+
+	var clans_mode: bool = tax_enabled and rb_col_gate_min_clans.button_pressed
+	var income_mode: bool = tax_enabled and rb_col_gate_min_income.button_pressed
+
+	spin_col_min_clans.editable = clans_mode
+	spin_col_min_clans.focus_mode = Control.FOCUS_ALL if clans_mode else Control.FOCUS_NONE
+
+	spin_col_min_income.editable = income_mode
+	spin_col_min_income.focus_mode = Control.FOCUS_ALL if income_mode else Control.FOCUS_NONE
 
 func _update_colonist_cap_controls() -> void:
 	var on: bool = chk_col_cap_mode.button_pressed
@@ -287,19 +293,17 @@ func _update_colonist_cap_controls() -> void:
 func _on_col_gate_changed(_on: bool) -> void:
 	if _syncing:
 		return
-
-	var gate_mode: int = 1
-	if rb_col_gate_off.button_pressed:
-		gate_mode = 0
-	elif rb_col_gate_min_income.button_pressed:
-		gate_mode = 2
-	else:
-		gate_mode = 1
-
-	# nur setzen, wenn du die Variablen schon hast; sonst erstmal weglassen
-	if "col_tax_gate_mode" in RandAI_Config:
-		RandAI_Config.col_tax_gate_mode = gate_mode
-		RandAI_Config.mark_dirty()
+	if _on:
+		var gate_mode: int = 1
+		if rb_col_gate_off.button_pressed:
+			gate_mode = 0
+		elif rb_col_gate_min_income.button_pressed:
+			gate_mode = 2
+		else:
+			gate_mode = 1
+		if "col_tax_gate_mode" in RandAI_Config:
+			RandAI_Config.col_tax_gate_mode = gate_mode
+			RandAI_Config.mark_dirty()
 
 	_update_colonist_gate_controls()
 
