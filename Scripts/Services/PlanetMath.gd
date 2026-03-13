@@ -444,10 +444,14 @@ func native_happiness_delta_next_turn(
 # - Cyborg: no additional revenue above 20% tax rate (income capped to rate=20)
 # -------------------------
 func native_tax_mc(p: PlanetData, native_tax_rate: int, owner_race_id: int) -> int:
-	# gates
+	# happiness gate
 	if int(p.nativehappypoints) <= 30:
 		return 0
-	if String(p.nativeracename) == "Amorphous":
+
+	var native_race: String = String(p.nativeracename).strip_edges().to_lower()
+
+	# Amorphous can be taxed but pay nothing
+	if native_race == "amorphous":
 		return 0
 
 	var col_clans: int = int(p.clans)
@@ -460,33 +464,36 @@ func native_tax_mc(p: PlanetData, native_tax_rate: int, owner_race_id: int) -> i
 
 	var tax_i: int = clamp(native_tax_rate, 0, 100)
 
-	# cyborg income cap
+	# Cyborg: no additional revenue above 20%
 	if owner_race_id == 6 and tax_i > 20:
 		tax_i = 20
 
-	# insectoid collector factor
-	var ifac: int = 2 if String(p.nativeracename) == "Insectoid" else 1
+	# efficiency as integer percent: 20..180
+	var eff_pct: int = native_government_tax_efficiency(int(p.nativegovernment))
 
-	# government efficiency as PERCENT (e.g. 20..180)
-	var eff_pct: float = (native_government_tax_efficiency(int(p.nativegovernment)))
+	# Base formula:
+	# Taxes = NativeClans * TaxRate * Eff / 10
+	# with Eff in percent => divide by 1000
+	# IMPORTANT: use TRUNC, not ROUND
+	var mc: int = _trunc(float(native_clans * tax_i * eff_pct) / 1000.0)
 
-	# --- Core math ---
-	# Base (your original formula) with rounding:
-	# MC = Round( native_clans * tax% * eff% / 1000 )
-	var base_mc_f: float = (float(native_clans) * float(tax_i) * float(eff_pct)) / 1000.0
-	var base_mc: int = int(round(base_mc_f))
+	# Insectoids pay twice the normal taxes
+	if native_race == "insectoid":
+		mc *= 2
 
-	# Collector cap
-	var collector_cap: int = col_clans * ifac
-	if base_mc > collector_cap:
-		base_mc = collector_cap
+	# Collector cap:
+	# most natives: 1 MC per colonist clan
+	# insectoids:   2 MC per colonist clan
+	var collector_cap: int = col_clans * (2 if native_race == "insectoid" else 1)
+	if mc > collector_cap:
+		mc = collector_cap
 
 	# Planet cap
-	if base_mc > 5000:
-		base_mc = 5000
+	if mc > 5000:
+		mc = 5000
 
-	return max(base_mc, 0)
-
+	return max(mc, 0)
+	
 func native_happiness_next_turn_with_tax(
 	p: PlanetData,
 	tax_rate: int,
