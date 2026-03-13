@@ -8,7 +8,9 @@ const PLANET_RADIUS_DRAW: float = 10.0
 func _ready() -> void:
 	set_process_input(true)
 	GameState.turn_loaded.connect(_on_turn_loaded)
-	
+	GameState.orders_changed.connect(func() -> void:
+		_draw()
+)
 func _on_turn_loaded() -> void:
 	var center := Vector2(
 		(game_state.map_min_x + game_state.map_max_x) * 0.5,
@@ -106,35 +108,10 @@ func _map_to_world(p: PlanetData) -> Vector2:
 	)
 
 func _planet_color(p: PlanetData) -> Color:
-	var owner_race: int = GameState.get_owner_race_id_of_planet(p)
-
-	# neutral / unknown
-	if owner_race < 0:
-		return Color.WHITE
-
-	# eigene Rasse
-	if owner_race == GameState.my_race_id:
-		return Color(0.2, 0.9, 0.2)  # grün
-
-	# andere Rassen: vorerst feste Palette (später Config)
-	return _race_palette(owner_race)
-
-func _race_palette(race_id: int) -> Color:
-	# Index 1..11/12 -> Palette; 0/negativ wird vorher abgefangen
-	var palette: Array[Color] = [
-		Color(0.8, 0.2, 0.2),  # 0 dummy
-		Color(0.8, 0.2, 0.2),  # 1
-		Color(0.9, 0.5, 0.1),  # 2
-		Color(0.9, 0.9, 0.2),  # 3
-		Color(0.2, 0.6, 0.9),  # 4
-		Color(0.6, 0.2, 0.9),  # 5
-		Color(0.2, 0.9, 0.8),  # 6
-		Color(0.9, 0.2, 0.6),  # 7
-		Color(0.6, 0.6, 0.6),  # 8
-		Color(0.3, 0.3, 0.9),  # 9
-		Color(0.9, 0.3, 0.3),  # 10
-		Color(0.3, 0.9, 0.3),  # 11
-	]
-	if race_id >= 0 and race_id < palette.size():
-		return palette[race_id]
-	return Color.WHITE
+	var race_id: int = GameState.get_owner_race_id_of_planet(p)
+	var color: Color = Color.WHITE
+	if race_id <= 0:
+		color = Color.from_string(RandAI_Config.neutral_color, Color.WHITE)
+	else:
+		color = RandAI_Config.get_race_color(race_id)
+	return color

@@ -25,7 +25,7 @@ var _wired_natives: bool = false
 @onready var chk_col_cap_mode: CheckButton = %ChkColCapModeEnabled
 @onready var rb_col_cap_70: Button = %RbColCap70
 @onready var rb_col_cap_40: Button = %RbColCap40
-
+@onready var race_colors_vbox: VBoxContainer = %RaceColorsVbox
 func _ready() -> void:
 	close_btn.pressed.connect(_on_close_pressed)
 	close_requested.connect(_on_close_pressed)
@@ -37,12 +37,16 @@ func _ready() -> void:
 	_wire_colonist_tab()
 	_wire_native_tab()
 	# Initial pull
+	#_build_race_color_tab()
 	sync_from_config()
 	_apply_config_button_themes(self)
+	
+	
 func open_popup() -> void:
 	# beim Öffnen immer aktuellen Spiel-Stand laden
 	if GameState.current_game_id > 0:
 		RandAI_Config.set_current_game(GameState.current_game_id)
+	_build_race_color_tab()
 	sync_from_config()
 	visible = true
 	popup_centered()
@@ -260,7 +264,6 @@ func _update_colonist_gate_controls() -> void:
 
 	var tax_enabled: bool = rb_col_gate_off.button_pressed
 
-	rb_col_gate_off.disabled = not tax_enabled
 	rb_col_gate_min_clans.disabled = not tax_enabled
 	rb_col_gate_min_income.disabled = not tax_enabled
 
@@ -406,3 +409,96 @@ func _apply_themes_recursive(node: Node, check_theme: Theme, toggle_theme: Theme
 
 	for c in node.get_children():
 		_apply_themes_recursive(c, check_theme, toggle_theme)
+
+func _build_race_color_tab() -> void:
+	for c in race_colors_vbox.get_children():
+		c.queue_free()
+
+	# immer neutral anzeigen
+	_add_race_color_row(0, "Neutral / Unknown")
+
+	var race_ids: Array[int] = []
+
+	if GameState.config != null and GameState.config.races_by_id != null and not GameState.config.races_by_id.is_empty():
+		for k in GameState.config.races_by_id.keys():
+			var rid: int = -1
+			if typeof(k) == TYPE_INT:
+				rid = int(k)
+			elif typeof(k) == TYPE_FLOAT:
+				rid = int(float(k))
+			elif typeof(k) == TYPE_STRING:
+				var s: String = String(k)
+				if s.is_valid_int():
+					rid = s.to_int()
+
+			if rid > 0:
+				race_ids.append(rid)
+
+		race_ids.sort()
+		
+	else:
+		# Fallback: klassische 13 Slots
+		for rid in range(1, 14):
+			race_ids.append(rid)
+
+	for rid in race_ids:
+		var race_name: String = _race_display_name(rid)
+		_add_race_color_row(rid, race_name)
+	
+func _race_display_name(race_id: int) -> String:
+	if GameState.config != null:
+		var abbr: String = GameState.config.get_owner_abbrev(race_id)
+		if not abbr.is_empty() and abbr != "—":
+			return "%d - %s" % [race_id, abbr]
+
+	return "%d - Race %d" % [race_id, race_id]
+	
+func _add_race_color_row(race_id: int, label_text: String) -> void:
+	var row: HBoxContainer = HBoxContainer.new()
+	row.custom_minimum_size = Vector2(0, 30)
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	var lbl: Label = Label.new()
+	lbl.text = label_text
+	lbl.custom_minimum_size = Vector2(160, 24)
+	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	var preview: ColorRect = ColorRect.new()
+	preview.custom_minimum_size = Vector2(28, 20)
+
+	var picker: ColorPickerButton = ColorPickerButton.new()
+	picker.custom_minimum_size = Vector2(60, 24)
+	picker.text = ""
+	picker.set_meta("race_id", race_id)
+	picker.set_meta("preview", preview)
+
+	if race_id == 0:
+		picker.color = Color.from_string(RandAI_Config.neutral_color, Color.WHITE)
+	else:
+		picker.color = RandAI_Config.get_race_color(race_id)
+
+	preview.color = picker.color
+
+	picker.color_changed.connect(_on_race_color_changed.bind(picker))
+
+	row.add_child(lbl)
+	row.add_child(preview)
+	row.add_child(picker)
+
+	race_colors_vbox.add_child(row)
+	
+func _on_race_color_changed(_color: Color, picker: ColorPickerButton) -> void:
+	if _syncing:
+		return
+
+	var race_id: int = int(picker.get_meta("race_id"))
+	var preview: ColorRect = picker.get_meta("preview") as ColorRect
+
+	if preview != null:
+		preview.color = picker.color
+
+	if race_id == 0:
+		RandAI_Config.neutral_color = picker.color.to_html()
+		RandAI_Config.mark_dirty()
+	else:
+		RandAI_Config.set_race_color(race_id, picker.color)

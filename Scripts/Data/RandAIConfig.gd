@@ -2,6 +2,9 @@ extends Node
 
 var current_game_id: int = 0
 var dirty: bool = false
+# race_id -> "#RRGGBB" oder "#RRGGBBAA"
+var race_colors: Dictionary = {}
+var neutral_color: String = "#ffffff"
 enum ColTaxGateMode {
 	OFF = 0,
 	MIN_CLANS = 1,
@@ -20,7 +23,22 @@ const SPECIAL_FCS_CASE_DEFAULT: PackedStringArray = [
 	"PB0", "PB1", "PB2", "PB3", "PB4", "PB5", "PB6", "PB7", "PB8", "PB9",
 	"RB0", "RB1", "RB2", "RB3", "RB4", "RB5", "RB6", "RB7", "RB8", "RB9"
 ]
-
+const DEFAULT_RACE_COLORS: Dictionary = {
+	0: "#ffffff", # unknown / neutral
+	1: "#00ff00", 
+	2: "#ff6060",
+	3: "#60a0ff",
+	4: "#ffaa40", 
+	5: "#c060ff",
+	6: "#40ffff",
+	7: "#ff80c0",
+	8: "#c0c0c0",
+	9: "#ff8000",
+	10: "#80ff40",
+	11: "#8080ff",
+	12: "#ffd060",
+	13: "#ff60ff"
+}
 var permute_special_fcs_case: bool = false
 var fc_never_change_raw: String = ""
 var randomize_other_fcs: bool = false
@@ -114,7 +132,8 @@ func _apply_defaults() -> void:
 	nat_tax_method = 0
 	nat_tax_cap_enabled = false
 	nat_tax_happy_target = 70
-
+	race_colors = DEFAULT_RACE_COLORS.duplicate(true)
+	neutral_color = "#ffffff"
 
 func _apply_from_dict(d: Dictionary) -> void:
 	# FC
@@ -147,8 +166,27 @@ func _apply_from_dict(d: Dictionary) -> void:
 		nat_tax_method = 0
 	if nat_tax_happy_target != 70 and nat_tax_happy_target != 40:
 		nat_tax_happy_target = 70
+	neutral_color = _read_string(d, "neutral_color", "#ffffff")
 
-
+	var rc_v: Variant = d.get("race_colors", {})
+	if rc_v is Dictionary:
+		race_colors.clear()
+		var rc: Dictionary = rc_v as Dictionary
+		for k in rc.keys():
+			var key_i: int = _read_int_from_variant(k, -1)
+			if key_i >= 0:
+				race_colors[key_i] = String(rc[k])
+static func _read_int_from_variant(v: Variant, default_value: int) -> int:
+	if typeof(v) == TYPE_INT:
+		return int(v)
+	if typeof(v) == TYPE_FLOAT:
+		return int(float(v))
+	if typeof(v) == TYPE_STRING:
+		var s: String = String(v)
+		if s.is_valid_int():
+			return s.to_int()
+	return default_value
+	
 func _to_dict() -> Dictionary:
 	var d: Dictionary = {}
 
@@ -170,10 +208,26 @@ func _to_dict() -> Dictionary:
 	d["nat_tax_method"] = nat_tax_method
 	d["nat_tax_cap_enabled"] = nat_tax_cap_enabled
 	d["nat_tax_happy_target"] = nat_tax_happy_target
+	
+	d["neutral_color"] = neutral_color
+	d["race_colors"] = race_colors
 
 	return d
 
+func get_race_color(race_id: int) -> Color:
+	var s: String = neutral_color
 
+	if race_colors.has(race_id):
+		s = String(race_colors[race_id])
+	elif DEFAULT_RACE_COLORS.has(race_id):
+		s = String(DEFAULT_RACE_COLORS[race_id])
+
+	return Color.from_string(s, Color.WHITE)
+
+func set_race_color(race_id: int, color: Color) -> void:
+	race_colors[race_id] = color.to_html()
+	mark_dirty()
+	
 static func _read_bool(d: Dictionary, key: String, default_value: bool) -> bool:
 	if not d.has(key):
 		return default_value

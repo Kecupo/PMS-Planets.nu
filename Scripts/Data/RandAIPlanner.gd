@@ -170,9 +170,20 @@ static func _target_h(cur_turn: int, cfg: Dictionary) -> int:
 	var u: float = clamp(1.0 - (float(remaining) / window), 0.0, 1.0)
 	return int(round(lerp(float(start_target), float(end_target), u)))
 
-static func _should_tax_natives(_p: PlanetData, cfg: RandAI_Config) -> bool:
-	return bool(cfg.nat_tax_cap_enabled)
+static func _should_tax_natives(p: PlanetData, cfg: RandAI_Config) -> bool:
+	if not cfg.nat_tax_cap_enabled:
+		return false
 
+	# Amorphous zahlen keine Steuern
+	if String(p.nativeracename).to_lower() == "amorphous":
+		return false
+
+	# keine Natives -> nichts zu besteuern
+	if int(p.nativeclans) <= 0:
+		return false
+
+	return true
+	
 static func _choose_tax_natives(p: PlanetData, cfg: RandAI_Config, owner_race_id: int) -> int:
 	var current_h: int = int(p.nativehappypoints) # falls dein Feld anders heißt, anpassen!
 	var target_next: int = 70
@@ -215,13 +226,13 @@ static func _should_tax_colonists(
 ) -> bool:
 
 	match cfg.col_tax_gate_mode:
-		RandAI_Config.ColTaxMode.OFF:
+		RandAI_Config.ColTaxGateMode.OFF:
 			return false
 
-		RandAI_Config.ColTaxMode.MIN_CLANS:
+		RandAI_Config.ColTaxGateMode.MIN_CLANS:
 			return int(p.clans) >= cfg.col_tax_min_clans
 
-		RandAI_Config.ColTaxMode.MIN_INCOME:
+		RandAI_Config.ColTaxGateMode.MIN_INCOME:
 			var max_tax: int = 100
 			var mc: int = Planet_Math.colonist_tax_mc(p, max_tax, owner_race_id)
 			return mc >= cfg.col_tax_min_income_mc

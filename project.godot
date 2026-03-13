@@ -12,7 +12,7 @@ config_version=5
 
 config/name="PMS"
 run/main_scene="uid://bnsqwdjkdym6h"
-config/features=PackedStringArray("4.5", "Forward Plus")
+config/features=PackedStringArray("4.5", "C#", "Forward Plus")
 
 [autoload]
 
@@ -33,10 +33,6 @@ window/stretch/aspect="expand"
 [dotnet]
 
 project/assembly_name="Tutorial"
-
-[editor_plugins]
-
-enabled=PackedStringArray("res://addons/tnowe_extra_controls/plugin.cfg")
 
 [global_group]
 

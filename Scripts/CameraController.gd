@@ -4,10 +4,15 @@ extends Camera2D
 @export var min_zoom: float = 0.2
 @export var max_zoom: float = 5.0
 @onready var game_state: GameState = get_node("/root/GameState")
+var _dragging: bool = false
+var _last_mouse_pos: Vector2 = Vector2.ZERO
+const PAN_SPEED: float = 2.0
 func _input(event: InputEvent) -> void:
-	# Beispiel: Mousewheel zoom
+	# Mouse buttons
 	if event is InputEventMouseButton:
-		var mb := event as InputEventMouseButton
+		var mb: InputEventMouseButton = event as InputEventMouseButton
+
+		# Zoom
 		if mb.pressed and (mb.button_index == MOUSE_BUTTON_WHEEL_UP or mb.button_index == MOUSE_BUTTON_WHEEL_DOWN):
 			if mb.button_index == MOUSE_BUTTON_WHEEL_UP:
 				_zoom_at_screen_point(mb.position, 1.0 / zoom_step)
@@ -15,7 +20,26 @@ func _input(event: InputEvent) -> void:
 			elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 				_zoom_at_screen_point(mb.position, zoom_step)
 				get_viewport().set_input_as_handled()
+			return
 
+		# Drag mit rechter Maustaste
+		if mb.button_index == MOUSE_BUTTON_RIGHT:
+			_dragging = mb.pressed
+			_last_mouse_pos = mb.position
+			get_viewport().set_input_as_handled()
+			return
+
+	# Mausbewegung beim Drag
+	if event is InputEventMouseMotion:
+		var mm: InputEventMouseMotion = event as InputEventMouseMotion
+
+		if _dragging:
+			# Bewegung invertieren, damit die Karte "mitgezogen" wird
+			position -= mm.relative * zoom.x * PAN_SPEED
+
+			_last_mouse_pos = mm.position
+			get_viewport().set_input_as_handled()
+	
 func _zoom_at_screen_point(_screen_pos: Vector2, factor: float) -> void:
 	# World position under the mouse before zoom
 	var world_before: Vector2 = get_global_mouse_position()

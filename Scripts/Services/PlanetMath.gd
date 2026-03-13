@@ -26,27 +26,7 @@ static func colonist_growth_possible_most(
 	return temp >= 15 and temp <= 84
 
 
-static func colonist_max_clans_most(temp: int) -> int:
-	var t: int = clamp(temp, 0, 100)
 
-	# For Birds, Cyborg, Empire, Federation, Lizards, Privateers (Most races)
-	# <15: TRUNC((299.9 + 200*T)/10)
-	# >84: TRUNC((20099.9 - 200*T)/10)
-	# else: ROUND(SIN(3.14*(100-T)/100)*100000)
-	# Source: Planets.nu taxes-details
-	if t < 15:
-		var v_cold: float = (299.9 + (200.0 * float(t))) / 10.0
-		return int(floor(v_cold))
-	if t > 84:
-		var v_hot: float = (20099.9 - (200.0 * float(t))) / 10.0
-		return int(floor(v_hot))
-
-	var s: float = sin(_PI_APPROX * (100.0 - float(t)) / 100.0)
-	var v_mid: float = round(s * 100000.0)
-	var out: int = int(v_mid)
-	if out < 0:
-		out = 0
-	return out
 
 
 static func colonist_growth_clans_most(
@@ -62,7 +42,7 @@ static func colonist_growth_clans_most(
 	if not colonist_growth_possible_most(temp, col_happy, is_planetoid):
 		return 0
 
-	var max_pop: int = colonist_max_clans_most(temp)
+	var max_pop: int = _colonist_max_most_formula(temp)
 	# "The population will not grow if it exceeds the maximum population."
 	if col_clans >= max_pop and max_pop > 0:
 		return 0
@@ -90,7 +70,6 @@ static func colonist_growth_clans_most(
 		g = max(0, max_pop - col_clans)
 
 	return g
-
 
 static func colonist_min_to_grow_most(temp: int) -> int:
 	# "Minimum clans required to get growth >= 1" assuming:
@@ -211,7 +190,7 @@ static func native_is_maxed(p: PlanetData) -> bool:
 	var max_other: int = int(round(sin(angle) * 150000.0))
 	if max_other < 0:
 		max_other = 0
-	if max_other >= p.nativeclans:
+	if p.nativeclans >= max_other:
 		return true
 	else:
 		return false
@@ -232,22 +211,7 @@ static func colonist_is_maxed(
 		return false
 
 	return clans >= max_c
-	
-static func colonist_is_maxed_most(p: PlanetData) -> bool:
-	# Defensive: unknown/negative clans -> not maxed
-	var clans: int = int(p.clans)
-	if clans <= 0:
-		return false
-
-	var temp: int = int(p.temperature)
-	var max_clans: int = colonist_max_clans_most(temp)
-
-	# If max_clans is 0 (e.g. outside growth range in our model), treat as not maxed
-	if max_clans <= 0:
-		return false
-
-	return clans >= max_clans
-	
+		
 func _has(p: PlanetData, key: String) -> bool:
 	return not p.raw.is_empty() and p.raw.has(key)
 
@@ -282,8 +246,25 @@ func native_government_tax_efficiency(gov_level: int) -> float:
 func supplies_produced_next_turn(p: PlanetData) -> int:
 	if not _known_nonneg(p.factories):
 		return -1
-	return int(p.factories)
 
+	var factories: int = int(p.factories)
+	var bov_sup: int = bovinoid_supply_contribution(p)
+
+	return factories + bov_sup
+	
+func bovinoid_supply_contribution(p: PlanetData) -> int:
+	if String(p.nativeracename) != "Bovinoid":
+		return 0
+
+	if not (_known_nonneg(p.nativeclans) and _known_nonneg(p.clans)):
+		return 0
+
+	var native_clans: int = int(p.nativeclans)
+	var col_clans: int = int(p.clans)
+
+	var possible: int = native_clans / 100
+	return min(possible, col_clans)
+	
 # -------------------------
 # Colonist Happiness (Next Turn)
 # -------------------------
