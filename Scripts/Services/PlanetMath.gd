@@ -444,16 +444,11 @@ func native_happiness_delta_next_turn(
 # - Cyborg: no additional revenue above 20% tax rate (income capped to rate=20)
 # -------------------------
 func native_tax_mc(p: PlanetData, native_tax_rate: int, owner_race_id: int) -> int:
-	# happiness gate
+	# Native happiness gate
 	if int(p.nativehappypoints) <= 30:
 		return 0
 
-	var native_race: String = String(p.nativeracename).strip_edges().to_lower()
-
-	# Amorphous can be taxed but pay nothing
-	if native_race == "amorphous":
-		return 0
-
+	# Need colonists to collect
 	var col_clans: int = int(p.clans)
 	if col_clans <= 0:
 		return 0
@@ -462,37 +457,37 @@ func native_tax_mc(p: PlanetData, native_tax_rate: int, owner_race_id: int) -> i
 	if native_clans <= 0:
 		return 0
 
+	# Amorphous pay nothing
+	var native_type: int = int(p.nativetype)
+	if native_type == 5:
+		return 0
+
 	var tax_i: int = clamp(native_tax_rate, 0, 100)
 
-	# Cyborg: no additional revenue above 20%
+	# Borg/Cyborg income cap
 	if owner_race_id == 6 and tax_i > 20:
 		tax_i = 20
 
-	# efficiency as integer percent: 20..180
-	var eff_pct: int = native_government_tax_efficiency(int(p.nativegovernment))
+	# planets.nu client formula:
+	# govFactor = nativegovernment / 5
+	var gov_factor: float = float(int(p.nativegovernment)) / 5.0
 
-	# Base formula:
-	# Taxes = NativeClans * TaxRate * Eff / 10
-	# with Eff in percent => divide by 1000
-	# IMPORTANT: use TRUNC, not ROUND
-	var mc: int = _trunc(float(native_clans * tax_i * eff_pct) / 1000.0)
+	# base income
+	var native_income: int = int(round(float(tax_i) * float(native_clans) * gov_factor / 1000.0))
 
-	# Insectoids pay twice the normal taxes
-	if native_race == "insectoid":
-		mc *= 2
+	# collector cap first
+	if native_income > col_clans:
+		native_income = col_clans
 
-	# Collector cap:
-	# most natives: 1 MC per colonist clan
-	# insectoids:   2 MC per colonist clan
-	var collector_cap: int = col_clans * (2 if native_race == "insectoid" else 1)
-	if mc > collector_cap:
-		mc = collector_cap
+	# Insectoids double after collector cap
+	if native_type == 6:
+		native_income *= 2
 
-	# Planet cap
-	if mc > 5000:
-		mc = 5000
+	# global cap
+	if native_income > 5000:
+		native_income = 5000
 
-	return max(mc, 0)
+	return max(native_income, 0)
 	
 func native_happiness_next_turn_with_tax(
 	p: PlanetData,
