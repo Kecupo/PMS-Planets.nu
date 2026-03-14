@@ -140,12 +140,12 @@ func _has_natives(p: PlanetData) -> bool:
 	return p.nativeclans >= 0.0
 
 func _gov_tax_eff_text(p: PlanetData) -> String:
-	# Displays the "Tax Efficiency" from the fixed table.
-	# This is not the same as "government level" used in the happiness formula, but useful to show.
+	# Shows the native tax value used by planets.nu client logic.
 	if p.nativegovernment < 0.0:
 		return _dash()
-	var eff: int = Planet_Math.native_government_tax_efficiency(int(p.nativegovernment))*100
-	return "%d%%" % eff
+
+	var tax_value: int = int(p.nativetaxvalue)
+	return "%d%%" % tax_value
 
 # -------------------------
 # Update
