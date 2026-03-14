@@ -1,9 +1,10 @@
-[gd_scene load_steps=18 format=3 uid="uid://bsu1td676iiwc"]
+[gd_scene load_steps=17 format=3 uid="uid://bsu1td676iiwc"]
 
 [ext_resource type="Script" uid="uid://c1n0eqjwfpf33" path="res://Scenes/config_popup.gd" id="1_kx6hq"]
-[ext_resource type="ButtonGroup" uid="uid://bhkfvknhr47us" path="res://Scenes/BG_ColTaxMethod.tres" id="2_0issk"]
+[ext_resource type="ButtonGroup" uid="uid://bde4jx3b7q0r8" path="res://Scenes/BG_Nat_Tax.tres" id="2_22vw3"]
 [ext_resource type="ButtonGroup" uid="uid://bht4hv716fus7" path="res://Scenes/RB_Col_tax.tres" id="2_cq0wd"]
 [ext_resource type="ButtonGroup" uid="uid://x6d68ollrcar" path="res://Scenes/BG_ColCapTarget.tres" id="3_cq0wd"]
+[ext_resource type="ButtonGroup" uid="uid://c7yxbvgdw7gnw" path="res://Scenes/BG_NatTaxMethod.tres" id="3_ffiky"]
 
 [sub_resource type="Theme" id="Theme_kx6hq"]
 
@@ -37,10 +38,6 @@ TabContainer/styles/panel = SubResource("StyleBoxFlat_kx6hq")
 TabContainer/styles/tab_hovered = SubResource("StyleBoxFlat_cq0wd")
 TabContainer/styles/tab_selected = SubResource("StyleBoxFlat_22vw3")
 TabContainer/styles/tab_unselected = SubResource("StyleBoxFlat_ffiky")
-
-[sub_resource type="ButtonGroup" id="ButtonGroup_cq0wd"]
-
-[sub_resource type="ButtonGroup" id="ButtonGroup_22vw3"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_w7xoa"]
 bg_color = Color(0.98046875, 0.73535156, 0.73535156, 1)
@@ -77,7 +74,7 @@ theme_override_fonts/font = SubResource("FontVariation_kx6hq")
 theme_override_styles/tabbar_background = SubResource("StyleBoxTexture_kx6hq")
 theme_override_styles/tab_hovered = SubResource("StyleBoxFlat_4bn5k")
 theme_override_styles/tab_selected = SubResource("StyleBoxFlat_0issk")
-current_tab = 3
+current_tab = 1
 
 [node name="Tax Natives" type="VBoxContainer" parent="RootVBox/Tabs"]
 visible = false
@@ -103,14 +100,14 @@ layout_mode = 2
 unique_name_in_owner = true
 layout_mode = 2
 toggle_mode = true
-button_group = SubResource("ButtonGroup_cq0wd")
+button_group = ExtResource("2_22vw3")
 text = "Growth Mehod"
 
 [node name="BtnNatMethodGrowthTaxPlus" type="Button" parent="RootVBox/Tabs/Tax Natives/HBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 toggle_mode = true
-button_group = SubResource("ButtonGroup_22vw3")
+button_group = ExtResource("2_22vw3")
 text = "Growth Method Plus"
 
 [node name="HSeparator" type="HSeparator" parent="RootVBox/Tabs/Tax Natives"]
@@ -132,18 +129,17 @@ offset_bottom = 76.0
 unique_name_in_owner = true
 layout_mode = 2
 toggle_mode = true
-button_group = ExtResource("2_0issk")
+button_group = ExtResource("3_ffiky")
 text = "... down to happiness 70"
 
 [node name="BtnNatCap40" type="Button" parent="RootVBox/Tabs/Tax Natives/ChkNatCapEnabled/HBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 toggle_mode = true
-button_group = ExtResource("3_cq0wd")
+button_group = ExtResource("3_ffiky")
 text = "... down to hapiness 40"
 
 [node name="Tax Colonists" type="VBoxContainer" parent="RootVBox/Tabs"]
-visible = false
 layout_mode = 2
 metadata/_tab_index = 1
 
@@ -209,7 +205,7 @@ unique_name_in_owner = true
 layout_mode = 2
 toggle_mode = true
 button_pressed = true
-button_group = ExtResource("2_0issk")
+button_group = ExtResource("3_cq0wd")
 text = "Growth Tax"
 alignment = 0
 
@@ -217,7 +213,7 @@ alignment = 0
 unique_name_in_owner = true
 layout_mode = 2
 toggle_mode = true
-button_group = ExtResource("2_0issk")
+button_group = ExtResource("3_cq0wd")
 text = "Growth Tax Plus"
 alignment = 0
 
@@ -287,6 +283,7 @@ layout_mode = 2
 placeholder_text = "do*, not, cha, nge"
 
 [node name="Race Colors" type="VBoxContainer" parent="RootVBox/Tabs"]
+visible = false
 layout_mode = 2
 metadata/_tab_index = 3
 
