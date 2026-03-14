@@ -19,7 +19,7 @@ enum TaxMethod {
 # FC Config
 # -------------------------
 const SPECIAL_FCS_CASE_DEFAULT: PackedStringArray = [
-	"NUK", "ATT",
+	"NUK", "ATT","mf",
 	"PB0", "PB1", "PB2", "PB3", "PB4", "PB5", "PB6", "PB7", "PB8", "PB9",
 	"RB0", "RB1", "RB2", "RB3", "RB4", "RB5", "RB6", "RB7", "RB8", "RB9"
 ]
