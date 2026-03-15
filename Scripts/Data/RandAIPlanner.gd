@@ -3,13 +3,13 @@ class_name RandAIPlanner
 
 
 static func apply_to_planets(
-	game_id: int,
-	cur_turn: int,
+	_game_id: int,
+	_cur_turn: int,
 	owner_race_id: int,
 	my_planets: Array,
 	cfg: Node,
 	orders_store: Node,
-	planet_math: Node,
+	_planet_math: Node,
 	rng: RandomNumberGenerator
 ) -> void:
 	GameState.begin_batch_changes()
@@ -192,7 +192,7 @@ static func _native_cap_tax(p: PlanetData, cfg: RandAI_Config, owner_race_id: in
 	if not _should_tax_natives(p, cfg):
 		return 0
 
-	if not Planet_Math.native_is_maxed(p):
+	if not PlanetMath.native_is_maxed(p):
 		return -1
 
 	var target: int = int(cfg.nat_tax_happy_target)
@@ -271,7 +271,7 @@ static func _apply_colonist_cap_mode(
 	if not bool(cfg.col_tax_cap_enabled):
 		return -1
 
-	if not Planet_Math.colonist_is_maxed(p, owner_race_id):
+	if not PlanetMath.colonist_is_maxed(p, owner_race_id):
 		return -1
 
 	var target: int = int(cfg.col_tax_happy_target)

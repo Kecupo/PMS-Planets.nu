@@ -15,7 +15,7 @@ signal save_success(response: Dictionary)
 signal save_failed(reason: String)
 var _pending_save_game_id: int = 0
 var _pending_save_player_id: int = 0
-var _pending_save_wrapper: Dictionary = {}
+#var _pending_save_wrapper: Dictionary = {}
 var _pending_save_forsave: bool = false
 var _pending_username: String = ""
 var _pending_save_rst: Dictionary = {}

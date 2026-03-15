@@ -1,6 +1,7 @@
-[gd_scene load_steps=17 format=3 uid="uid://bsu1td676iiwc"]
+[gd_scene load_steps=18 format=3 uid="uid://bsu1td676iiwc"]
 
 [ext_resource type="Script" uid="uid://c1n0eqjwfpf33" path="res://Scenes/config_popup.gd" id="1_kx6hq"]
+[ext_resource type="ButtonGroup" uid="uid://bhkfvknhr47us" path="res://Scenes/BG_ColTaxMethod.tres" id="2_0issk"]
 [ext_resource type="ButtonGroup" uid="uid://bde4jx3b7q0r8" path="res://Scenes/BG_Nat_Tax.tres" id="2_22vw3"]
 [ext_resource type="ButtonGroup" uid="uid://bht4hv716fus7" path="res://Scenes/RB_Col_tax.tres" id="2_cq0wd"]
 [ext_resource type="ButtonGroup" uid="uid://x6d68ollrcar" path="res://Scenes/BG_ColCapTarget.tres" id="3_cq0wd"]
@@ -233,14 +234,14 @@ unique_name_in_owner = true
 layout_mode = 2
 toggle_mode = true
 button_pressed = true
-button_group = ExtResource("3_cq0wd")
+button_group = ExtResource("2_0issk")
 text = "Happiness down to 40"
 
 [node name="RbColCap70" type="Button" parent="RootVBox/Tabs/Tax Colonists/MarginContainer/VBoxContainer/HBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 toggle_mode = true
-button_group = ExtResource("3_cq0wd")
+button_group = ExtResource("2_0issk")
 text = "Happiness down to 70"
 
 [node name="Manage FCs" type="VBoxContainer" parent="RootVBox/Tabs"]

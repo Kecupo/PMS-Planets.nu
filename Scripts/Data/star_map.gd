@@ -9,7 +9,7 @@ func _ready() -> void:
 	set_process_input(true)
 	GameState.turn_loaded.connect(_on_turn_loaded)
 	GameState.orders_changed.connect(func() -> void:
-		_draw()
+		queue_redraw()
 )
 func _on_turn_loaded() -> void:
 	var center := Vector2(

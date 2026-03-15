@@ -81,7 +81,6 @@ const DEFAULT_RACE_COLORS: Dictionary = {
 	13: "#ff60ff"
 }
 
-
 # -----------------------------------------------------------------------------
 # Game switching / persistence
 # -----------------------------------------------------------------------------
@@ -132,7 +131,6 @@ func save_for_game(game_id: int) -> void:
 func mark_dirty() -> void:
 	dirty = true
 
-
 # -----------------------------------------------------------------------------
 # Defaults / load / save
 # -----------------------------------------------------------------------------
@@ -160,7 +158,6 @@ func _apply_defaults() -> void:
 	# Race colors
 	race_colors = DEFAULT_RACE_COLORS.duplicate(true)
 	neutral_color = "#ffffff"
-
 
 func _apply_from_dict(d: Dictionary) -> void:
 	# FC
@@ -209,7 +206,6 @@ func _apply_from_dict(d: Dictionary) -> void:
 			if key_i >= 0:
 				race_colors[key_i] = String(rc[k])
 
-
 func _to_dict() -> Dictionary:
 	var d: Dictionary = {}
 
@@ -238,7 +234,6 @@ func _to_dict() -> Dictionary:
 
 	return d
 
-
 # -----------------------------------------------------------------------------
 # Race color helpers
 # -----------------------------------------------------------------------------
@@ -258,7 +253,6 @@ func set_race_color(race_id: int, color: Color) -> void:
 	race_colors[race_id] = color.to_html()
 	mark_dirty()
 
-
 # -----------------------------------------------------------------------------
 # FC helpers
 # -----------------------------------------------------------------------------
@@ -277,7 +271,6 @@ func get_fc_never_change_prefixes() -> PackedStringArray:
 
 	return out
 
-
 func get_fc_never_change_set() -> Dictionary:
 	var s: Dictionary = {}
 
@@ -292,7 +285,6 @@ func get_fc_never_change_set() -> Dictionary:
 
 	return s
 
-
 func is_fc_protected(fc: String) -> bool:
 	var f: String = fc.strip_edges().to_upper()
 	if f.is_empty():
@@ -304,7 +296,6 @@ func is_fc_protected(fc: String) -> bool:
 			return true
 
 	return false
-
 
 # -----------------------------------------------------------------------------
 # Readers
@@ -331,7 +322,6 @@ static func _read_bool(d: Dictionary, key: String, default_value: bool) -> bool:
 
 	return default_value
 
-
 static func _read_int(d: Dictionary, key: String, default_value: int) -> int:
 	if not d.has(key):
 		return default_value
@@ -351,7 +341,6 @@ static func _read_int(d: Dictionary, key: String, default_value: int) -> int:
 
 	return default_value
 
-
 static func _read_string(d: Dictionary, key: String, default_value: String) -> String:
 	if not d.has(key):
 		return default_value
@@ -361,7 +350,6 @@ static func _read_string(d: Dictionary, key: String, default_value: String) -> S
 		return String(v)
 
 	return default_value
-
 
 static func _read_int_from_variant(v: Variant, default_value: int) -> int:
 	if typeof(v) == TYPE_INT:

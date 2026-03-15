@@ -52,14 +52,15 @@ func _on_games_listed(games: Array[Dictionary]) -> void:
 	_games = games
 
 	for g in _games:
-		var name: String = String(g.get("name", ""))
+		var name_g: String = String(g.get("name", ""))
 		var id_v: Variant = g.get("id", 0)
 		var gid: int = int(id_v) if typeof(id_v) == TYPE_INT else int(float(id_v))
-		game_list.add_item("%s (%d)" % [name, gid])
+		game_list.add_item("%s (%d)" % [name_g, gid])
 
 	game_list.deselect_all()
 	_populating = false
 	status_label.text = "Select a game"
+	
 func _on_item_activated(index: int) -> void:
 	if index < 0 or index >= _games.size():
 		return
