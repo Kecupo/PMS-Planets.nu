@@ -376,9 +376,9 @@ func _apply_themes_recursive(node: Node, check_theme: Theme, toggle_theme: Theme
 func _build_race_color_tab() -> void:
 	for c in race_colors_vbox.get_children():
 		c.queue_free()
-
+	_add_race_color_row(-1, "")
 	# immer neutral anzeigen
-	_add_race_color_row(0, "Neutral / Unknown")
+	_add_race_color_row(0, "   Neutral / Unknown")
 
 	var race_ids: Array[int] = []
 
@@ -412,9 +412,9 @@ func _race_display_name(race_id: int) -> String:
 	if GameState.config != null:
 		var abbr: String = GameState.config.get_owner_abbrev(race_id)
 		if not abbr.is_empty() and abbr != "—":
-			return "%d - %s" % [race_id, abbr]
+			return "   %d - %s" % [race_id, abbr]
 
-	return "%d - Race %d" % [race_id, race_id]
+	return "   %d - Race %d" % [race_id, race_id]
 	
 func _add_race_color_row(race_id: int, label_text: String) -> void:
 	var row: HBoxContainer = HBoxContainer.new()
@@ -426,26 +426,26 @@ func _add_race_color_row(race_id: int, label_text: String) -> void:
 	lbl.custom_minimum_size = Vector2(160, 24)
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	var preview: ColorRect = ColorRect.new()
-	preview.custom_minimum_size = Vector2(28, 20)
+	#var preview: ColorRect = ColorRect.new()
+	#preview.custom_minimum_size = Vector2(28, 20)
 
 	var picker: ColorPickerButton = ColorPickerButton.new()
 	picker.custom_minimum_size = Vector2(60, 24)
 	picker.text = ""
 	picker.set_meta("race_id", race_id)
-	picker.set_meta("preview", preview)
+	#picker.set_meta("preview", preview)
 
 	if race_id == 0:
 		picker.color = Color.from_string(RandAI_Config.neutral_color, Color.WHITE)
 	else:
 		picker.color = RandAI_Config.get_race_color(race_id)
 
-	preview.color = picker.color
+	#preview.color = picker.color
 
 	picker.color_changed.connect(_on_race_color_changed.bind(picker))
 
 	row.add_child(lbl)
-	row.add_child(preview)
+	#row.add_child(preview)
 	row.add_child(picker)
 
 	race_colors_vbox.add_child(row)

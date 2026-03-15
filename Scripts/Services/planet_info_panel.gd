@@ -203,7 +203,7 @@ func _update() -> void:
 
 	# Colonist happiness delta next turn
 	var base_temp: float = 50.0 # TODO later from config
-	var col_new_h: int = Planet_Math.colonist_happiness_next_turn_with_tax(p, col_tax, base_temp)
+	var col_new_h: int = PlanetMath.colonist_happiness_next_turn_with_tax(p, col_tax, base_temp)
 
 	var col_delta_h: int = 0
 	if col_new_h >= 0 and p.raw.has("colonisthappypoints"):
@@ -293,8 +293,8 @@ func _update() -> void:
 	var eff_col_tax: int = game_state.get_effective_colonist_taxrate(p)
 	var eff_nat_tax: int = game_state.get_effective_native_taxrate(p)
 	var my_race_id: int = game_state.my_race_id
-	var col_mc: int = Planet_Math.colonist_tax_mc(p, eff_col_tax, my_race_id)
-	var nat_mc: int = Planet_Math.native_tax_mc(p, eff_nat_tax, my_race_id)
+	var col_mc: int = PlanetMath.colonist_tax_mc(p, eff_col_tax, my_race_id)
+	var nat_mc: int = PlanetMath.native_tax_mc(p, eff_nat_tax, my_race_id)
 	_set_label(%M_ColonistTaxIncome, "+%d" % col_mc if col_mc >= 0 else "—")
 	if m_nat_tax_income != null:
 		_set_label(m_nat_tax_income, "+%d" % nat_mc if nat_mc >= 0 else "—")

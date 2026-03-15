@@ -212,7 +212,7 @@ static func colonist_tax_mc(p: PlanetData, tax_rate: int, owner_race_id: int) ->
 # nativetaxvalue is already present in the turn json
 # ------------------------------------------------------------
 
-func native_tax_mc(p: PlanetData, native_tax_rate: int, owner_race_id: int) -> int:
+static func native_tax_mc(p: PlanetData, native_tax_rate: int, owner_race_id: int) -> int:
 	if int(p.nativehappypoints) <= 30:
 		return 0
 
