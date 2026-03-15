@@ -38,6 +38,7 @@ var nativetaxvalue: float = -1.0         # present in your JSON sample
 var factories: float = -1.0
 var mines: float = -1.0
 var defense: float = -1.0
+var burrowsize: float = -1.0
 
 # Minerals (surface)
 var neutronium: float = -1.0
@@ -105,6 +106,7 @@ func apply_dict(d: Dictionary) -> void:
 	factories = float(d.get("factories", factories))
 	mines = float(d.get("mines", mines))
 	defense = float(d.get("defense", defense))
+	burrowsize = float(d.get("burrowsize", burrowsize))
 
 	# Minerals (surface)
 	neutronium = float(d.get("neutronium", neutronium))

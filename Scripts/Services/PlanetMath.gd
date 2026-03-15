@@ -36,7 +36,7 @@ static func _known_nonneg(v: float) -> bool:
 static func _trunc(x: float) -> int:
 	return int(x)
 
-func _has(p: PlanetData, key: String) -> bool:
+static func _has(p: PlanetData, key: String) -> bool:
 	return not p.raw.is_empty() and p.raw.has(key)
 
 static func _native_type(p: PlanetData) -> int:
@@ -76,10 +76,10 @@ func max_defense(p: PlanetData) -> int:
 # Official style formula already close to planets.nu docs
 # ------------------------------------------------------------
 
-func colonist_happiness_next_turn(p: PlanetData, base_temp: float = 50.0) -> int:
+static func colonist_happiness_next_turn(p: PlanetData, base_temp: float = 50.0) -> int:
 	return colonist_happiness_next_turn_with_tax(p, int(p.colonisttaxrate), base_temp)
 
-func colonist_happiness_next_turn_with_tax(p: PlanetData, tax_rate: int, base_temp: float = 50.0) -> int:
+static func colonist_happiness_next_turn_with_tax(p: PlanetData, tax_rate: int, base_temp: float = 50.0) -> int:
 	if not _has(p, "colonisthappypoints"):
 		return -1
 
@@ -109,7 +109,7 @@ func colonist_happiness_next_turn_with_tax(p: PlanetData, tax_rate: int, base_te
 		new_h = 100
 	return new_h
 
-func colonist_happiness_delta_next_turn(p: PlanetData, base_temp: float = 50.0) -> int:
+static func colonist_happiness_delta_next_turn(p: PlanetData, base_temp: float = 50.0) -> int:
 	var new_h: int = colonist_happiness_next_turn(p, base_temp)
 	if new_h < 0:
 		return -999999
@@ -119,18 +119,18 @@ func colonist_happiness_delta_next_turn(p: PlanetData, base_temp: float = 50.0) 
 # Native happiness
 # ------------------------------------------------------------
 
-func native_race_bonus(p: PlanetData) -> int:
+static func native_race_bonus(p: PlanetData) -> int:
 	# Client/host style: Avians give +10
 	return 10 if int(p.nativetype) == 4 else 0
 
-func native_happiness_next_turn(
+static func native_happiness_next_turn(
 	p: PlanetData,
 	nebula_bonus: int = 0,
 	combat_penalty: int = 0
 ) -> int:
 	return native_happiness_next_turn_with_tax(p, int(p.nativetaxrate), nebula_bonus, combat_penalty)
 
-func native_happiness_next_turn_with_tax(
+static func native_happiness_next_turn_with_tax(
 	p: PlanetData,
 	tax_rate: int,
 	nebula_bonus: int = 0,
@@ -168,7 +168,7 @@ func native_happiness_next_turn_with_tax(
 		new_h = 100
 	return new_h
 
-func native_happiness_delta_next_turn(
+static func native_happiness_delta_next_turn(
 	p: PlanetData,
 	nebula_bonus: int = 0,
 	combat_penalty: int = 0

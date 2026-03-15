@@ -173,17 +173,18 @@ static func _choose_tax_natives(p: PlanetData, cfg: RandAI_Config, owner_race_id
 	if not _should_tax_natives(p, cfg):
 		return 0
 
-	var current_h: int = int(p.nativehappypoints)
+	# Nur Pulse-Tax, wenn sich der Planet bei Tax=0 bis nächste Runde auf 100 erholt
+	var next_h0: int = PlanetMath.native_happiness_next_turn_with_tax(p, 0)
+	if next_h0 < 100:
+		return 0
+
 	var target_next: int = 70
 
-	# 0 = Growth Tax, 1 = Growth Tax Plus
-	if int(cfg.nat_tax_method) == 1:
-		var next_h0: int = Planet_Math.native_happiness_next_turn_with_tax(p, 0)
-		var delta0: int = next_h0 - current_h
-		target_next = clamp(70 - delta0, 40, 100)
+	# Growth Plus: tieferer Pulse
+	if int(cfg.nat_tax_method) == RandAI_Config.TaxMethod.GROWTH_PLUS:
+		target_next = 70 - PlanetMath.native_happiness_delta_next_turn(p)
 
 	return _best_native_tax_for_target_happiness(p, target_next, owner_race_id)
-
 
 static func _native_cap_tax(p: PlanetData, cfg: RandAI_Config, owner_race_id: int) -> int:
 	if not bool(cfg.nat_tax_cap_enabled):
@@ -204,7 +205,7 @@ static func _best_native_tax_for_target_happiness(p: PlanetData, target_next: in
 	var best_mc: int = -1
 
 	for t in range(0, 101):
-		var next_h: int = Planet_Math.native_happiness_next_turn_with_tax(p, t)
+		var next_h: int = PlanetMath.native_happiness_next_turn_with_tax(p, t)
 		if next_h < target_next:
 			continue
 
@@ -252,17 +253,18 @@ static func _choose_tax_colonists(
 	if not _should_tax_colonists(p, cfg, owner_race_id):
 		return 0
 
-	var current_h: int = int(p.colonisthappypoints)
+	# Nur Pulse-Tax, wenn sich der Planet bei Tax=0 bis nächste Runde auf 100 erholt
+	var next_h0: int = PlanetMath.colonist_happiness_next_turn_with_tax(p, 0)
+	if next_h0 < 100:
+		return 0
+
 	var target_next: int = 70
 
-	# 0 = Growth Tax, 1 = Growth Tax Plus
-	if int(cfg.col_tax_method) == 1:
-		var next_h0: int = Planet_Math.colonist_happiness_next_turn_with_tax(p, 0)
-		var delta0: int = next_h0 - current_h
-		target_next = clamp(70 - delta0, 40, 100)
+	# Growth Plus: tieferer Pulse
+	if int(cfg.col_tax_method) == RandAI_Config.TaxMethod.GROWTH_PLUS:
+		target_next = 70 - PlanetMath.colonist_happiness_delta_next_turn(p)
 
 	return _best_colonist_tax_for_target_happiness(p, target_next, owner_race_id)
-
 
 static func _apply_colonist_cap_mode(
 	p: PlanetData,
@@ -284,7 +286,7 @@ static func _best_colonist_tax_for_target_happiness(p: PlanetData, target_next: 
 	var best_mc: int = -1
 
 	for t in range(0, 101):
-		var next_h: int = Planet_Math.colonist_happiness_next_turn_with_tax(p, t)
+		var next_h: int = PlanetMath.colonist_happiness_next_turn_with_tax(p, t)
 		if next_h < target_next:
 			continue
 
