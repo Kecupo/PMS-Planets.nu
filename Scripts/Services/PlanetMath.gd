@@ -184,7 +184,7 @@ func native_happiness_delta_next_turn(
 # round(tax * clans / 1000), then apply race bonus
 # ------------------------------------------------------------
 
-func colonist_tax_mc(p: PlanetData, tax_rate: int, owner_race_id: int) -> int:
+static func colonist_tax_mc(p: PlanetData, tax_rate: int, owner_race_id: int) -> int:
 	if int(p.colonisthappypoints) <= 30:
 		return 0
 

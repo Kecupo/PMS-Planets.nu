@@ -8,7 +8,7 @@ var _wired_natives: bool = false
 @onready var txt_never: TextEdit = $"RootVBox/Tabs/Manage FCs/MarginContainer/VBoxContainer/TxtNeverChangeFcs"
 @onready var chk_randomize: CheckButton = $"RootVBox/Tabs/Manage FCs/MarginContainer/VBoxContainer/ChkRandomizeOtherFcs"
 # --- Colonist Tax Tab ---
-@onready var rb_col_gate_off: Button = %RbColGateOff
+@onready var chk_col_tax_enabled: CheckButton = %ChkColTaxEnabed
 @onready var rb_col_gate_min_clans: Button = %RbColGateMinCLans
 @onready var rb_col_gate_min_income: Button = %RbColGateMinIncome
 @onready var spin_col_min_clans: SpinBox = %SpinColMinClans
@@ -57,7 +57,7 @@ func open_popup() -> void:
 # -------------------------
 func _wire_colonist_tab() -> void:
 	# Gate (wann besteuern)
-	rb_col_gate_off.toggled.connect(_on_col_gate_changed)
+	chk_col_tax_enabled.toggled.connect(_on_col_enabled_toggled)
 	rb_col_gate_min_clans.toggled.connect(_on_col_gate_changed)
 	rb_col_gate_min_income.toggled.connect(_on_col_gate_changed)
 
@@ -91,37 +91,10 @@ func _wire_native_tab() -> void:
 func sync_from_config() -> void:
 	_syncing = true
 
-	# ---------- Colonist Gate ----------
-	var gate_mode: int = int(RandAI_Config.col_tax_gate_mode)
-
-	rb_col_gate_off.button_pressed = (gate_mode == 0)
-	rb_col_gate_min_clans.button_pressed = (gate_mode == 1)
-	rb_col_gate_min_income.button_pressed = (gate_mode == 2)
-
-	spin_col_min_clans.value = float(RandAI_Config.col_tax_min_clans)
-	spin_col_min_income.value = float(RandAI_Config.col_tax_min_income_mc)
-
-	# ---------- Colonist Method ----------
-	var method: int = int(RandAI_Config.col_tax_method)
-
-	rb_col_method_growth.button_pressed = (method == 0)
-	rb_col_method_growth_plus.button_pressed = (method == 1)
-
-	# ---------- Colonist Cap ----------
-	chk_col_cap_mode.button_pressed = bool(RandAI_Config.col_tax_cap_enabled)
-
-	var cap_target: int = int(RandAI_Config.col_tax_happy_target)
-
-	rb_col_cap_70.button_pressed = (cap_target == 70)
-	rb_col_cap_40.button_pressed = (cap_target == 40)
-
-	_update_colonist_gate_controls()
-	_update_colonist_cap_controls()
-
-	# ---------- Native Tab ----------
 	_sync_fc_tab_from_config()
 	_sync_colonist_tab_from_config()
 	_sync_native_tab_from_config()
+
 	_syncing = false
 
 func _sync_native_tab_from_config() -> void:
@@ -148,26 +121,21 @@ func _sync_fc_tab_from_config() -> void:
 	chk_randomize.button_pressed = bool(RandAI_Config.randomize_other_fcs)
 	
 func _sync_colonist_tab_from_config() -> void:
-	# Gate: 0 = OFF, 1 = MIN_CLANS, 2 = MIN_INCOME
+	chk_col_tax_enabled.button_pressed = bool(RandAI_Config.col_tax_enabled)
+
 	var gate_mode: int = int(RandAI_Config.col_tax_gate_mode)
+	rb_col_gate_min_clans.button_pressed = (gate_mode == RandAI_Config.ColTaxGateMode.MIN_CLANS)
+	rb_col_gate_min_income.button_pressed = (gate_mode == RandAI_Config.ColTaxGateMode.MIN_INCOME)
 
-	rb_col_gate_off.button_pressed = (gate_mode == 0)
-	rb_col_gate_min_clans.button_pressed = (gate_mode == 1)
-	rb_col_gate_min_income.button_pressed = (gate_mode == 2)
-
-	# Thresholds
 	spin_col_min_clans.value = float(RandAI_Config.col_tax_min_clans)
 	spin_col_min_income.value = float(RandAI_Config.col_tax_min_income_mc)
 
-	# Method: 0 = Growth Tax, 1 = Growth Tax Plus
 	var method: int = int(RandAI_Config.col_tax_method)
-	rb_col_method_growth.button_pressed = (method == 0)
-	rb_col_method_growth_plus.button_pressed = (method == 1)
+	rb_col_method_growth.button_pressed = (method == RandAI_Config.TaxMethod.GROWTH)
+	rb_col_method_growth_plus.button_pressed = (method == RandAI_Config.TaxMethod.GROWTH_PLUS)
 
-	# Cap mode
 	chk_col_cap_mode.button_pressed = bool(RandAI_Config.col_tax_cap_enabled)
 
-	# Target happiness
 	var cap_target: int = int(RandAI_Config.col_tax_happy_target)
 	rb_col_cap_70.button_pressed = (cap_target == 70)
 	rb_col_cap_40.button_pressed = (cap_target == 40)
@@ -215,7 +183,7 @@ func _on_col_tax_mode_selected(idx: int) -> void:
 		return
 		
 	var gate_mode: int = 1
-	if rb_col_gate_off.button_pressed:
+	if chk_col_cap_mode.button_pressed:
 		gate_mode = 0
 	elif rb_col_gate_min_income.button_pressed:
 		gate_mode = 2
@@ -261,53 +229,47 @@ func _on_nat_cap_target_changed(_on: bool) -> void:
 # UI State helpers
 # -------------------------
 func _update_colonist_gate_controls() -> void:
+	var enabled: bool = chk_col_tax_enabled.button_pressed
 
-	var tax_enabled: bool = rb_col_gate_off.button_pressed
+	rb_col_gate_min_clans.disabled = not enabled
+	rb_col_gate_min_income.disabled = not enabled
 
-	rb_col_gate_min_clans.disabled = not tax_enabled
-	rb_col_gate_min_income.disabled = not tax_enabled
+	spin_col_min_clans.editable = enabled and rb_col_gate_min_clans.button_pressed
+	spin_col_min_clans.focus_mode = Control.FOCUS_ALL if spin_col_min_clans.editable else Control.FOCUS_NONE
 
-	var clans_mode: bool = tax_enabled and rb_col_gate_min_clans.button_pressed
-	var income_mode: bool = tax_enabled and rb_col_gate_min_income.button_pressed
+	spin_col_min_income.editable = enabled and rb_col_gate_min_income.button_pressed
+	spin_col_min_income.focus_mode = Control.FOCUS_ALL if spin_col_min_income.editable else Control.FOCUS_NONE
 
-	spin_col_min_clans.editable = clans_mode
-	spin_col_min_clans.focus_mode = Control.FOCUS_ALL if clans_mode else Control.FOCUS_NONE
-
-	spin_col_min_income.editable = income_mode
-	spin_col_min_income.focus_mode = Control.FOCUS_ALL if income_mode else Control.FOCUS_NONE
-
+	rb_col_method_growth.disabled = not enabled
+	rb_col_method_growth_plus.disabled = not enabled
+	
 func _update_colonist_cap_controls() -> void:
-	var on: bool = chk_col_cap_mode.button_pressed
+	var enabled: bool = chk_col_tax_enabled.button_pressed
 
-	rb_col_cap_70.disabled = not on
-	rb_col_cap_40.disabled = not on
+	chk_col_cap_mode.disabled = not enabled
 
-	# optional: wenn off, Fokus verhindern
-	if not on:
-		rb_col_cap_70.focus_mode = Control.FOCUS_NONE
-		rb_col_cap_40.focus_mode = Control.FOCUS_NONE
-	else:
-		rb_col_cap_70.focus_mode = Control.FOCUS_ALL
-		rb_col_cap_40.focus_mode = Control.FOCUS_ALL
+	var cap_on: bool = enabled and chk_col_cap_mode.button_pressed
+	rb_col_cap_70.disabled = not cap_on
+	rb_col_cap_40.disabled = not cap_on
+
+	rb_col_cap_70.focus_mode = Control.FOCUS_ALL if cap_on else Control.FOCUS_NONE
+	rb_col_cap_40.focus_mode = Control.FOCUS_ALL if cap_on else Control.FOCUS_NONE
 
 # -------------------------
 # Handlers (ohne Lambdas)
 # -------------------------
-func _on_col_gate_changed(_on: bool) -> void:
+func _on_col_gate_changed(on: bool) -> void:
 	if _syncing:
 		return
-	if _on:
-		var gate_mode: int = 1
-		if rb_col_gate_off.button_pressed:
-			gate_mode = 0
-		elif rb_col_gate_min_income.button_pressed:
-			gate_mode = 2
-		else:
-			gate_mode = 1
-		if "col_tax_gate_mode" in RandAI_Config:
-			RandAI_Config.col_tax_gate_mode = gate_mode
-			RandAI_Config.mark_dirty()
+	if not on:
+		return
 
+	if rb_col_gate_min_income.button_pressed:
+		RandAI_Config.col_tax_gate_mode = RandAI_Config.ColTaxGateMode.MIN_INCOME
+	else:
+		RandAI_Config.col_tax_gate_mode = RandAI_Config.ColTaxGateMode.MIN_CLANS
+
+	RandAI_Config.mark_dirty()
 	_update_colonist_gate_controls()
 
 func _on_col_min_clans_changed(v: float) -> void:
@@ -324,17 +286,18 @@ func _on_col_min_income_changed(v: float) -> void:
 		RandAI_Config.col_tax_min_income_mc = int(v)
 		RandAI_Config.mark_dirty()
 
-func _on_col_method_changed(_on: bool) -> void:
+func _on_col_method_changed(on: bool) -> void:
 	if _syncing:
 		return
+	if not on:
+		return
 
-	var method: int = 0
 	if rb_col_method_growth_plus.button_pressed:
-		method = 1
+		RandAI_Config.col_tax_method = RandAI_Config.TaxMethod.GROWTH_PLUS
+	else:
+		RandAI_Config.col_tax_method = RandAI_Config.TaxMethod.GROWTH
 
-	if "col_tax_method" in RandAI_Config:
-		RandAI_Config.col_tax_method = method
-		RandAI_Config.mark_dirty()
+	RandAI_Config.mark_dirty()
 
 func _on_col_cap_mode_toggled(on: bool) -> void:
 	if _syncing:
@@ -502,3 +465,12 @@ func _on_race_color_changed(_color: Color, picker: ColorPickerButton) -> void:
 		RandAI_Config.mark_dirty()
 	else:
 		RandAI_Config.set_race_color(race_id, picker.color)
+
+func _on_col_enabled_toggled(on: bool) -> void:
+	if _syncing:
+		return
+
+	RandAI_Config.col_tax_enabled = on
+	RandAI_Config.mark_dirty()
+	_update_colonist_gate_controls()
+	_update_colonist_cap_controls()

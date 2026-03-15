@@ -162,7 +162,7 @@ horizontal_alignment = 1
 layout_mode = 2
 columns = 2
 
-[node name="RbColGateOff" type="CheckButton" parent="RootVBox/Tabs/Tax Colonists/MarginContainer/VBoxContainer/GridContainer"]
+[node name="ChkColTaxEnabed" type="CheckButton" parent="RootVBox/Tabs/Tax Colonists/MarginContainer/VBoxContainer/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Tax Colonist on/off"

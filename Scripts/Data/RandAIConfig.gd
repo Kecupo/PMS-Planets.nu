@@ -6,9 +6,8 @@ var dirty: bool = false
 # Enums
 # -------------------------
 enum ColTaxGateMode {
-	OFF = 0,
-	MIN_CLANS = 1,
-	MIN_INCOME = 2
+	MIN_CLANS = 0,
+	MIN_INCOME = 1
 }
 
 enum TaxMethod {
@@ -33,6 +32,7 @@ var randomize_other_fcs: bool = false
 # Colonist Tax Config
 # -------------------------
 # Gate:
+var col_tax_enabled: bool = false
 #   OFF = never tax colonists
 #   MIN_CLANS = tax only if clans >= threshold
 #   MIN_INCOME = tax only if max possible income >= threshold
@@ -142,6 +142,7 @@ func _apply_defaults() -> void:
 	randomize_other_fcs = false
 
 	# Colonists
+	col_tax_enabled = false
 	col_tax_gate_mode = ColTaxGateMode.MIN_CLANS
 	col_tax_min_clans = 10000
 	col_tax_min_income_mc = 100
@@ -166,6 +167,7 @@ func _apply_from_dict(d: Dictionary) -> void:
 	randomize_other_fcs = _read_bool(d, "randomize_other_fcs", false)
 
 	# Colonists
+	col_tax_enabled = _read_bool(d, "col_tax_enabled", false)
 	col_tax_gate_mode = _read_int(d, "col_tax_gate_mode", ColTaxGateMode.MIN_CLANS)
 	col_tax_min_clans = _read_int(d, "col_tax_min_clans", 10000)
 	col_tax_min_income_mc = _read_int(d, "col_tax_min_income_mc", 100)
@@ -173,7 +175,7 @@ func _apply_from_dict(d: Dictionary) -> void:
 	col_tax_cap_enabled = _read_bool(d, "col_tax_cap_enabled", false)
 	col_tax_happy_target = _read_int(d, "col_tax_happy_target", 70)
 
-	if col_tax_gate_mode < ColTaxGateMode.OFF or col_tax_gate_mode > ColTaxGateMode.MIN_INCOME:
+	if col_tax_gate_mode < ColTaxGateMode.MIN_CLANS or col_tax_gate_mode > ColTaxGateMode.MIN_INCOME:
 		col_tax_gate_mode = ColTaxGateMode.MIN_CLANS
 
 	if col_tax_method < TaxMethod.GROWTH or col_tax_method > TaxMethod.GROWTH_PLUS:
@@ -215,6 +217,7 @@ func _to_dict() -> Dictionary:
 	d["randomize_other_fcs"] = randomize_other_fcs
 
 	# Colonists
+	d["col_tax_enabled"] = col_tax_enabled
 	d["col_tax_gate_mode"] = col_tax_gate_mode
 	d["col_tax_min_clans"] = col_tax_min_clans
 	d["col_tax_min_income_mc"] = col_tax_min_income_mc

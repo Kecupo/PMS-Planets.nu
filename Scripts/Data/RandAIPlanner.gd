@@ -228,20 +228,21 @@ static func _should_tax_colonists(
 	cfg: RandAI_Config,
 	owner_race_id: int
 ) -> bool:
+	if not bool(cfg.col_tax_enabled):
+		return false
+
 	if int(p.clans) <= 0:
 		return false
 
 	match int(cfg.col_tax_gate_mode):
-		0:
-			return false
-		1:
+		RandAI_Config.ColTaxGateMode.MIN_CLANS:
 			return int(p.clans) >= int(cfg.col_tax_min_clans)
-		2:
-			var mc: int = Planet_Math.colonist_tax_mc(p, 100, owner_race_id)
+
+		RandAI_Config.ColTaxGateMode.MIN_INCOME:
+			var mc: int = PlanetMath.colonist_tax_mc(p, 100, owner_race_id)
 			return mc >= int(cfg.col_tax_min_income_mc)
 
 	return false
-
 
 static func _choose_tax_colonists(
 	p: PlanetData,
@@ -287,7 +288,7 @@ static func _best_colonist_tax_for_target_happiness(p: PlanetData, target_next: 
 		if next_h < target_next:
 			continue
 
-		var mc: int = Planet_Math.colonist_tax_mc(p, t, owner_race_id)
+		var mc: int = PlanetMath.colonist_tax_mc(p, t, owner_race_id)
 
 		if mc > best_mc:
 			best_mc = mc
