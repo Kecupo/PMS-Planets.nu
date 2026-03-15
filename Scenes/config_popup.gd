@@ -16,10 +16,10 @@ var _wired_natives: bool = false
 
 @onready var rb_col_method_growth: Button = %RbColMethodGrowthTax
 @onready var rb_col_method_growth_plus: Button = %RbColMethodGrowthTaxPlus
-@onready var chk_nat_tax_enabled: Button = %BtnNatGateOff
+@onready var chk_nat_tax_enabled: CheckButton = %BtnNatGateOff
 @onready var btn_nat_method_growth: Button = %BtnNatMethodGrowthTax
 @onready var btn_nat_method_growth_plus: Button = %BtnNatMethodGrowthTaxPlus
-@onready var chk_nat_cap: Button = %ChkNatCapEnabled
+@onready var chk_nat_cap: CheckButton = %ChkNatCapEnabled
 @onready var btn_nat_cap_70: Button = %BtnNatCap70
 @onready var btn_nat_cap_40: Button = %BtnNatCap40
 @onready var chk_col_cap_mode: CheckButton = %ChkColCapModeEnabled
@@ -78,7 +78,7 @@ func _wire_native_tab() -> void:
 	if _wired_natives:
 		return
 	_wired_natives = true
-
+	chk_nat_tax_enabled.toggled.connect(_on_nat_enabled_toggled)
 	btn_nat_method_growth.toggled.connect(_on_nat_method_changed)
 	btn_nat_method_growth_plus.toggled.connect(_on_nat_method_changed)
 
@@ -149,7 +149,7 @@ func _update_native_controls() -> void:
 	btn_nat_method_growth.disabled = not on
 	btn_nat_method_growth_plus.disabled = not on
 
-	chk_nat_cap.disabled = false
+	chk_nat_cap.disabled = not on
 	var cap_on: bool = on and chk_nat_cap.button_pressed
 	btn_nat_cap_70.disabled = not cap_on
 	btn_nat_cap_40.disabled = not cap_on
@@ -212,13 +212,14 @@ func _on_nat_method_changed(_on: bool) -> void:
 
 func _on_nat_cap_toggled(on: bool) -> void:
 	if _syncing: return
+	RandAI_Config.nat_tax_cap_enabled = on
 	if on:
 		if RandAI_Config.nat_tax_happy_target != 40 and RandAI_Config.nat_tax_happy_target != 70:
 			RandAI_Config.nat_tax_happy_target = 40
 
 		btn_nat_cap_40.button_pressed = (RandAI_Config.nat_tax_happy_target == 40)
 		btn_nat_cap_70.button_pressed = (RandAI_Config.nat_tax_happy_target == 70)
-	#RandAI_Config.mark_dirty()
+	RandAI_Config.mark_dirty()
 	_update_native_controls()
 
 func _on_nat_cap_target_changed(_on: bool) -> void:
@@ -302,7 +303,7 @@ func _on_col_method_changed(on: bool) -> void:
 func _on_col_cap_mode_toggled(on: bool) -> void:
 	if _syncing:
 		return
-
+	RandAI_Config.col_tax_cap_enabled = on
 	if on:
 		# Default Ziel: 40
 		if RandAI_Config.col_tax_happy_target != 40 and RandAI_Config.col_tax_happy_target != 70:
@@ -310,7 +311,7 @@ func _on_col_cap_mode_toggled(on: bool) -> void:
 
 		rb_col_cap_40.button_pressed = (RandAI_Config.col_tax_happy_target == 40)
 		rb_col_cap_70.button_pressed = (RandAI_Config.col_tax_happy_target == 70)
-
+	RandAI_Config.mark_dirty()
 	_update_colonist_cap_controls()
 
 func _update_check_color(btn: CheckButton) -> void:
@@ -376,7 +377,7 @@ func _apply_themes_recursive(node: Node, check_theme: Theme, toggle_theme: Theme
 func _build_race_color_tab() -> void:
 	for c in race_colors_vbox.get_children():
 		c.queue_free()
-	_add_race_color_row(-1, "")
+	#_add_race_color_row(-1, "")
 	# immer neutral anzeigen
 	_add_race_color_row(0, "   Neutral / Unknown")
 
@@ -426,26 +427,19 @@ func _add_race_color_row(race_id: int, label_text: String) -> void:
 	lbl.custom_minimum_size = Vector2(160, 24)
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	#var preview: ColorRect = ColorRect.new()
-	#preview.custom_minimum_size = Vector2(28, 20)
-
 	var picker: ColorPickerButton = ColorPickerButton.new()
 	picker.custom_minimum_size = Vector2(60, 24)
 	picker.text = ""
 	picker.set_meta("race_id", race_id)
-	#picker.set_meta("preview", preview)
-
+	
 	if race_id == 0:
 		picker.color = Color.from_string(RandAI_Config.neutral_color, Color.WHITE)
 	else:
 		picker.color = RandAI_Config.get_race_color(race_id)
 
-	#preview.color = picker.color
-
 	picker.color_changed.connect(_on_race_color_changed.bind(picker))
 
 	row.add_child(lbl)
-	#row.add_child(preview)
 	row.add_child(picker)
 
 	race_colors_vbox.add_child(row)

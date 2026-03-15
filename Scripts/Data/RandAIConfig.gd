@@ -115,7 +115,6 @@ func load_for_game(game_id: int) -> void:
 
 	dirty = false
 
-
 func save_for_game(game_id: int) -> void:
 	if game_id <= 0:
 		return

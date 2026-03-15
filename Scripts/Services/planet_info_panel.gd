@@ -243,7 +243,7 @@ func _update() -> void:
 		_set_label(v_nat_happy, _fmt_int(p.nativehappypoints) if p.raw.has("nativehappypoints") else "?")
 
 		# Native happiness delta next turn (nebula/combat ignored for now -> 0)
-		var nat_new_h: int = Planet_Math.native_happiness_next_turn_with_tax(p, nat_tax, 0, 0)
+		var nat_new_h: int = PlanetMath.native_happiness_next_turn_with_tax(p, nat_tax, 0, 0)
 
 		if nat_new_h >= 0 and p.raw.has("nativehappypoints"):
 			var nat_delta_h: int = nat_new_h - int(p.nativehappypoints)
