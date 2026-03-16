@@ -2,7 +2,6 @@ extends Node
 class_name GameStorage
 
 const ROOT_GAMES: String = "user://games"
-const API_KEY_FILE: String = "user://api_key.json"
 
 static func ensure_game_dir(game_id: int) -> void:
 	if not DirAccess.dir_exists_absolute(ROOT_GAMES):
