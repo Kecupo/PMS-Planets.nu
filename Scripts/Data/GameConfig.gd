@@ -31,11 +31,6 @@ func load_from_turn_json(parsed: Dictionary) -> void:
 			races.append(rd)
 			races_by_id[key] = rd
 
-	print("GameConfig: races loaded =", races.size(), " keys =", races_by_id.size())
-	if races.size() > 0:
-		print("GameConfig: sample race id=", races[0].id, " adjective=", races[0].adjective, " shortname=", races[0].shortname)
-
-
 func get_race(owner_id: int) -> Race_Data:
 	return races_by_id.get(owner_id, null)
 

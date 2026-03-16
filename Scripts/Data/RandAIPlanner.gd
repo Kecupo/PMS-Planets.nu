@@ -209,7 +209,7 @@ static func _best_native_tax_for_target_happiness(p: PlanetData, target_next: in
 		if next_h < target_next:
 			continue
 
-		var mc: int = Planet_Math.native_tax_mc(p, t, owner_race_id)
+		var mc: int = PlanetMath.native_tax_mc(p, t, owner_race_id)
 
 		if mc > best_mc:
 			best_mc = mc

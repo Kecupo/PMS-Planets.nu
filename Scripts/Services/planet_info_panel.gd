@@ -196,7 +196,22 @@ func _update() -> void:
 		_set_label(m_sup_next, "+%d" % sup_next if sup_next >= 0 else _dash())
 
 	_set_label(v_col, _fmt_int_unknown(p.clans))
-	_set_label(m_col_growth, _dash())  # TODO: colonist growth formula
+	var col_growth: int = PlanetMath.colonist_growth_clans_most(
+	int(p.temperature),
+	int(p.clans),
+	int(p.colonisttaxrate),
+	int(p.colonisthappypoints),
+	false
+	)
+	if p.nativeracename == "amorphous":
+		if col_growth >= 5: col_growth -= 5
+		else: col_growth = 0
+	if col_growth > 0:
+		_set_label(m_col_growth, "+" + str(col_growth))
+	elif col_growth == 0:
+		_set_label(m_col_growth, "0")
+	else:
+		_set_label(m_col_growth, _dash())
 	
 	# Colonist happiness (may be negative!) -> do NOT treat negative as unknown in display
 	_set_label(v_col_happy, _fmt_int(p.colonisthappypoints) if p.raw.has("colonisthappypoints") else "?")

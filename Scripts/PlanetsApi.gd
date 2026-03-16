@@ -65,7 +65,6 @@ func _handle_login_response(data: Dictionary) -> void:
 # TURN RESPONSE
 # =========================
 func _handle_turn_response(data: Dictionary) -> void:
-	print("Turn data received")
 	GameState.save_turn(data)
 	emit_signal("turn_downloaded", data)
 
@@ -126,11 +125,8 @@ func _on_request_completed(result: int, response_code: int,_headers: PackedStrin
 	var finished_request: RequestType = current_request
 	current_request = RequestType.NONE  # <<< SOFORT resetten
 
-	print("HTTP completed:", result, response_code, "finished_request:", finished_request)
-
 	var text: String = body.get_string_from_utf8()
-	print("RESPONSE HEAD:", text.substr(0,320))
-
+	
 	if response_code != 200:
 		_handle_error("HTTP " + str(response_code))
 		return
@@ -232,8 +228,7 @@ func logout() -> void:
 	# optional: weitere session infos zurücksetzen
 
 func _save_turn_with_savekey_and_merge(fresh_wrapper: Dictionary) -> void:
-	print("_save_turn_with_savekey_and_merge called")
-
+	
 	# -------------------------
 	# savekey
 	# -------------------------
@@ -243,8 +238,7 @@ func _save_turn_with_savekey_and_merge(fresh_wrapper: Dictionary) -> void:
 		return
 
 	var savekey: String = String(savekey_v)
-	print("SAVEKEY =", savekey)
-
+	
 	if savekey.is_empty():
 		emit_signal("save_failed", "Empty savekey in fresh wrapper")
 		return
@@ -301,8 +295,6 @@ func _save_turn_with_savekey_and_merge(fresh_wrapper: Dictionary) -> void:
 	var command_count: int = 0
 	var my_planets: Array[PlanetData] = GameState.get_my_planets()
 
-	print("My planets for upload:", my_planets.size())
-
 	for p in my_planets:
 		if p == null:
 			continue
@@ -314,13 +306,10 @@ func _save_turn_with_savekey_and_merge(fresh_wrapper: Dictionary) -> void:
 
 		var packed_planet: String = _pack_planet_command(fresh_rst, _pending_save_rst, planet_id)
 		if packed_planet.is_empty():
-			print("Skipping planet", planet_id, "(could not pack)")
 			continue
 
 		fields["Planet" + str(planet_id)] = packed_planet
 		command_count += 1
-
-		print("Uploading planet", planet_id)
 
 	if command_count <= 0:
 		emit_signal("save_failed", "No changed own planets found for upload")
@@ -333,9 +322,6 @@ func _save_turn_with_savekey_and_merge(fresh_wrapper: Dictionary) -> void:
 	# build POST body
 	# -------------------------
 	var body: String = _urlencode_form(fields)
-	print("Planet command count:", command_count)
-	print("SAVE BODY =", body.substr(0, min(500, body.length())))
-
 	var headers: PackedStringArray = [
 		"Content-Type: application/x-www-form-urlencoded; charset=UTF-8"
 	]

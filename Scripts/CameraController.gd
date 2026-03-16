@@ -54,8 +54,6 @@ func _zoom_at_screen_point(_screen_pos: Vector2, factor: float) -> void:
 	# Move camera so the point under the cursor stays under the cursor
 	position += (world_before - world_after)
 
-
-
 func _ready() -> void:
 	set_process_input(true)
 	center_on_galaxy()
