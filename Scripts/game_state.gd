@@ -21,7 +21,8 @@ var my_planets: Array[PlanetData] = []
 var my_planets_by_id: Dictionary = {} # int -> PlanetData
 var _batch_mode: bool = false
 var _batch_dirty: bool = false
-const API_KEY_FILE: String = "user://api_key.json"
+const API_KEY_FILE: String = "user://api_key.dat"
+const API_KEY_PASS: String = "Jw95m+3*Mv$3x"
 # -------------------------
 # Laufzeitdaten
 # -------------------------
@@ -239,7 +240,11 @@ func get_my_planets() -> Array[PlanetData]:
 func load_api_credentials() -> void:
 	if not FileAccess.file_exists(API_KEY_FILE):
 		return
-	var f: FileAccess = FileAccess.open(API_KEY_FILE, FileAccess.READ)
+	var f: FileAccess = FileAccess.open_encrypted_with_pass(
+		API_KEY_FILE,
+		FileAccess.READ,
+		API_KEY_PASS
+	)
 	if f == null:
 		push_error("Cannot open " + API_KEY_FILE)
 		return
@@ -265,7 +270,11 @@ func save_api_credentials(new_username: String, new_api_key: String) -> void:
 	api_key = new_api_key
 
 	var d: Dictionary = {"username": username, "api_key": api_key}
-	var f: FileAccess = FileAccess.open(API_KEY_FILE, FileAccess.WRITE)
+	var f: FileAccess = FileAccess.open_encrypted_with_pass(
+		API_KEY_FILE,
+		FileAccess.WRITE,
+		API_KEY_PASS
+	)
 	if f == null:
 		push_error("Cannot write " + API_KEY_FILE)
 		return
