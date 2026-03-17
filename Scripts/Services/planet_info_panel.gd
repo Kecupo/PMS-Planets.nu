@@ -8,7 +8,7 @@ extends PanelContainer
 # - V_* : primary value labels
 # - M_* : meta labels (growth, delta, max, mining, etc.)
 # - L_* : caption labels (optional to hide)
-
+@onready var close_btn: Button = %Close_Overlay
 @onready var game_state = get_node("/root/GameState")
 
 # -------------------------
@@ -92,16 +92,20 @@ extends PanelContainer
 var _ui_lock: bool = false
 
 func _ready() -> void:
-	
+	close_btn.pressed.connect(_on_close_pressed)
 	game_state.selection_changed.connect(_on_selection_changed)
 	_update()
 	v_col_tax_spin.value_changed.connect(_on_colonist_tax_changed)
 	v_nat_tax_spin.value_changed.connect(_on_native_tax_changed)
 	GameState.orders_changed.connect(_on_orders_changed)
-
+	
+func _on_close_pressed() -> void:
+	hide()
+	
 func _on_selection_changed(kind: String, _selected_id: int) -> void:
 	if kind == "planet":
 		_update()
+	if self.visible == false: self.visible = true
 
 # -------------------------
 # Helpers
@@ -181,7 +185,12 @@ func _update() -> void:
 	planet_id_lbl.text = "ID %d" % p.planet_id
 	planet_name_lbl.text = p.name
 	planet_fc_lbl.text = p.friendlycode
-	planet_owner_lbl.text = _owner_abbrev(int(p.ownerid))
+	var rid: int = int(p.ownerid)
+	planet_owner_lbl.text = _owner_abbrev(rid)
+	planet_owner_lbl.add_theme_color_override(
+	"font_color",
+	RandAI_Config.get_race_color(rid)
+)
 	coord_temp_lbl.text = "%.0f°" % p.temperature
 
 	# -------------------------

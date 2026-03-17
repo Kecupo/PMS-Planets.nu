@@ -138,7 +138,9 @@ size_flags_vertical = 3
 [node name="SectionLabel" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection"]
 custom_minimum_size = Vector2(0, 150)
 layout_mode = 2
+theme_override_colors/font_color = Color(0.03378296, 0.548064, 0.9609375, 1)
 text = "  ECONOMY"
+horizontal_alignment = 1
 
 [node name="GridContainer" type="GridContainer" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel"]
 layout_mode = 1
@@ -299,16 +301,19 @@ custom_minimum_size = Vector2(0, 130)
 layout_mode = 2
 
 [node name="SectionTitle" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection"]
-custom_minimum_size = Vector2(0, 150)
+custom_minimum_size = Vector2(0, 120)
 layout_mode = 2
+size_flags_vertical = 0
+theme_override_colors/font_color = Color(0.03378296, 0.548064, 0.9609375, 1)
 text = "  INDUSTRY"
+horizontal_alignment = 1
 
 [node name="GridContainer" type="GridContainer" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle"]
 layout_mode = 0
 offset_left = 24.0
 offset_top = 30.0
 offset_right = 436.0
-offset_bottom = 134.0
+offset_bottom = 109.0
 columns = 4
 
 [node name="L_Factories" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
@@ -384,7 +389,9 @@ size_flags_vertical = 3
 
 [node name="SectionTitel" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.03378296, 0.548064, 0.9609375, 1)
 text = "  MINERALS"
+horizontal_alignment = 1
 
 [node name="GridContainer" type="GridContainer" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel"]
 layout_mode = 0
@@ -523,6 +530,18 @@ horizontal_alignment = 2
 unique_name_in_owner = true
 layout_mode = 2
 horizontal_alignment = 2
+
+[node name="Footer" type="HBoxContainer" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content"]
+layout_mode = 2
+size_flags_horizontal = 8
+size_flags_vertical = 3
+
+[node name="Close_Overlay" type="Button" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/Footer"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 8
+text = "CLose"
+icon_alignment = 1
 
 [node name="StatusBar" type="PanelContainer" parent="UILayer/UIRoot/RootLayout"]
 custom_minimum_size = Vector2(0, 24)
