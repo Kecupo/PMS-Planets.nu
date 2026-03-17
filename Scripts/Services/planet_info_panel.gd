@@ -26,7 +26,7 @@ extends PanelContainer
 @onready var v_mc: Label = %V_Megacredits
 @onready var v_sup: Label = %V_Supplies
 # Optional meta for supplies next turn (create if you want it)
-
+@onready var col_max: Label = %L_Colonist_Max
 @onready var v_col: Label = %V_Colonists
 @onready var m_col_growth: Label = %M_Colonists_Growth
 @onready var v_col_tax_spin: SpinBox = %V_ColonistTaxSpin
@@ -49,7 +49,7 @@ extends PanelContainer
 @onready var v_nat_tax_spin: SpinBox = %V_NativeTaxSpin
 @onready var v_nat_happy: Label = %V_NativeHappy
 @onready var m_nat_happy_d: Label = %M_NativeHappyDelta
-
+@onready var nat_lbl: Label = %Natives_lbl
 # Captions that should also hide when no natives
 @onready var l_nat_tax: Label = get_node_or_null("%L_NativeTax")
 @onready var l_nat_happy: Label = get_node_or_null("%L_NativeHappy")
@@ -224,11 +224,15 @@ func _update() -> void:
 	
 	# Colonist happiness (may be negative!) -> do NOT treat negative as unknown in display
 	_set_label(v_col_happy, _fmt_int(p.colonisthappypoints) if p.raw.has("colonisthappypoints") else "?")
-
+	if is_mine: 
+		_set_label(col_max, "Max: " + str(PlanetMath.colonist_max_clans(p.temperature, rid)))
+	else:
+		_set_label(col_max, "???")
+		
 	# Colonist happiness delta next turn
 	var base_temp: float = 50.0 # TODO later from config
 	var col_new_h: int = PlanetMath.colonist_happiness_next_turn_with_tax(p, col_tax, base_temp)
-
+	
 	var col_delta_h: int = 0
 	if col_new_h >= 0 and p.raw.has("colonisthappypoints"):
 		col_delta_h = col_new_h - int(p.colonisthappypoints)
@@ -353,6 +357,7 @@ func _update() -> void:
 
 
 func _set_natives_block_visible(is_visible_v: bool) -> void:
+	_set_visible(nat_lbl, is_visible_v)
 	_set_visible(v_nat_race, is_visible_v)
 	_set_visible(v_nat_gov, is_visible_v)
 	_set_visible(m_nat_gov_tax_factor, is_visible_v)
