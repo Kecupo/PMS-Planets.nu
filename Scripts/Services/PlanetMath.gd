@@ -327,7 +327,8 @@ static func colonist_max_clans(
 	# Client snippet special case: nativetype 11 boosts max pop by 1.5
 	if native_type == 11 and native_clans > 0:
 		max_supported = int(round(float(max_supported) * 1.5))
-
+	if native_type == 5 and temp > 15 and temp < 85:
+		max_supported -= 5
 	return max_supported
 
 static func colonist_is_maxed(

@@ -212,7 +212,7 @@ func _update() -> void:
 	int(p.colonisthappypoints),
 	false
 	)
-	if p.nativeracename == "amorphous":
+	if p.nativeracename == "Amorphous":
 		if col_growth >= 5: col_growth -= 5
 		else: col_growth = 0
 	if col_growth > 0:
