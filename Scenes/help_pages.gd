@@ -1,7 +1,7 @@
 extends Control
 class_name HelpPanel
 
-const HELP_JSON_PATH: String = "res://help_pages.json"
+const HELP_JSON_PATH: String = "user://help_pages.json"
 
 @onready var search_edit: LineEdit = %SearchEdit
 @onready var toc_tree: Tree = %TocTree

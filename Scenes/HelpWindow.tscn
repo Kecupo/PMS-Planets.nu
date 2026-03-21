@@ -1,8 +1,21 @@
-[gd_scene load_steps=2 format=3 uid="uid://dj8wk1wj32mji"]
+[gd_scene load_steps=3 format=3 uid="uid://dj8wk1wj32mji"]
 
 [ext_resource type="Script" uid="uid://cbnpq1gkgtql1" path="res://Scenes/help_pages.gd" id="1_ofcof"]
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ofcof"]
+bg_color = Color(0.11764706, 0.11764706, 0.11764706, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.6666667, 0.6666667, 0.6666667, 0.6666667)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
 [node name="HelpWindow" type="Control"]
+top_level = true
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -13,42 +26,67 @@ offset_right = -9.0
 offset_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
 script = ExtResource("1_ofcof")
 
-[node name="HSplitContainer" type="HSplitContainer" parent="."]
-custom_minimum_size = Vector2(500, 300)
+[node name="PanelContainer" type="PanelContainer" parent="."]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -412.0
-offset_top = -274.0
-offset_right = 408.0
-offset_bottom = 156.0
+offset_left = -338.0
+offset_top = -163.0
+offset_right = 338.0
+offset_bottom = 163.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_ofcof")
 
-[node name="VBoxContainer" type="VBoxContainer" parent="HSplitContainer"]
-custom_minimum_size = Vector2(100, 0)
+[node name="MarginContainer" type="MarginContainer" parent="PanelContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="HSplitContainer" type="HSplitContainer" parent="PanelContainer/MarginContainer"]
+custom_minimum_size = Vector2(650, 300)
 layout_mode = 2
 
-[node name="SearchEdit" type="LineEdit" parent="HSplitContainer/VBoxContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer/MarginContainer/HSplitContainer"]
+custom_minimum_size = Vector2(300, 0)
+layout_mode = 2
+
+[node name="SearchEdit" type="LineEdit" parent="PanelContainer/MarginContainer/HSplitContainer/VBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="TocTree" type="Tree" parent="HSplitContainer/VBoxContainer"]
+[node name="TocTree" type="Tree" parent="PanelContainer/MarginContainer/HSplitContainer/VBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="ContentText" type="RichTextLabel" parent="HSplitContainer"]
+[node name="ContentText" type="RichTextLabel" parent="PanelContainer/MarginContainer/HSplitContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 
 [node name="CloseBtn" type="Button" parent="."]
 unique_name_in_owner = true
-layout_mode = 0
-offset_right = 8.0
-offset_bottom = 8.0
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -383.0
+offset_top = -272.0
+offset_right = -315.0
+offset_bottom = -245.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.041625977, 0.96875, 0.96875, 1)
+text = "Close"
+flat = true

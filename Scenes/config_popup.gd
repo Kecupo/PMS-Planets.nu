@@ -26,6 +26,7 @@ var _wired_natives: bool = false
 @onready var rb_col_cap_70: Button = %RbColCap70
 @onready var rb_col_cap_40: Button = %RbColCap40
 @onready var race_colors_vbox: VBoxContainer = %RaceColorsVbox
+
 func _ready() -> void:
 	close_btn.pressed.connect(_on_close_pressed)
 	close_requested.connect(_on_close_pressed)

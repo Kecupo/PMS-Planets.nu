@@ -66,3 +66,7 @@ theme_override_colors/font_pressed_color = Color(0.2750473, 0.029785156, 0.95312
 theme_override_colors/font_hover_color = Color(0.97265625, 0.02659607, 0.02659607, 1)
 text = "Quit     "
 expand_icon = true
+
+[node name="HelpButton" type="MenuButton" parent="PlanetsMenu"]
+layout_mode = 2
+text = "Help"

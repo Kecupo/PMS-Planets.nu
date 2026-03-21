@@ -6,15 +6,16 @@ extends HBoxContainer
 @onready var manage_button: Button = $ManageButton
 @onready var select_button: Button = $SelectButton
 @onready var config_button: Button = $ConfigButton
+@onready var help_button: Button = $HelpButton
 
 const LoginDialogScene := preload("res://Scenes/LoginDialog.tscn")
 var _login_dialog: Window = null
 
 @onready var _game_select_popup: Window = preload("res://Scenes/GameSelectPopup.tscn").instantiate()
-
+const HelpScene := preload("res://Scenes/HelpWindow.tscn")
 const ConfigPopupScene := preload("res://Scenes/ConfigPopup.tscn")
 var _popup: ConfigPopup = null
-
+var _help: HelpPanel = null
 
 func _ready() -> void:
 	# Buttons
@@ -24,7 +25,7 @@ func _ready() -> void:
 	manage_button.pressed.connect(_on_manage_button_pressed)
 	select_button.pressed.connect(_on_select_button_pressed)
 	config_button.pressed.connect(_on_config_button_pressed)
-
+	help_button.pressed.connect(_on_help_button_pressed)
 	# Game select popup must be in tree
 	add_child(_game_select_popup)
 	_game_select_popup.hide()
@@ -148,6 +149,11 @@ func _on_config_button_pressed() -> void:
 		get_tree().root.add_child(_popup)
 	_popup.open_popup()
 
-
+func _on_help_button_pressed() -> void:
+	if _help == null:
+		_help = HelpScene.instantiate() as HelpPanel
+		get_node("/root/MainUI/UILayer").add_child(_help)
+	_help.open_panel()
+	
 func _refresh_login_button() -> void:
 	login_btn.text = "Logout" if GameState.has_api_credentials() else "Login"
