@@ -185,7 +185,7 @@ func _update() -> void:
 	planet_id_lbl.text = "ID %d" % p.planet_id
 	planet_name_lbl.text = p.name
 	planet_fc_lbl.text = p.friendlycode
-	var rid: int = int(p.ownerid)
+	var rid: int = GameState.get_owner_race_id_of_planet(p)
 	planet_owner_lbl.text = _owner_abbrev(rid)
 	planet_owner_lbl.add_theme_color_override(
 	"font_color",

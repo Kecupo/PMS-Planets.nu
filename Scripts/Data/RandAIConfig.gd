@@ -69,7 +69,7 @@ const DEFAULT_RACE_COLORS: Dictionary = {
 	1: "#00ff00",
 	2: "#ff6060",
 	3: "#60a0ff",
-	4: "#ffaa40", # Fascists/Fury slot
+	4: "#ffaa40", 
 	5: "#c060ff",
 	6: "#40ffff",
 	7: "#ff80c0",
