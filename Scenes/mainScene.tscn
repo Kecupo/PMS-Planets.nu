@@ -155,6 +155,7 @@ columns = 3
 custom_minimum_size = Vector2(100, 20)
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 12
 text = "Megacredits"
 
 [node name="V_Megacredits" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
@@ -162,6 +163,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(100, 20)
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 12
 text = "10000"
 horizontal_alignment = 2
 
@@ -170,22 +172,26 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
 size_flags_horizontal = 10
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 2
 
 [node name="L_Supplies" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
 custom_minimum_size = Vector2(0, 20)
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = "Supplies"
 
 [node name="V_Supplies" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 20)
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 2
 
 [node name="M_Supplies" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 2
 
 [node name="Blank" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
@@ -195,29 +201,34 @@ layout_mode = 2
 custom_minimum_size = Vector2(0, 2)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.99026644, 0.54781777, 0.9607386, 1)
+theme_override_font_sizes/font_size = 12
 text = "Colonists"
 horizontal_alignment = 1
 
 [node name="Blank2" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
 layout_mode = 2
 
-[node name="L_Colonist_Max" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
-unique_name_in_owner = true
-layout_mode = 2
-
 [node name="V_Colonists" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 20)
 layout_mode = 2
-horizontal_alignment = 2
+theme_override_font_sizes/font_size = 12
+
+[node name="L_Colonist_Max" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+horizontal_alignment = 1
 
 [node name="M_Colonists_Growth" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 2
 
 [node name="L_ColonistTax" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = "Taxrate"
 
 [node name="V_ColonistTaxSpin" type="SpinBox" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
@@ -229,20 +240,24 @@ alignment = 2
 [node name="M_ColonistTaxIncome" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 2
 
 [node name="L_ColonistHappy" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = "Happiness"
 
 [node name="V_ColonistHappy" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 2
 
 [node name="M_ColonistHappyDelta" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 2
 
 [node name="Blank3" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
@@ -252,6 +267,7 @@ layout_mode = 2
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.99026644, 0.54781777, 0.9607386, 1)
+theme_override_font_sizes/font_size = 12
 text = "Natives"
 horizontal_alignment = 1
 
@@ -262,36 +278,43 @@ layout_mode = 2
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 20)
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 1
 
 [node name="V_NativeGov" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 20)
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 2
 
 [node name="M_NativeGovTaxFactor" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 2
 
 [node name="V_NativeClans" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
-
-[node name="M_Natives_Growth" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
-unique_name_in_owner = true
-layout_mode = 2
-horizontal_alignment = 2
+theme_override_font_sizes/font_size = 12
 
 [node name="M_NativeMaxClans" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
+horizontal_alignment = 2
+
+[node name="M_Natives_Growth" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 2
 
 [node name="L_NativeTax" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = "Taxrate"
 
 [node name="V_NativeTaxSpin" type="SpinBox" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
@@ -302,21 +325,25 @@ alignment = 2
 [node name="M_NativeTaxIncome" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 2
 
 [node name="L_NativeHappy" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = "Happiness"
 
 [node name="V_NativeHappy" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 2
 
 [node name="M_NativeHappyDelta" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection/SectionLabel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 2
 
 [node name="Separator2" type="HSeparator" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content"]
@@ -346,18 +373,21 @@ columns = 4
 [node name="L_Factories" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
 custom_minimum_size = Vector2(100, 20)
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = "Factories"
 horizontal_alignment = 1
 
 [node name="L_Mines" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
 custom_minimum_size = Vector2(100, 20)
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = "Mines"
 horizontal_alignment = 1
 
 [node name="L_Defense" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
 custom_minimum_size = Vector2(100, 20)
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = "Defense"
 horizontal_alignment = 1
 
@@ -369,41 +399,49 @@ layout_mode = 2
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 20)
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 1
 
 [node name="V_Mines" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 20)
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 1
 
 [node name="V_Defense" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 20)
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 1
 
 [node name="Label2" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = "Actual"
 
 [node name="M_Factories_Max" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 1
 
 [node name="M_Mines_Max" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 1
 
 [node name="M_Defense_Max" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 1
 
 [node name="L_Maximum" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = "Maximum"
 
 [node name="Separator3" type="HSeparator" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content"]
@@ -438,125 +476,149 @@ horizontal_alignment = 1
 [node name="Header_Surface" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
 custom_minimum_size = Vector2(75, 0)
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = "Surface"
 horizontal_alignment = 2
 
 [node name="Header_Ground" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
 custom_minimum_size = Vector2(75, 0)
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = "Ground"
 horizontal_alignment = 2
 
 [node name="Header_Density" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
 custom_minimum_size = Vector2(75, 0)
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = "Density"
 horizontal_alignment = 2
 
 [node name="Mining" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
 custom_minimum_size = Vector2(75, 0)
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = "Mining"
 horizontal_alignment = 2
 
 [node name="Row_Neut_Label" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = "Neutronium"
 
 [node name="V_Neut_Surface" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = "10000"
 horizontal_alignment = 2
 
 [node name="V_Neut_Ground" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = "10000"
 horizontal_alignment = 2
 
 [node name="V_Neut_Density" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = "95%"
 horizontal_alignment = 2
 
 [node name="M_Neut_Mining" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = "1000"
 horizontal_alignment = 2
 
 [node name="Row_Dura_Label" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = "Duranium"
 
 [node name="V_Dura_Surface" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 2
 
 [node name="V_Dura_Ground" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 2
 
 [node name="V_Dura_Density" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 2
 
 [node name="M_Dura_Mining" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 2
 
 [node name="Row_Trit_Label" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = "Tritanium"
 
 [node name="V_Trit_Surface" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 2
 
 [node name="V_Trit_Ground" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 2
 
 [node name="V_Trit_Density" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 2
 
 [node name="M_Trit_Mining" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 2
 
 [node name="Row_Moly_Label" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = "Molybenium"
 
 [node name="V_Moly_Surface" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 2
 
 [node name="V_Moly_Ground" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 2
 
 [node name="V_Moly_Density" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 2
 
 [node name="M_Moly_Mining" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection/SectionTitel/GridContainer"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 horizontal_alignment = 2
 
 [node name="Footer" type="HBoxContainer" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content"]
