@@ -39,6 +39,7 @@ var factories: float = -1.0
 var mines: float = -1.0
 var defense: float = -1.0
 var burrowsize: float = -1.0
+var larva: float = -1.0
 
 # Minerals (surface)
 var neutronium: float = -1.0
@@ -107,7 +108,8 @@ func apply_dict(d: Dictionary) -> void:
 	mines = float(d.get("mines", mines))
 	defense = float(d.get("defense", defense))
 	burrowsize = float(d.get("burrowsize", burrowsize))
-
+	larva = float(d.get("larva", larva))
+	
 	# Minerals (surface)
 	neutronium = float(d.get("neutronium", neutronium))
 	tritanium = float(d.get("tritanium", tritanium))
@@ -190,7 +192,10 @@ func merge_prefer_known(from_dict: Dictionary) -> void:
 		mines = tmp.mines
 	if defense < 0.0 and tmp.defense >= 0.0:
 		defense = tmp.defense
-
+	if larva < 0.0 and tmp.larva >= 0.0:
+		larva = tmp.larva
+	if burrowsize < 0.0 and tmp.burrowsize >= 0.0:
+		burrowsize = tmp.burrowsize
 	# Minerals surface
 	if neutronium < 0.0 and tmp.neutronium >= 0.0:
 		neutronium = tmp.neutronium

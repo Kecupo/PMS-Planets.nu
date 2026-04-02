@@ -63,7 +63,11 @@ extends PanelContainer
 @onready var m_mines_max: Label = %M_Mines_Max
 @onready var v_def: Label = %V_Defense
 @onready var m_def_max: Label = %M_Defense_Max
-
+@onready var horwasp_lbl: Label = %Horwasp_lbl
+@onready var v_larva: Label = %V_Larva
+@onready var v_burrows: Label = %L_Burrows
+@onready var l_larva: Label = %L_Larva
+@onready var l_burrows: Label = %V_Burrows
 # -------------------------
 # Minerals (GridContainer columns=5)
 # Mineral | Surface | Ground | Density | Mining
@@ -173,6 +177,7 @@ func _update() -> void:
 		coord_temp_lbl.text = ""
 		_set_all_unknown()
 		_set_natives_block_visible(false)
+		_set_horwasp_block_visible(false)
 		return
 	# Effective tax rates (including orders)
 	var col_tax: int = game_state.get_effective_colonist_taxrate(p)
@@ -239,7 +244,15 @@ func _update() -> void:
 		_set_label(m_col_happy_d, " %d" % col_delta_h)
 	else:
 		_set_label(m_col_happy_d, " " + _dash())
+	# -------------------------
+	# Horwasp
+	# -------------------------
+	var show_horwasp: bool = _show_horwasp_block(p)
+	_set_horwasp_block_visible(show_horwasp)
 
+	if show_horwasp:
+		_set_label(v_larva, _fmt_larva_for_display(p))
+		_set_label(v_burrows, _fmt_int_unknown(p.burrowsize))
 	# -------------------------
 	# Natives
 	# -------------------------
@@ -427,6 +440,9 @@ func _set_all_unknown() -> void:
 	_set_label(v_m_g, "?")
 	_set_label(v_m_d, "?")
 	_set_label(m_m_mining, "?")
+		# Horwasp
+	_set_label(v_larva, "?")
+	_set_label(v_burrows, "?")
 
 func _on_colonist_tax_changed(val: float) -> void:
 	if _ui_lock:
@@ -467,3 +483,37 @@ func _set_spin_value(spin: SpinBox, v: int) -> void:
 		
 func _on_orders_changed() -> void:
 	_update()
+
+func _is_my_race_horwasp(ownerid) -> bool:
+	return game_state.config.get_owner_abbrev(ownerid) == "Horwasp"
+	
+func _show_horwasp_block(p: PlanetData) -> bool:
+	if p == null:
+		return false
+	
+	if _is_my_race_horwasp(GameState.get_owner_race_id_of_planet(p)):
+		return true
+
+	return p.larva > 0.0 or p.burrowsize > 0.0
+	
+func _set_horwasp_block_visible(is_visible_v: bool) -> void:
+	_set_visible(horwasp_lbl, is_visible_v)
+	_set_visible(v_larva, is_visible_v)
+	_set_visible(v_burrows, is_visible_v)
+	_set_visible(l_larva, is_visible_v)
+	_set_visible(l_burrows, is_visible_v)
+
+func _fmt_larva_for_display(p: PlanetData) -> String:
+	if p.larva < 0.0:
+		return "?"
+
+	if p.larva > 0.0:
+		return str(int(p.larva))
+
+	var is_my_planet: bool = p.ownerid == game_state.my_player_id
+	var is_my_horwasp: bool = _is_my_race_horwasp(GameState.get_owner_race_id_of_planet(p))
+
+	if is_my_planet or is_my_horwasp:
+		return "0"
+
+	return "?"

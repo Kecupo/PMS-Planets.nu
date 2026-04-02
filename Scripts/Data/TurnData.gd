@@ -1,4 +1,4 @@
-class_name TurnData
+class_name _TurnData
 extends RefCounted
 
 var planets: Array[PlanetData] = []
