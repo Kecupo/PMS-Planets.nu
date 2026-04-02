@@ -37,6 +37,7 @@ var map_max_y: float
 var planets: Array = []
 var current_turn: int = 0
 var minefields: Array[Minefield_Data] = []
+var starbase_planet_ids: Dictionary = {}
 # -------------------------
 # Programmstart
 # -------------------------
@@ -95,6 +96,7 @@ func _process_loaded_turn(parsed: Dictionary) -> void:
 	build_turn_model(parsed["rst"])
 	planets = turn_data_model.planets
 	minefields = turn_data_model.minefields
+	starbase_planet_ids = turn_data_model.starbase_planet_ids
 	rebuild_my_planets_cache()
 	
 	# Load static game config once (races, advantages, etc.)
@@ -514,3 +516,6 @@ func get_race_id_of_player(player_id: int) -> int:
 					return int(race_v)
 
 	return -1
+	
+func planet_has_starbase(planet_id: int) -> bool:
+	return starbase_planet_ids.has(planet_id)

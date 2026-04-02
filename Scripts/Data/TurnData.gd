@@ -2,14 +2,14 @@ class_name _TurnData
 extends RefCounted
 
 const Minefield_Data = preload("res://Scripts/Data/MinefieldData.gd")
-
+var starbase_planet_ids: Dictionary = {}
 var planets: Array[PlanetData] = []
 var minefields: Array[Minefield_Data] = []
 
 func load_from_turn(rst: Dictionary) -> void:
 	planets.clear()
 	minefields.clear()
-
+	starbase_planet_ids.clear()
 	if rst.has("planets"):
 		var planet_array: Array = rst.get("planets", [])
 		var by_id: Dictionary = {}
@@ -40,3 +40,14 @@ func load_from_turn(rst: Dictionary) -> void:
 			var mf: MinefieldData = MinefieldData.new()
 			mf.apply_dict(minefield_json as Dictionary)
 			minefields.append(mf)
+	if rst.has("starbases"):
+		var starbase_array: Array = rst.get("starbases", [])
+
+		for starbase_json: Variant in starbase_array:
+			if starbase_json is not Dictionary:
+				continue
+
+			var d: Dictionary = starbase_json as Dictionary
+			var planet_id: int = int(float(d.get("planetid", -1)))
+			if planet_id > 0:
+				starbase_planet_ids[planet_id] = true

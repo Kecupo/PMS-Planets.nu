@@ -13,7 +13,7 @@ var y: float = 0.0
 var ownerid: int = -1
 var friendlycode: String = "???"          # FC (important for UI + later editing)
 var temperature: float = 0.0             # "temp"
-
+var flag: float = 0.0					# Homeworld marker
 # Economy / population
 var megacredits: float = -1.0
 var supplies: float = -1.0
@@ -83,7 +83,7 @@ func apply_dict(d: Dictionary) -> void:
 	ownerid = int(d.get("ownerid", ownerid))
 	friendlycode = str(d.get("friendlycode", friendlycode))
 	temperature = float(d.get("temp", temperature))
-
+	flag = float(d.get("flag", flag))
 	# Economy / population
 	megacredits = float(d.get("megacredits", megacredits))
 	supplies = float(d.get("supplies", supplies))

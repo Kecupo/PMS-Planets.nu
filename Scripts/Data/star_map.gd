@@ -2,9 +2,10 @@ extends Node2D
 
 @onready var game_state = get_node("/root/GameState")
 @onready var overlay: Control = get_node("%OverlayRoot") as Control
-const PLANET_RADIUS_DRAW: float = 10.0
-@export var click_radius_pixels: float = 20.0
+const PLANET_RADIUS_DRAW: float = 9.0
+@export var click_radius_pixels: float = 21.0
 const Minefield_Data = preload("res://Scripts/Data/MinefieldData.gd")
+
 func _ready() -> void:
 	set_process_input(true)
 	GameState.turn_loaded.connect(_on_turn_loaded)
@@ -34,12 +35,25 @@ func _draw() -> void:
 	for p in game_state.planets:
 		var col: Color = _planet_color(p)
 		draw_circle(_map_to_world(p), PLANET_RADIUS_DRAW, col)
-
+		if game_state.planet_has_starbase(int(p.planet_id)):
+			_draw_starbase_marker(_map_to_world(p), col)
 	# 3) Highlight ganz oben
 	var sel: PlanetData = game_state.get_selected_planet()
 	if sel != null:
 		_draw_selected_highlight(sel)
+		
+func _draw_starbase_marker(center: Vector2, color: Color) -> void:
+	var r: float = PLANET_RADIUS_DRAW + 4.0
 
+	var points: PackedVector2Array = PackedVector2Array([
+		center + Vector2(0.0, -r),
+		center + Vector2(r, 0.0),
+		center + Vector2(0.0, r),
+		center + Vector2(-r, 0.0),
+		center + Vector2(0.0, -r)
+	])
+
+	draw_polyline(points, color, 2.0)
 func _draw_selected_highlight(p: PlanetData) -> void:
 	var pos: Vector2 = _map_to_world(p)
 
@@ -120,6 +134,7 @@ func _minefield_color(mf: MinefieldData) -> Color:
 	if race_id <= 0:
 		return Color.WHITE
 	return RandAI_Config.get_race_color(race_id)
+	
 func _draw_minefields() -> void:
 	for mf: MinefieldData in game_state.minefields:
 		if mf == null:
