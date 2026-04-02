@@ -23,6 +23,7 @@ var _batch_mode: bool = false
 var _batch_dirty: bool = false
 const API_KEY_FILE: String = "user://api_key.dat"
 const API_KEY_PASS: String = "Jw95m+3*Mv$3x"
+const Minefield_Data = preload("res://Scripts/Data/MinefieldData.gd")
 # -------------------------
 # Laufzeitdaten
 # -------------------------
@@ -35,7 +36,7 @@ var map_min_y: float
 var map_max_y: float
 var planets: Array = []
 var current_turn: int = 0
-
+var minefields: Array[Minefield_Data] = []
 # -------------------------
 # Programmstart
 # -------------------------
@@ -48,6 +49,7 @@ func _ready() -> void:
 func _process_loaded_turn(parsed: Dictionary) -> void:
 	last_turn_json = parsed
 	# parsed: Dictionary = Root wrapper
+	
 	if not parsed.has("rst"):
 		push_error("Turn wrapper JSON has no 'rst' section")
 		return
@@ -70,9 +72,9 @@ func _process_loaded_turn(parsed: Dictionary) -> void:
 			if typeof(race_v) == TYPE_INT or typeof(race_v) == TYPE_FLOAT:
 				my_race_id = int(race_v)
 
-			var pid_v: Variant = pl.get("id")
-			if typeof(pid_v) == TYPE_INT or typeof(pid_v) == TYPE_FLOAT:
-				my_race_id = int(race_v)
+			#var pid_v: Variant = pl.get("id")
+			#if typeof(pid_v) == TYPE_INT or typeof(pid_v) == TYPE_FLOAT:
+			#	my_race_id = int(race_v)
 
 	if not rst.has("game"):
 		push_error("'rst' has no 'game' section")
@@ -92,6 +94,7 @@ func _process_loaded_turn(parsed: Dictionary) -> void:
 		RandAI_Config.set_current_game(current_game_id)
 	build_turn_model(parsed["rst"])
 	planets = turn_data_model.planets
+	minefields = turn_data_model.minefields
 	rebuild_my_planets_cache()
 	
 	# Load static game config once (races, advantages, etc.)
@@ -482,3 +485,32 @@ func end_batch_changes() -> void:
 		_save_latest_turn_json()
 		emit_signal("orders_changed")
 	_batch_dirty = false
+
+func get_race_id_of_player(player_id: int) -> int:
+	if player_id <= 0:
+		return -1
+
+	if last_turn_json.is_empty():
+		return -1
+
+	var rst_v: Variant = last_turn_json.get("rst")
+	if not (rst_v is Dictionary):
+		return -1
+	var rst: Dictionary = rst_v as Dictionary
+
+	var players_v: Variant = rst.get("players")
+	if not (players_v is Array):
+		return -1
+	var players: Array = players_v as Array
+
+	for it: Variant in players:
+		if it is Dictionary:
+			var d: Dictionary = it as Dictionary
+			var id_v: Variant = d.get("id", -1)
+			var pid: int = int(id_v) if typeof(id_v) == TYPE_INT else int(float(id_v))
+			if pid == player_id:
+				var race_v: Variant = d.get("raceid", -1)
+				if typeof(race_v) == TYPE_INT or typeof(race_v) == TYPE_FLOAT:
+					return int(race_v)
+
+	return -1

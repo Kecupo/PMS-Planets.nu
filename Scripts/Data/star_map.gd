@@ -4,7 +4,7 @@ extends Node2D
 @onready var overlay: Control = get_node("%OverlayRoot") as Control
 const PLANET_RADIUS_DRAW: float = 10.0
 @export var click_radius_pixels: float = 20.0
-
+const Minefield_Data = preload("res://Scripts/Data/MinefieldData.gd")
 func _ready() -> void:
 	set_process_input(true)
 	GameState.turn_loaded.connect(_on_turn_loaded)
@@ -24,15 +24,18 @@ func _process(_delta: float) -> void:
 	queue_redraw()
 
 func _draw() -> void:
-	if game_state.planets.is_empty():
+	if game_state.planets.is_empty() and game_state.minefields.is_empty():
 		return
 
-	# 1) Planeten zeichnen
+	# 1) Minenfelder hinter den Planeten
+	_draw_minefields()
+
+	# 2) Planeten darüber
 	for p in game_state.planets:
 		var col: Color = _planet_color(p)
 		draw_circle(_map_to_world(p), PLANET_RADIUS_DRAW, col)
 
-	# 2) Highlight: selektierten Planeten oben drüber zeichnen
+	# 3) Highlight ganz oben
 	var sel: PlanetData = game_state.get_selected_planet()
 	if sel != null:
 		_draw_selected_highlight(sel)
@@ -107,6 +110,44 @@ func _map_to_world(p: PlanetData) -> Vector2:
 		game_state.map_max_y + game_state.map_min_y - p.y
 	)
 
+func _minefield_to_world(mf: MinefieldData) -> Vector2:
+	return Vector2(
+		mf.x,
+		game_state.map_max_y + game_state.map_min_y - mf.y
+	)
+func _minefield_color(mf: MinefieldData) -> Color:
+	var race_id: int = game_state.get_race_id_of_player(mf.ownerid)
+	if race_id <= 0:
+		return Color.WHITE
+	return RandAI_Config.get_race_color(race_id)
+func _draw_minefields() -> void:
+	for mf: MinefieldData in game_state.minefields:
+		if mf == null:
+			continue
+
+		if mf.ishidden:
+			continue
+
+		if mf.radius <= 0.0:
+			continue
+
+		var center: Vector2 = _minefield_to_world(mf)
+		var color: Color = _minefield_color(mf)
+
+		if mf.isweb:
+			var fill_color: Color = color
+			fill_color.a = 0.18
+			draw_circle(center, mf.radius, fill_color)
+
+		draw_arc(
+			center,
+			mf.radius,
+			0.0,
+			TAU,
+			96,
+			color,
+			3.0
+		)
 func _planet_color(p: PlanetData) -> Color:
 	var race_id: int = GameState.get_owner_race_id_of_planet(p)
 	var color: Color = Color.WHITE

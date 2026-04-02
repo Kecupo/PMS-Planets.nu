@@ -1,29 +1,42 @@
 class_name _TurnData
 extends RefCounted
 
+const Minefield_Data = preload("res://Scripts/Data/MinefieldData.gd")
+
 var planets: Array[PlanetData] = []
+var minefields: Array[Minefield_Data] = []
 
 func load_from_turn(rst: Dictionary) -> void:
 	planets.clear()
-	if not rst.has("planets"):
-		return
+	minefields.clear()
 
-	var planet_array: Array = rst.get("planets", [])
-	var by_id: Dictionary = {}
+	if rst.has("planets"):
+		var planet_array: Array = rst.get("planets", [])
+		var by_id: Dictionary = {}
 
-	for planet_json in planet_array:
-		if planet_json is not Dictionary:
-			continue
+		for planet_json: Variant in planet_array:
+			if planet_json is not Dictionary:
+				continue
 
-		var pid: int = int((planet_json as Dictionary).get("id", -1))
-		if pid < 0:
-			continue
+			var pid: int = int(float((planet_json as Dictionary).get("id", -1)))
+			if pid < 0:
+				continue
 
-		if not by_id.has(pid):
-			by_id[pid] = PlanetData.new(planet_json)
-		else:
-			(by_id[pid] as PlanetData).merge_prefer_known(planet_json)
+			if not by_id.has(pid):
+				by_id[pid] = PlanetData.new(planet_json)
+			else:
+				(by_id[pid] as PlanetData).merge_prefer_known(planet_json)
 
-	# finalize
-	for pid in by_id.keys():
-		planets.append(by_id[pid])
+		for pid: Variant in by_id.keys():
+			planets.append(by_id[pid])
+
+	if rst.has("minefields"):
+		var minefield_array: Array = rst.get("minefields", [])
+
+		for minefield_json: Variant in minefield_array:
+			if minefield_json is not Dictionary:
+				continue
+
+			var mf: MinefieldData = MinefieldData.new()
+			mf.apply_dict(minefield_json as Dictionary)
+			minefields.append(mf)
