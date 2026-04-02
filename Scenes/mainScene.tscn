@@ -132,9 +132,8 @@ custom_minimum_size = Vector2(0, 5)
 layout_mode = 2
 
 [node name="EconomySection" type="VBoxContainer" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content"]
-custom_minimum_size = Vector2(0, 305)
+custom_minimum_size = Vector2(0, 290)
 layout_mode = 2
-size_flags_vertical = 3
 
 [node name="SectionLabel" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/EconomySection"]
 custom_minimum_size = Vector2(0, 150)
@@ -449,9 +448,8 @@ custom_minimum_size = Vector2(0, 5)
 layout_mode = 2
 
 [node name="MineralSection" type="VBoxContainer" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content"]
-custom_minimum_size = Vector2(0, 170)
+custom_minimum_size = Vector2(0, 150)
 layout_mode = 2
-size_flags_vertical = 3
 
 [node name="SectionTitel" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/MineralSection"]
 layout_mode = 2
@@ -463,8 +461,8 @@ horizontal_alignment = 1
 layout_mode = 0
 offset_left = 22.0
 offset_top = 22.0
-offset_right = 398.0
-offset_bottom = 177.0
+offset_right = 430.0
+offset_bottom = 148.0
 theme_override_constants/h_separation = 4
 theme_override_constants/v_separation = 10
 columns = 5
@@ -622,14 +620,16 @@ theme_override_font_sizes/font_size = 12
 horizontal_alignment = 2
 
 [node name="Footer" type="HBoxContainer" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content"]
+custom_minimum_size = Vector2(0, 20)
 layout_mode = 2
 size_flags_horizontal = 8
-size_flags_vertical = 3
+size_flags_vertical = 8
 
 [node name="Close_Overlay" type="Button" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/Footer"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 8
+theme_override_colors/font_color = Color(0.041625977, 0.96875, 0.96875, 1)
 text = "CLose"
 icon_alignment = 1
 
