@@ -178,8 +178,10 @@ func _draw_minefields() -> void:
 
 		if mf.isweb:
 			var fill_color: Color = color
-			fill_color.a = 0.25
+			fill_color.a = 0.10
 			draw_circle(center, mf.radius, fill_color)
+			_draw_web_mine_hatching(center, mf.radius, color)
+
 		draw_circle(center, mf.radius, color)
 		
 func _planet_color(p: PlanetData) -> Color:
@@ -500,3 +502,40 @@ func _draw_radiation_station_marker(center: Vector2, color: Color) -> void:
 	])
 
 	draw_polyline(points, color, 2.0)
+
+func _draw_web_mine_hatching(center: Vector2, radius: float, base_color: Color) -> void:
+	var hatch_color: Color = base_color
+	hatch_color.a = 0.24
+
+	var spacing: float = 10.0
+	var half_extent: float = radius + 8.0
+	var x: float = -half_extent
+
+	while x <= half_extent:
+		var p1: Vector2 = center + Vector2(x, -half_extent)
+		var p2: Vector2 = center + Vector2(x + half_extent * 2.0, half_extent)
+		_draw_clipped_line_to_circle(center, radius, p1, p2, hatch_color, 1.5)
+		x += spacing
+	
+func _draw_clipped_line_to_circle(
+	center: Vector2,
+	radius: float,
+	from: Vector2,
+	to: Vector2,
+	color: Color,
+	width: float
+) -> void:
+	var steps: int = 24
+	var last_inside: bool = false
+	var last_point: Vector2 = from
+
+	for i: int in range(steps + 1):
+		var t: float = float(i) / float(steps)
+		var point: Vector2 = from.lerp(to, t)
+		var inside: bool = center.distance_to(point) <= radius
+
+		if i > 0 and inside and last_inside:
+			draw_line(last_point, point, color, width)
+
+		last_inside = inside
+		last_point = point
