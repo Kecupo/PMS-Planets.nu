@@ -8,7 +8,12 @@ const Minefield_Data = preload("res://Scripts/Data/MinefieldData.gd")
 const IonStorm_Data = preload("res://Scripts/Data/IonStormData.gd")
 const IonStormCircle_Data = preload("res://Scripts/Data/IonStormCircleData.gd")
 const ION_STORM_BASE_COLOR: Color = Color(0.78, 0.70, 0.18, 1.0)
-
+const NEBULA_BASE_COLOR: Color = Color(0.86, 0.88, 0.90, 1.0)
+const NEBULA_OUTLINE_COLOR: Color = Color(0.72, 0.76, 0.80, 0.42)
+const STARCLUSTER_CORE_COLOR: Color = Color(0.92, 0.92, 0.95, 0.95)
+const STARCLUSTER_INNER_GLOW_COLOR: Color = Color(0.80, 0.80, 0.84, 0.18)
+const STARCLUSTER_RADIATION_COLOR: Color = Color(0.82, 0.84, 0.88, 0.08)
+const STARCLUSTER_OUTLINE_COLOR: Color = Color(0.80, 0.82, 0.86, 0.55)
 func _ready() -> void:
 	set_process_input(true)
 	GameState.turn_loaded.connect(_on_turn_loaded)
@@ -28,26 +33,43 @@ func _process(_delta: float) -> void:
 	queue_redraw()
 
 func _draw() -> void:
-	if game_state.planets.is_empty() and game_state.minefields.is_empty():
+	if game_state.planets.is_empty() \
+	and game_state.minefields.is_empty() \
+	and game_state.ionstorms.is_empty() \
+	and game_state.nebulas.is_empty():
 		return
-
-	# 1) Minenfelder hinter den Planeten
-	_draw_minefields()
-	# 2) Ionenstürme 
+	_draw_starclusters()
+	_draw_nebulas()
 	_draw_ionstorms()
-	# 3) Planeten darüber
+	_draw_minefields()
+	_draw_ionstorms()
 	for p in game_state.planets:
+		var center: Vector2 = _map_to_world(p)
 		var col: Color = _planet_color(p)
-		draw_circle(_map_to_world(p), PLANET_RADIUS_DRAW, col)
+		
+		var radius: float = _get_planet_draw_radius(p)
+
+		if _is_debris_disk_anchor(p):
+			_draw_debris_disk_outline(p)
+
+		draw_circle(center, radius, col)
+		col.a = 0.4
+		draw_circle(center, radius - 3, col)
+		
 		if game_state.planet_has_starbase(int(p.planet_id)):
-			_draw_starbase_marker(_map_to_world(p), col)
+			if _is_debris_planetoid(p):
+				_draw_debris_station_marker(center, col)
+			elif _is_in_starcluster_radiation_zone(p):
+				_draw_radiation_station_marker(center, col)
+			else:
+				_draw_starbase_marker(center, col)
 	# 3) Highlight ganz oben
 	var sel: PlanetData = game_state.get_selected_planet()
 	if sel != null:
 		_draw_selected_highlight(sel)
 		
 func _draw_starbase_marker(center: Vector2, color: Color) -> void:
-	var r: float = PLANET_RADIUS_DRAW + 4.0
+	var r: float = PLANET_RADIUS_DRAW + 5.5
 
 	var points: PackedVector2Array = PackedVector2Array([
 		center + Vector2(0.0, -r),
@@ -152,21 +174,14 @@ func _draw_minefields() -> void:
 
 		var center: Vector2 = _minefield_to_world(mf)
 		var color: Color = _minefield_color(mf)
+		color.a = 0.14
 
 		if mf.isweb:
 			var fill_color: Color = color
-			fill_color.a = 0.18
+			fill_color.a = 0.25
 			draw_circle(center, mf.radius, fill_color)
-
-		draw_arc(
-			center,
-			mf.radius,
-			0.0,
-			TAU,
-			96,
-			color,
-			3.0
-		)
+		draw_circle(center, mf.radius, color)
+		
 func _planet_color(p: PlanetData) -> Color:
 	var race_id: int = GameState.get_owner_race_id_of_planet(p)
 	var color: Color = Color.WHITE
@@ -256,3 +271,232 @@ func _draw_ionstorm_heading(storm: IonStormData) -> void:
 
 	draw_line(tip, left_point, color, line_width)
 	draw_line(tip, right_point, color, line_width)
+
+func _nebula_circle_to_world(circle: NebulaCircleData) -> Vector2:
+	return Vector2(
+		circle.x,
+		game_state.map_max_y + game_state.map_min_y - circle.y
+	)
+
+func _nebula_fill_alpha(intensity: float) -> float:
+	return clampf(intensity / 140.0, 0.09, 0.14)
+	
+func _nebula_outline_alpha() -> float:
+	return 0.42
+	
+func _nebula_fill_color(intensity: float) -> Color:
+	var c: Color = NEBULA_BASE_COLOR
+	c.a = _nebula_fill_alpha(intensity)
+	return c
+
+func _nebula_outline_color() -> Color:
+	var c: Color = NEBULA_BASE_COLOR
+	c.a = _nebula_outline_alpha()
+	return c
+
+func _draw_nebulas() -> void:
+	for nebula: NebulaData in game_state.nebulas:
+		if nebula == null:
+			continue
+
+		_draw_nebula(nebula)
+		
+func _draw_nebula(nebula: NebulaData) -> void:
+	for circle: NebulaCircleData in nebula.circles:
+		if circle == null or circle.radius <= 0.0:
+			continue
+
+		var center: Vector2 = _nebula_circle_to_world(circle)
+		_draw_nebula_soft_circle(center, circle.radius, circle.intensity)
+
+	_draw_nebula_outer_outline(nebula)
+func _draw_nebula_outer_outline(nebula: NebulaData) -> void:
+	for i: int in range(nebula.circles.size()):
+		var circle: NebulaCircleData = nebula.circles[i]
+		if circle == null or circle.radius <= 0.0:
+			continue
+
+		if _is_nebula_circle_mostly_internal(nebula, i):
+			continue
+
+		var center: Vector2 = _nebula_circle_to_world(circle)
+		draw_arc(center, circle.radius, 0.0, TAU, 96, NEBULA_OUTLINE_COLOR, 2.0)
+		
+func _draw_nebula_soft_circle(center: Vector2, radius: float, intensity: float) -> void:
+	var steps: int = 14
+	var base_alpha: float = _nebula_core_alpha(intensity)
+
+	for i: int in range(steps, 0, -1):
+		var t: float = float(i) / float(steps)
+		var r: float = radius * t
+		var alpha: float = base_alpha * pow(t, 2.8) * 0.85
+
+		var c: Color = NEBULA_BASE_COLOR
+		c.a = alpha
+
+		draw_circle(center, r, c)
+		
+func _nebula_core_alpha(intensity: float) -> float:
+	return clampf(intensity / 160.0, 0.06, 0.18)
+
+func _is_nebula_circle_mostly_internal(nebula: NebulaData, index: int) -> bool:
+	var a: NebulaCircleData = nebula.circles[index]
+	var center_a: Vector2 = Vector2(a.x, a.y)
+
+	for j: int in range(nebula.circles.size()):
+		if j == index:
+			continue
+
+		var b: NebulaCircleData = nebula.circles[j]
+		if b == null:
+			continue
+
+		var center_b: Vector2 = Vector2(b.x, b.y)
+		var dist: float = center_a.distance_to(center_b)
+
+		# Kreis A liegt weitgehend innerhalb von B
+		if dist + a.radius <= b.radius * 0.98:
+			return true
+
+	return false
+
+func _starcluster_to_world(star: StarClusterData) -> Vector2:
+	return Vector2(
+		star.x,
+		game_state.map_max_y + game_state.map_min_y - star.y
+	)
+
+func _draw_starclusters() -> void:
+	for star: StarClusterData in game_state.starclusters:
+		if star == null:
+			continue
+
+		_draw_starcluster(star)
+
+func _draw_starcluster(star: StarClusterData) -> void:
+	var center: Vector2 = _starcluster_to_world(star)
+	var core_radius: float = star.radius
+	var outer_radius: float = _get_starcluster_outer_radius(star)
+
+	if core_radius <= 0.0 or outer_radius <= core_radius:
+		return
+
+	# 1) äußerer Radiation-Glow
+	_draw_starcluster_soft_ring(center, core_radius, outer_radius)
+
+	# 2) Linie des inneren Kerns
+	draw_arc(center, core_radius, 0.0, TAU, 128, STARCLUSTER_OUTLINE_COLOR, 2.0)
+
+	# 3) äußere Linie der Radiation-Zone
+	var outer_outline: Color = STARCLUSTER_OUTLINE_COLOR
+	outer_outline.a = 0.35
+	draw_arc(center, outer_radius, 0.0, TAU, 128, outer_outline, 2.0)
+
+	# 4) weicher innerer Glow
+	_draw_starcluster_core_glow(center, core_radius)
+
+	# 5) heller Kern in der Mitte
+	draw_circle(center, maxf(4.0, core_radius * 0.12), STARCLUSTER_CORE_COLOR)
+
+func _draw_starcluster_soft_ring(center: Vector2, inner_radius: float, outer_radius: float) -> void:
+	var steps: int = 18
+
+	for i: int in range(steps, 0, -1):
+		var t: float = float(i) / float(steps)
+		var r: float = lerpf(inner_radius, outer_radius, t)
+
+		var c: Color = STARCLUSTER_RADIATION_COLOR
+		c.a *= pow(t, 2.2)
+
+		draw_arc(center, r, 0.0, TAU, 128, c, 2.0)
+
+func _draw_starcluster_core_glow(center: Vector2, core_radius: float) -> void:
+	var steps: int = 10
+
+	for i: int in range(steps, 0, -1):
+		var t: float = float(i) / float(steps)
+		var r: float = core_radius * t
+
+		var c: Color = STARCLUSTER_INNER_GLOW_COLOR
+		c.a *= pow(t, 2.0)
+
+		draw_circle(center, r, c)
+
+func _get_starcluster_outer_radius(star: StarClusterData) -> float:
+	return sqrt(star.mass)
+func _get_starcluster_radiation_at_distance(star: StarClusterData, dist: float) -> int:
+	var radiation_radius: float = _get_starcluster_outer_radius(star)
+	if radiation_radius <= 0.0:
+		return 0
+
+	if dist > radiation_radius:
+		return 0
+
+	return int(ceil((star.temp / 100.0) * (1.0 - (dist / radiation_radius))))
+	
+func get_starcluster_radiation_at_point(star: StarClusterData, x: float, y: float) -> int:
+	var dist: float = Vector2(star.x, star.y).distance_to(Vector2(x, y))
+	return _get_starcluster_radiation_at_distance(star, dist)
+
+func _is_debris_planetoid(p: PlanetData) -> bool:
+	return p.debrisdisk > 0.0
+	
+func _is_debris_disk_anchor(p: PlanetData) -> bool:
+	if p.debrisdisk <= 0.0:
+		return false
+
+	return p.name.strip_edges().ends_with(" - 1")
+
+func _get_planet_draw_radius(p: PlanetData) -> float:
+	if _is_debris_planetoid(p):
+		return PLANET_RADIUS_DRAW * 0.35
+	return PLANET_RADIUS_DRAW
+
+func _draw_debris_disk_outline(p: PlanetData) -> void:
+	var center: Vector2 = _map_to_world(p)
+	var radius: float = 40.0
+	var fill_color: Color = Color(0.55, 0.52, 0.44, 0.03)
+	var line_color: Color = Color(0.76, 0.73, 0.60, 0.42)
+
+	draw_circle(center, radius, fill_color)
+	draw_arc(center, radius, 0.0, TAU, 128, line_color, 2.0)
+
+func _is_in_starcluster_radiation_zone(p: PlanetData) -> bool:
+	var pos: Vector2 = Vector2(p.x, p.y)
+
+	for star: StarClusterData in game_state.starclusters:
+		if star == null:
+			continue
+
+		var center: Vector2 = Vector2(star.x, star.y)
+		var dist: float = center.distance_to(pos)
+		var radiation_radius: float = sqrt(star.mass)
+
+		if dist <= radiation_radius and dist > star.radius:
+			return true
+
+	return false
+
+func _draw_debris_station_marker(center: Vector2, color: Color) -> void:
+	var r: float = PLANET_RADIUS_DRAW * 0.4
+	var points: PackedVector2Array = PackedVector2Array([
+		center + Vector2(0.0, -r),
+		center + Vector2(r, r),
+		center + Vector2(-r, r)
+	])
+
+	draw_polyline(PackedVector2Array([
+		points[0], points[1], points[2], points[0]
+	]), color, 2.0)
+
+func _draw_radiation_station_marker(center: Vector2, color: Color) -> void:
+	var r: float = PLANET_RADIUS_DRAW
+	var points: PackedVector2Array = PackedVector2Array([
+		center + Vector2(-r, -r),
+		center + Vector2(r, -r),
+		center + Vector2(r, r),
+		center + Vector2(-r, r),
+		center + Vector2(-r, -r)
+	])
+
+	draw_polyline(points, color, 2.0)

@@ -3,16 +3,33 @@ extends RefCounted
 const IonStormCircle_Data = preload("res://Scripts/Data/IonStormCircleData.gd")
 const IonStorm_Data = preload("res://Scripts/Data/IonStormData.gd")
 const Minefield_Data = preload("res://Scripts/Data/MinefieldData.gd")
+const NebulaCircle_Data = preload("res://Scripts/Data/NebulaCircleData.gd")
+const Nebula_Data = preload("res://Scripts/Data/NebulaData.gd")
+const StarCluster_Data = preload("res://Scripts/Data/StarClusterData.gd")
 var starbase_planet_ids: Dictionary = {}
 var planets: Array[PlanetData] = []
 var minefields: Array[Minefield_Data] = []
 var ionstorms: Array[IonStorm_Data] = []
+var nebulas: Array[Nebula_Data] = []
+var starclusters: Array[StarCluster_Data] = []
 
 func load_from_turn(rst: Dictionary) -> void:
 	planets.clear()
 	minefields.clear()
 	starbase_planet_ids.clear()
 	ionstorms.clear()
+	nebulas.clear()
+	starclusters.clear()
+	if rst.has("stars"):
+		var stars_array: Array = rst.get("stars", [])
+
+		for star_json: Variant in stars_array:
+			if star_json is not Dictionary:
+				continue
+
+			var star: StarClusterData = StarClusterData.new()
+			star.apply_dict(star_json as Dictionary)
+			starclusters.append(star)
 	if rst.has("planets"):
 		var planet_array: Array = rst.get("planets", [])
 		var by_id: Dictionary = {}
@@ -98,3 +115,27 @@ func load_from_turn(rst: Dictionary) -> void:
 		# 4) ins Array übernehmen
 		for storm_id: Variant in storms_by_root_id.keys():
 			ionstorms.append(storms_by_root_id[storm_id])
+	if rst.has("nebulas"):
+		var nebula_array: Array = rst.get("nebulas", [])
+		var nebulas_by_name: Dictionary = {}
+
+		for nebula_json: Variant in nebula_array:
+			if nebula_json is not Dictionary:
+				continue
+
+			var circle: NebulaCircleData = NebulaCircleData.new()
+			circle.apply_dict(nebula_json as Dictionary)
+
+			if circle.name.is_empty():
+				continue
+
+			if not nebulas_by_name.has(circle.name):
+				var nebula: NebulaData = NebulaData.new()
+				nebula.name = circle.name
+				nebulas_by_name[circle.name] = nebula
+
+			var grouped_nebula: NebulaData = nebulas_by_name[circle.name]
+			grouped_nebula.circles.append(circle)
+
+		for nebula_name: Variant in nebulas_by_name.keys():
+			nebulas.append(nebulas_by_name[nebula_name])

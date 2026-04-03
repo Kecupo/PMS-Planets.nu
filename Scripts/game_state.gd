@@ -25,6 +25,8 @@ const API_KEY_FILE: String = "user://api_key.dat"
 const API_KEY_PASS: String = "Jw95m+3*Mv$3x"
 const Minefield_Data = preload("res://Scripts/Data/MinefieldData.gd")
 const IonStorm_Data = preload("res://Scripts/Data/IonStormData.gd")
+const Nebula_Data = preload("res://Scripts/Data/NebulaData.gd")
+const StarCluster_Data = preload("res://Scripts/Data/StarClusterData.gd")
 # -------------------------
 # Laufzeitdaten
 # -------------------------
@@ -40,6 +42,8 @@ var current_turn: int = 0
 var minefields: Array[Minefield_Data] = []
 var starbase_planet_ids: Dictionary = {}
 var ionstorms: Array[IonStorm_Data] = []
+var nebulas: Array[Nebula_Data] = []
+var starclusters: Array[StarCluster_Data] = []
 # -------------------------
 # Programmstart
 # -------------------------
@@ -100,6 +104,8 @@ func _process_loaded_turn(parsed: Dictionary) -> void:
 	minefields = turn_data_model.minefields
 	ionstorms = turn_data_model.ionstorms
 	starbase_planet_ids = turn_data_model.starbase_planet_ids
+	nebulas = turn_data_model.nebulas
+	starclusters = turn_data_model.starclusters
 	rebuild_my_planets_cache()
 	
 	# Load static game config once (races, advantages, etc.)

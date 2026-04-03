@@ -14,6 +14,7 @@ var ownerid: int = -1
 var friendlycode: String = "???"          # FC (important for UI + later editing)
 var temperature: float = 0.0             # "temp"
 var flag: float = 0.0					# Homeworld marker
+var debrisdisk: float = 0.0
 # Economy / population
 var megacredits: float = -1.0
 var supplies: float = -1.0
@@ -78,7 +79,7 @@ func apply_dict(d: Dictionary) -> void:
 	name = str(d.get("name", name))
 	x = float(d.get("x", x))
 	y = float(d.get("y", y))
-
+	debrisdisk = float(d.get("debrisdisk", debrisdisk))
 	# Ownership / general
 	ownerid = int(d.get("ownerid", ownerid))
 	friendlycode = str(d.get("friendlycode", friendlycode))
