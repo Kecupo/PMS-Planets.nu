@@ -24,6 +24,7 @@ var _batch_dirty: bool = false
 const API_KEY_FILE: String = "user://api_key.dat"
 const API_KEY_PASS: String = "Jw95m+3*Mv$3x"
 const Minefield_Data = preload("res://Scripts/Data/MinefieldData.gd")
+const IonStorm_Data = preload("res://Scripts/Data/IonStormData.gd")
 # -------------------------
 # Laufzeitdaten
 # -------------------------
@@ -38,6 +39,7 @@ var planets: Array = []
 var current_turn: int = 0
 var minefields: Array[Minefield_Data] = []
 var starbase_planet_ids: Dictionary = {}
+var ionstorms: Array[IonStorm_Data] = []
 # -------------------------
 # Programmstart
 # -------------------------
@@ -96,6 +98,7 @@ func _process_loaded_turn(parsed: Dictionary) -> void:
 	build_turn_model(parsed["rst"])
 	planets = turn_data_model.planets
 	minefields = turn_data_model.minefields
+	ionstorms = turn_data_model.ionstorms
 	starbase_planet_ids = turn_data_model.starbase_planet_ids
 	rebuild_my_planets_cache()
 	

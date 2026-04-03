@@ -5,6 +5,9 @@ extends Node2D
 const PLANET_RADIUS_DRAW: float = 9.0
 @export var click_radius_pixels: float = 21.0
 const Minefield_Data = preload("res://Scripts/Data/MinefieldData.gd")
+const IonStorm_Data = preload("res://Scripts/Data/IonStormData.gd")
+const IonStormCircle_Data = preload("res://Scripts/Data/IonStormCircleData.gd")
+const ION_STORM_BASE_COLOR: Color = Color(0.78, 0.70, 0.18, 1.0)
 
 func _ready() -> void:
 	set_process_input(true)
@@ -30,8 +33,9 @@ func _draw() -> void:
 
 	# 1) Minenfelder hinter den Planeten
 	_draw_minefields()
-
-	# 2) Planeten darüber
+	# 2) Ionenstürme 
+	_draw_ionstorms()
+	# 3) Planeten darüber
 	for p in game_state.planets:
 		var col: Color = _planet_color(p)
 		draw_circle(_map_to_world(p), PLANET_RADIUS_DRAW, col)
@@ -171,3 +175,84 @@ func _planet_color(p: PlanetData) -> Color:
 	else:
 		color = RandAI_Config.get_race_color(race_id)
 	return color
+
+func _ionstorm_circle_to_world(circle: IonStormCircleData) -> Vector2:
+	return Vector2(
+		circle.x,
+		game_state.map_max_y + game_state.map_min_y - circle.y
+	)
+	
+func _ionstorm_fill_alpha(voltage: float) -> float:
+	return clampf(voltage / 180.0, 0.08, 0.38)
+
+func _ionstorm_border_alpha(voltage: float) -> float:
+	return clampf(voltage / 140.0, 0.22, 0.70)
+
+func _ionstorm_fill_color(voltage: float) -> Color:
+	var c: Color = ION_STORM_BASE_COLOR
+	c.a = _ionstorm_fill_alpha(voltage)
+	return c
+
+func _ionstorm_border_color(voltage: float) -> Color:
+	var c: Color = ION_STORM_BASE_COLOR
+	c.a = _ionstorm_border_alpha(voltage)
+	return c
+
+func _draw_ionstorms() -> void:
+	for storm: IonStormData in game_state.ionstorms:
+		if storm == null:
+			continue
+
+		_draw_ionstorm(storm)
+
+func _draw_ionstorm(storm: IonStormData) -> void:
+	for i: int in range(storm.circles.size()):
+		var circle: IonStormCircleData = storm.circles[i]
+		if circle == null or circle.radius <= 0.0:
+			continue
+
+		var center: Vector2 = _ionstorm_circle_to_world(circle)
+
+		var fill_color: Color = _ionstorm_fill_color(storm.voltage)
+		var border_color: Color = _ionstorm_border_color(storm.voltage)
+
+		if i > 0:
+			fill_color.a *= 0.96
+			border_color.a *= 0.98
+
+		draw_circle(center, circle.radius, fill_color)
+		draw_arc(center, circle.radius, 0.0, TAU, 96, border_color, 2.0)
+
+	_draw_ionstorm_heading(storm)
+
+func _draw_ionstorm_heading(storm: IonStormData) -> void:
+	if storm.circles.is_empty():
+		return
+
+	var root_circle: IonStormCircleData = storm.circles[0]
+	var center: Vector2 = _ionstorm_circle_to_world(root_circle)
+
+	var heading_rad: float = deg_to_rad(storm.heading - 90.0)
+	var dir: Vector2 = Vector2(cos(heading_rad), sin(heading_rad)).normalized()
+
+	var line_length: float = maxf(26.0, storm.warp * 8.0)
+	var start: Vector2 = center
+	var tip: Vector2 = start + dir * line_length
+
+	var color: Color = _ionstorm_border_color(storm.voltage)
+	color.a = minf(1.0, color.a + 0.20)
+
+	var line_width: float = 3.0
+	draw_line(start, tip, color, line_width)
+
+	var head_length: float = 10.0
+	var head_angle: float = deg_to_rad(28.0)
+
+	var left_dir: Vector2 = dir.rotated(PI - head_angle)
+	var right_dir: Vector2 = dir.rotated(PI + head_angle)
+
+	var left_point: Vector2 = tip + left_dir * head_length
+	var right_point: Vector2 = tip + right_dir * head_length
+
+	draw_line(tip, left_point, color, line_width)
+	draw_line(tip, right_point, color, line_width)
