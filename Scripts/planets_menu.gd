@@ -20,6 +20,9 @@ var _manage_dialog: AcceptDialog = null
 var _manage_status_label: Label = null
 var _manage_progress: ProgressBar = null
 var _manage_running: bool = false
+var _upload_dialog: AcceptDialog = null
+var _upload_status_label: Label = null
+var _upload_running: bool = false
 
 func _ready() -> void:
 	# Buttons
@@ -98,6 +101,18 @@ func _on_login_success() -> void:
 
 
 func _on_upload_pressed() -> void:
+	if _upload_running:
+		return
+
+	if GameState.current_game_id <= 0 or GameState.last_turn_json.is_empty():
+		_show_upload_result(false, "Failure: no loaded turn to upload.")
+		return
+
+	_upload_running = true
+	_set_upload_controls_disabled(true)
+	_show_upload_progress("Upload running...")
+	_connect_upload_signals()
+
 	PlanetsApi.save_turn(
 		GameState.last_turn_json,
 		GameState.current_game_id,
@@ -231,5 +246,71 @@ func _set_manage_controls_disabled(disabled: bool) -> void:
 		return
 	manage_button.disabled = disabled
 	upload_button.disabled = disabled
+	config_button.disabled = disabled
+	select_button.disabled = disabled
+
+func _ensure_upload_dialog() -> void:
+	if _upload_dialog != null:
+		return
+
+	_upload_dialog = AcceptDialog.new()
+	_upload_dialog.title = "Upload"
+	_upload_dialog.min_size = Vector2i(360, 100)
+
+	var box: VBoxContainer = VBoxContainer.new()
+	box.custom_minimum_size = Vector2(320, 48)
+
+	_upload_status_label = Label.new()
+	_upload_status_label.text = ""
+	_upload_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(_upload_status_label)
+
+	_upload_dialog.add_child(box)
+	get_tree().root.add_child(_upload_dialog)
+
+func _show_upload_progress(message: String) -> void:
+	_ensure_upload_dialog()
+	_upload_dialog.get_ok_button().disabled = true
+	_upload_status_label.text = message
+	if not _upload_dialog.visible:
+		_upload_dialog.popup_centered()
+
+func _show_upload_result(success: bool, message: String) -> void:
+	_ensure_upload_dialog()
+	_upload_dialog.get_ok_button().disabled = false
+	_upload_status_label.text = message if not message.is_empty() else ("Success" if success else "Failure")
+	if not _upload_dialog.visible:
+		_upload_dialog.popup_centered()
+
+func _connect_upload_signals() -> void:
+	if not PlanetsApi.save_success.is_connected(_on_upload_success):
+		PlanetsApi.save_success.connect(_on_upload_success)
+	if not PlanetsApi.save_failed.is_connected(_on_upload_failed):
+		PlanetsApi.save_failed.connect(_on_upload_failed)
+
+func _disconnect_upload_signals() -> void:
+	if PlanetsApi.save_success.is_connected(_on_upload_success):
+		PlanetsApi.save_success.disconnect(_on_upload_success)
+	if PlanetsApi.save_failed.is_connected(_on_upload_failed):
+		PlanetsApi.save_failed.disconnect(_on_upload_failed)
+
+func _on_upload_success(_response: Dictionary) -> void:
+	_disconnect_upload_signals()
+	_upload_running = false
+	_set_upload_controls_disabled(false)
+	_show_upload_result(true, "Success: turn uploaded.")
+
+func _on_upload_failed(reason: String) -> void:
+	_disconnect_upload_signals()
+	_upload_running = false
+	_set_upload_controls_disabled(false)
+	_show_upload_result(false, "Failure: " + reason)
+
+func _set_upload_controls_disabled(disabled: bool) -> void:
+	if not disabled:
+		_refresh_ui_state()
+		return
+	upload_button.disabled = disabled
+	manage_button.disabled = disabled
 	config_button.disabled = disabled
 	select_button.disabled = disabled
