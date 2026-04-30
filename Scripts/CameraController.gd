@@ -6,7 +6,7 @@ extends Camera2D
 @onready var game_state: GameState = get_node("/root/GameState")
 var _dragging: bool = false
 var _last_mouse_pos: Vector2 = Vector2.ZERO
-const PAN_SPEED: float = 2.0
+const PAN_SPEED: float = 1.0
 func _input(event: InputEvent) -> void:
 	# Mouse buttons
 	if event is InputEventMouseButton:
@@ -35,7 +35,7 @@ func _input(event: InputEvent) -> void:
 
 		if _dragging:
 			# Bewegung invertieren, damit die Karte "mitgezogen" wird
-			position -= mm.relative * zoom.x * PAN_SPEED
+			position -= (mm.relative / maxf(zoom.x, 0.001)) * PAN_SPEED
 
 			_last_mouse_pos = mm.position
 			get_viewport().set_input_as_handled()

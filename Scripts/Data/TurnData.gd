@@ -6,8 +6,10 @@ const Minefield_Data = preload("res://Scripts/Data/MinefieldData.gd")
 const NebulaCircle_Data = preload("res://Scripts/Data/NebulaCircleData.gd")
 const Nebula_Data = preload("res://Scripts/Data/NebulaData.gd")
 const StarCluster_Data = preload("res://Scripts/Data/StarClusterData.gd")
+const Starship_Data = preload("res://Scripts/Data/StarshipData.gd")
 var starbase_planet_ids: Dictionary = {}
 var planets: Array[PlanetData] = []
+var starships: Array[Starship_Data] = []
 var minefields: Array[Minefield_Data] = []
 var ionstorms: Array[IonStorm_Data] = []
 var nebulas: Array[Nebula_Data] = []
@@ -15,6 +17,7 @@ var starclusters: Array[StarCluster_Data] = []
 
 func load_from_turn(rst: Dictionary) -> void:
 	planets.clear()
+	starships.clear()
 	minefields.clear()
 	starbase_planet_ids.clear()
 	ionstorms.clear()
@@ -49,6 +52,18 @@ func load_from_turn(rst: Dictionary) -> void:
 
 		for pid: Variant in by_id.keys():
 			planets.append(by_id[pid])
+
+	if rst.has("ships"):
+		var hull_names_by_id: Dictionary = _build_hull_names_by_id(rst)
+		var ship_array: Array = rst.get("ships", [])
+
+		for ship_json: Variant in ship_array:
+			if ship_json is not Dictionary:
+				continue
+
+			var ship: StarshipData = StarshipData.new()
+			ship.apply_dict(ship_json as Dictionary, hull_names_by_id)
+			starships.append(ship)
 
 	if rst.has("minefields"):
 		var minefield_array: Array = rst.get("minefields", [])
@@ -139,3 +154,25 @@ func load_from_turn(rst: Dictionary) -> void:
 
 		for nebula_name: Variant in nebulas_by_name.keys():
 			nebulas.append(nebulas_by_name[nebula_name])
+
+func _build_hull_names_by_id(rst: Dictionary) -> Dictionary:
+	var hull_names_by_id: Dictionary = {}
+	var hulls_v: Variant = rst.get("hulls", [])
+	if not (hulls_v is Array):
+		return hull_names_by_id
+
+	for hull_v: Variant in hulls_v:
+		if not (hull_v is Dictionary):
+			continue
+
+		var hull: Dictionary = hull_v as Dictionary
+		var id_v: Variant = hull.get("id", -1)
+		var hull_id: int = int(id_v) if typeof(id_v) == TYPE_INT else int(float(id_v))
+		if hull_id <= 0:
+			continue
+
+		var hull_name: String = String(hull.get("name", ""))
+		if not hull_name.is_empty():
+			hull_names_by_id[hull_id] = hull_name
+
+	return hull_names_by_id

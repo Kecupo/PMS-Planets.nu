@@ -9,7 +9,15 @@ const HOVER_PANEL_MARGIN: float = 12.0
 const MERGED_SHAPE_SEGMENTS: int = 36
 const FIELD_CELL_SIZE: float = 28.0
 const DEBRIS_DISK_RADIUS: float = 40.0
+const SHIP_RADIUS_DRAW: float = 5.5
+const SHIP_GROUP_RADIUS_PIXELS: float = 30.0
+const SHIP_COMPACT_LABEL_ZOOM: float = 0.45
+const SHIP_FULL_DETAIL_ZOOM: float = 1.20
+const SHIP_MODE_DOT: int = 0
+const SHIP_MODE_COMPACT: int = 1
+const SHIP_MODE_FULL: int = 2
 const Minefield_Data = preload("res://Scripts/Data/MinefieldData.gd")
+const Starship_Data = preload("res://Scripts/Data/StarshipData.gd")
 const IonStorm_Data = preload("res://Scripts/Data/IonStormData.gd")
 const IonStormCircle_Data = preload("res://Scripts/Data/IonStormCircleData.gd")
 const ION_STORM_BASE_COLOR: Color = Color(0.78, 0.70, 0.18, 1.0)
@@ -51,18 +59,22 @@ func _process(_delta: float) -> void:
 	var mouse_pos: Vector2 = get_viewport().get_mouse_position()
 	var camera: Camera2D = $Camera2D
 
+	var zoom_changed: bool = camera.zoom != _last_hover_camera_zoom
 	if mouse_pos == _last_hover_mouse_pos \
 	and camera.position == _last_hover_camera_pos \
-	and camera.zoom == _last_hover_camera_zoom:
+	and not zoom_changed:
 		return
 
 	_last_hover_mouse_pos = mouse_pos
 	_last_hover_camera_pos = camera.position
 	_last_hover_camera_zoom = camera.zoom
+	if zoom_changed:
+		queue_redraw()
 	_update_hover_info(mouse_pos)
 
 func _draw() -> void:
 	if game_state.planets.is_empty() \
+	and game_state.starships.is_empty() \
 	and game_state.minefields.is_empty() \
 	and game_state.ionstorms.is_empty() \
 	and game_state.nebulas.is_empty():
@@ -95,6 +107,8 @@ func _draw() -> void:
 	var sel: PlanetData = game_state.get_selected_planet()
 	if sel != null:
 		_draw_selected_highlight(sel)
+
+	_draw_starships()
 		
 func _draw_starbase_marker(center: Vector2, color: Color) -> void:
 	var r: float = PLANET_RADIUS_DRAW + 5.5
@@ -111,11 +125,16 @@ func _draw_starbase_marker(center: Vector2, color: Color) -> void:
 func _draw_selected_highlight(p: PlanetData) -> void:
 	var pos: Vector2 = _map_to_world(p)
 	var base_radius: float = _get_planet_draw_radius(p)
+	var outer_padding: float = 10.0
+	var inner_padding: float = 6.0
+	if _is_debris_planetoid(p):
+		outer_padding = 5.0
+		inner_padding = 2.5
 
 	# Ring (deutlich sichtbar)
 	draw_arc(
 		pos,
-		base_radius + 10.0,
+		base_radius + outer_padding,
 		0.0,
 		TAU,
 		64,
@@ -126,7 +145,7 @@ func _draw_selected_highlight(p: PlanetData) -> void:
 	# Optional: zweiter, dünner Ring
 	draw_arc(
 		pos,
-		base_radius + 6.0,
+		base_radius + inner_padding,
 		0.0,
 		TAU,
 		64,
@@ -256,6 +275,7 @@ func _build_hover_lines(world_pos: Vector2, map_pos: Vector2) -> PackedStringArr
 
 	_append_planet_hover(lines, world_pos)
 	_append_debris_disk_hover(lines, world_pos)
+	_append_starship_hover(lines, world_pos)
 	_append_ionstorm_hover(lines, world_pos)
 	_append_nebula_hover(lines, world_pos)
 	_append_minefield_hover(lines, world_pos)
@@ -287,6 +307,27 @@ func _append_debris_disk_hover(lines: PackedStringArray, world_pos: Vector2) -> 
 			continue
 
 		lines.append("Asteroid Field: %s (R %.0f)" % [_debris_disk_label(p), DEBRIS_DISK_RADIUS])
+
+func _append_starship_hover(lines: PackedStringArray, world_pos: Vector2) -> void:
+	var radius_world: float = SHIP_GROUP_RADIUS_PIXELS / maxf($Camera2D.zoom.x, 0.001)
+	var hits: Array[StarshipData] = []
+
+	for ship: StarshipData in game_state.starships:
+		if ship == null or ship.ishidden:
+			continue
+
+		if _ship_to_world(ship).distance_to(world_pos) <= radius_world:
+			hits.append(ship)
+
+	if hits.is_empty():
+		return
+
+	if hits.size() > 3 and _ship_display_mode() != SHIP_MODE_FULL:
+		lines.append("Ships: %d" % hits.size())
+		return
+
+	for ship: StarshipData in hits:
+		lines.append("Ship #%d P%d: %s" % [ship.ship_id, ship.ownerid, ship.display_hull_name()])
 
 func _append_ionstorm_hover(lines: PackedStringArray, world_pos: Vector2) -> void:
 	var total_voltage: float = 0.0
@@ -425,6 +466,19 @@ func _minefield_to_world(mf: MinefieldData) -> Vector2:
 		mf.x,
 		game_state.map_max_y + game_state.map_min_y - mf.y
 	)
+
+func _ship_to_world(ship: StarshipData) -> Vector2:
+	return Vector2(
+		ship.x,
+		game_state.map_max_y + game_state.map_min_y - ship.y
+	)
+
+func _ship_target_to_world(ship: StarshipData) -> Vector2:
+	return Vector2(
+		ship.targetx,
+		game_state.map_max_y + game_state.map_min_y - ship.targety
+	)
+
 func _minefield_color(mf: MinefieldData) -> Color:
 	var race_id: int = game_state.get_race_id_of_player(mf.ownerid)
 	if race_id <= 0:
@@ -453,6 +507,160 @@ func _draw_minefields() -> void:
 			_draw_web_mine_hatching(center, mf.radius, color)
 
 		draw_circle(center, mf.radius, color)
+
+func _draw_starships() -> void:
+	if game_state.starships.is_empty():
+		return
+
+	var mode: int = _ship_display_mode()
+	var groups: Array = _build_ship_groups(mode)
+
+	for group_v: Variant in groups:
+		var group: Array = group_v as Array
+		if group.is_empty():
+			continue
+
+		if group.size() > 1 and mode != SHIP_MODE_FULL:
+			_draw_ship_group(group, mode)
+		else:
+			_draw_ship_stack(group, mode)
+
+func _ship_display_mode() -> int:
+	var z: float = $Camera2D.zoom.x
+	if z >= SHIP_FULL_DETAIL_ZOOM:
+		return SHIP_MODE_FULL
+	if z >= SHIP_COMPACT_LABEL_ZOOM:
+		return SHIP_MODE_COMPACT
+	return SHIP_MODE_DOT
+
+func _build_ship_groups(mode: int) -> Array:
+	var ships: Array = []
+	for ship: StarshipData in game_state.starships:
+		if ship == null or ship.ishidden:
+			continue
+		ships.append(ship)
+
+	var groups: Array = []
+	var used: Array[bool] = []
+	used.resize(ships.size())
+	for i: int in range(used.size()):
+		used[i] = false
+
+	var grouping_pixels: float = 6.0 if mode == SHIP_MODE_FULL else SHIP_GROUP_RADIUS_PIXELS
+	var radius_world: float = grouping_pixels / maxf($Camera2D.zoom.x, 0.001)
+	var radius2: float = radius_world * radius_world
+
+	for i: int in range(ships.size()):
+		if used[i]:
+			continue
+
+		var ship: StarshipData = ships[i]
+		var group: Array = [ship]
+		used[i] = true
+		var center: Vector2 = _ship_to_world(ship)
+
+		for j: int in range(i + 1, ships.size()):
+			if used[j]:
+				continue
+
+			var other: StarshipData = ships[j]
+			if center.distance_squared_to(_ship_to_world(other)) <= radius2:
+				group.append(other)
+				used[j] = true
+
+		groups.append(group)
+
+	return groups
+
+func _draw_ship_group(group: Array, mode: int) -> void:
+	var center: Vector2 = _ship_group_center(group)
+	var owner_color: Color = _ship_color(group[0] as StarshipData)
+	var fill: Color = owner_color
+	fill.a = 0.78
+	draw_circle(center, SHIP_RADIUS_DRAW + 4.0, fill)
+	draw_arc(center, SHIP_RADIUS_DRAW + 4.0, 0.0, TAU, 32, Color.WHITE, 1.5)
+	if mode >= SHIP_MODE_COMPACT:
+		_draw_map_text(center + Vector2(10.0, -8.0), "%d ships" % group.size(), Color.WHITE)
+
+func _draw_ship_stack(group: Array, mode: int) -> void:
+	var center: Vector2 = _ship_group_center(group)
+	var label_y: float = -14.0
+
+	for ship_v: Variant in group:
+		var ship: StarshipData = ship_v as StarshipData
+		_draw_single_ship(ship, mode >= SHIP_MODE_COMPACT)
+		if mode == SHIP_MODE_FULL:
+			_draw_ship_detail_label(ship, center + Vector2(10.0, label_y))
+			label_y += 24.0
+		elif mode == SHIP_MODE_COMPACT:
+			_draw_ship_compact_label(ship, center + Vector2(10.0, label_y))
+			label_y += 12.0
+
+func _draw_single_ship(ship: StarshipData, draw_vector: bool) -> void:
+	var center: Vector2 = _ship_to_world(ship)
+	var color: Color = _ship_color(ship)
+	var fill: Color = color
+	fill.a = 0.82
+	var outline: Color = Color.WHITE
+	outline.a = 0.78
+
+	draw_circle(center, SHIP_RADIUS_DRAW, fill)
+	draw_arc(center, SHIP_RADIUS_DRAW, 0.0, TAU, 28, outline, 1.4)
+	if draw_vector:
+		_draw_ship_vector(ship, center, color)
+
+func _draw_ship_vector(ship: StarshipData, center: Vector2, color: Color) -> void:
+	var dir: Vector2 = Vector2.ZERO
+	if ship.has_target():
+		dir = (_ship_target_to_world(ship) - center).normalized()
+	elif ship.heading >= 0.0:
+		var heading_rad: float = deg_to_rad(ship.heading - 90.0)
+		dir = Vector2(cos(heading_rad), sin(heading_rad)).normalized()
+
+	if dir == Vector2.ZERO:
+		return
+
+	var line_color: Color = color
+	line_color.a = 0.90
+	var length: float = maxf(10.0, ship.warp * 4.0)
+	var tip: Vector2 = center + dir * length
+	draw_line(center, tip, line_color, 1.8)
+
+	var head_length: float = 5.0
+	var head_angle: float = deg_to_rad(28.0)
+	draw_line(tip, tip + dir.rotated(PI - head_angle) * head_length, line_color, 1.8)
+	draw_line(tip, tip + dir.rotated(PI + head_angle) * head_length, line_color, 1.8)
+
+func _draw_ship_detail_label(ship: StarshipData, pos: Vector2) -> void:
+	_draw_map_text(pos, "#%d P%d" % [ship.ship_id, ship.ownerid], Color.WHITE)
+	_draw_map_text(pos + Vector2(0.0, 11.0), ship.display_hull_name(), Color(0.88, 0.93, 0.96, 0.92))
+
+func _draw_ship_compact_label(ship: StarshipData, pos: Vector2) -> void:
+	_draw_map_text(pos, "#%d P%d" % [ship.ship_id, ship.ownerid], Color.WHITE)
+
+func _draw_map_text(pos: Vector2, text: String, color: Color) -> void:
+	var font: Font = ThemeDB.fallback_font
+	draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10, color)
+
+func _ship_group_center(group: Array) -> Vector2:
+	var sum: Vector2 = Vector2.ZERO
+	var count: int = 0
+
+	for ship_v: Variant in group:
+		var ship: StarshipData = ship_v as StarshipData
+		sum += _ship_to_world(ship)
+		count += 1
+
+	if count <= 0:
+		return Vector2.ZERO
+
+	return sum / float(count)
+
+func _ship_color(ship: StarshipData) -> Color:
+	var race_id: int = game_state.get_race_id_of_player(ship.ownerid)
+	if race_id <= 0:
+		return Color(0.86, 0.90, 0.94, 1.0)
+	return RandAI_Config.get_race_color(race_id)
 		
 func _planet_color(p: PlanetData) -> Color:
 	var race_id: int = GameState.get_owner_race_id_of_planet(p)

@@ -26,6 +26,7 @@ const Minefield_Data = preload("res://Scripts/Data/MinefieldData.gd")
 const IonStorm_Data = preload("res://Scripts/Data/IonStormData.gd")
 const Nebula_Data = preload("res://Scripts/Data/NebulaData.gd")
 const StarCluster_Data = preload("res://Scripts/Data/StarClusterData.gd")
+const Starship_Data = preload("res://Scripts/Data/StarshipData.gd")
 # -------------------------
 # Laufzeitdaten
 # -------------------------
@@ -37,6 +38,7 @@ var map_max_x: float
 var map_min_y: float
 var map_max_y: float
 var planets: Array = []
+var starships: Array[Starship_Data] = []
 var current_turn: int = 0
 var minefields: Array[Minefield_Data] = []
 var starbase_planet_ids: Dictionary = {}
@@ -100,6 +102,7 @@ func _process_loaded_turn(parsed: Dictionary) -> void:
 		RandAI_Config.set_current_game(current_game_id)
 	build_turn_model(parsed["rst"])
 	planets = turn_data_model.planets
+	starships = turn_data_model.starships
 	minefields = turn_data_model.minefields
 	ionstorms = turn_data_model.ionstorms
 	starbase_planet_ids = turn_data_model.starbase_planet_ids
