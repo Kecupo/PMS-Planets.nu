@@ -110,11 +110,12 @@ func _draw_starbase_marker(center: Vector2, color: Color) -> void:
 	draw_polyline(points, color, 2.0)
 func _draw_selected_highlight(p: PlanetData) -> void:
 	var pos: Vector2 = _map_to_world(p)
+	var base_radius: float = _get_planet_draw_radius(p)
 
 	# Ring (deutlich sichtbar)
 	draw_arc(
 		pos,
-		PLANET_RADIUS_DRAW + 10.0,
+		base_radius + 10.0,
 		0.0,
 		TAU,
 		64,
@@ -125,7 +126,7 @@ func _draw_selected_highlight(p: PlanetData) -> void:
 	# Optional: zweiter, dünner Ring
 	draw_arc(
 		pos,
-		PLANET_RADIUS_DRAW + 6.0,
+		base_radius + 6.0,
 		0.0,
 		TAU,
 		64,
