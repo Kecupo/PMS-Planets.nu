@@ -4,6 +4,8 @@ extends Node2D
 @onready var overlay: Control = get_node("%OverlayRoot") as Control
 const PLANET_RADIUS_DRAW: float = 9.0
 @export var click_radius_pixels: float = 21.0
+const HOVER_PANEL_WIDTH: float = 390.0
+const HOVER_PANEL_MARGIN: float = 12.0
 const Minefield_Data = preload("res://Scripts/Data/MinefieldData.gd")
 const IonStorm_Data = preload("res://Scripts/Data/IonStormData.gd")
 const IonStormCircle_Data = preload("res://Scripts/Data/IonStormCircleData.gd")
@@ -14,8 +16,13 @@ const STARCLUSTER_CORE_COLOR: Color = Color(0.92, 0.92, 0.95, 0.95)
 const STARCLUSTER_INNER_GLOW_COLOR: Color = Color(0.80, 0.80, 0.84, 0.18)
 const STARCLUSTER_RADIATION_COLOR: Color = Color(0.82, 0.84, 0.88, 0.08)
 const STARCLUSTER_OUTLINE_COLOR: Color = Color(0.80, 0.82, 0.86, 0.55)
+var hover_layer: CanvasLayer = null
+var hover_panel: PanelContainer = null
+var hover_label: Label = null
+
 func _ready() -> void:
 	set_process_input(true)
+	_create_hover_overlay()
 	GameState.turn_loaded.connect(_on_turn_loaded)
 	GameState.orders_changed.connect(func() -> void:
 		queue_redraw()
@@ -31,6 +38,7 @@ func _on_turn_loaded() -> void:
 	
 func _process(_delta: float) -> void:
 	queue_redraw()
+	_update_hover_info(get_viewport().get_mouse_position())
 
 func _draw() -> void:
 	if game_state.planets.is_empty() \
@@ -42,7 +50,6 @@ func _draw() -> void:
 	_draw_nebulas()
 	_draw_ionstorms()
 	_draw_minefields()
-	_draw_ionstorms()
 	for p in game_state.planets:
 		var center: Vector2 = _map_to_world(p)
 		var col: Color = _planet_color(p)
@@ -127,6 +134,211 @@ func _unhandled_input(event: InputEvent) -> void:
 		# Wichtig: hier KEIN UI-Hover-Filter und keine weiteren Änderungen
 		get_viewport().set_input_as_handled()
 
+func _create_hover_overlay() -> void:
+	hover_layer = CanvasLayer.new()
+	hover_layer.name = "MapHoverInfoLayer"
+	hover_layer.layer = 3
+	add_child(hover_layer)
+
+	hover_panel = PanelContainer.new()
+	hover_panel.name = "MapHoverInfoPanel"
+	hover_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hover_panel.visible = false
+	hover_panel.custom_minimum_size = Vector2(HOVER_PANEL_WIDTH, 0.0)
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = Color(0.04, 0.045, 0.055, 0.86)
+	style.border_color = Color(0.45, 0.56, 0.62, 0.55)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(6)
+	style.set_content_margin(SIDE_LEFT, 10.0)
+	style.set_content_margin(SIDE_TOP, 8.0)
+	style.set_content_margin(SIDE_RIGHT, 10.0)
+	style.set_content_margin(SIDE_BOTTOM, 8.0)
+	hover_panel.add_theme_stylebox_override("panel", style)
+	hover_layer.add_child(hover_panel)
+
+	hover_label = Label.new()
+	hover_label.name = "MapHoverInfoLabel"
+	hover_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hover_label.custom_minimum_size = Vector2(HOVER_PANEL_WIDTH - 20.0, 0.0)
+	hover_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hover_label.add_theme_color_override("font_color", Color(0.90, 0.96, 0.98, 1.0))
+	hover_panel.add_child(hover_label)
+	_position_hover_panel()
+
+func _position_hover_panel() -> void:
+	if hover_panel == null:
+		return
+	var viewport_size: Vector2 = get_viewport_rect().size
+	hover_panel.position = Vector2(
+		maxf(HOVER_PANEL_MARGIN, viewport_size.x - HOVER_PANEL_WIDTH - HOVER_PANEL_MARGIN),
+		HOVER_PANEL_MARGIN
+	)
+
+func _update_hover_info(screen_pos: Vector2) -> void:
+	if hover_label == null or hover_panel == null:
+		return
+
+	_position_hover_panel()
+
+	if game_state.planets.is_empty() \
+	and game_state.minefields.is_empty() \
+	and game_state.ionstorms.is_empty() \
+	and game_state.nebulas.is_empty() \
+	and game_state.starclusters.is_empty():
+		hover_panel.visible = false
+		return
+
+	var world_pos: Vector2 = _screen_to_world(screen_pos)
+	var map_pos: Vector2 = _world_to_map(world_pos)
+	var lines: PackedStringArray = _build_hover_lines(world_pos, map_pos)
+
+	hover_label.text = "\n".join(lines)
+	hover_panel.visible = true
+
+func _screen_to_world(screen_pos: Vector2) -> Vector2:
+	var inv: Transform2D = $Camera2D.get_canvas_transform().affine_inverse()
+	return inv * screen_pos
+
+func _world_to_map(world_pos: Vector2) -> Vector2:
+	return Vector2(
+		world_pos.x,
+		game_state.map_max_y + game_state.map_min_y - world_pos.y
+	)
+
+func _build_hover_lines(world_pos: Vector2, map_pos: Vector2) -> PackedStringArray:
+	var lines: PackedStringArray = PackedStringArray()
+	lines.append("Coords: %d / %d" % [int(round(map_pos.x)), int(round(map_pos.y))])
+
+	_append_planet_hover(lines, world_pos)
+	_append_ionstorm_hover(lines, world_pos)
+	_append_nebula_hover(lines, world_pos)
+	_append_minefield_hover(lines, world_pos)
+	_append_starcluster_hover(lines, map_pos)
+
+	return lines
+
+func _append_planet_hover(lines: PackedStringArray, world_pos: Vector2) -> void:
+	var radius_world: float = click_radius_pixels * $Camera2D.zoom.x
+	var picked_id: int = _pick_planet(world_pos, radius_world)
+	if picked_id == -1:
+		return
+
+	var p: PlanetData = _get_planet_by_id(picked_id)
+	if p == null:
+		return
+
+	lines.append("Planet: %s (%s)" % [p.name, _planet_owner_label(p)])
+
+func _append_ionstorm_hover(lines: PackedStringArray, world_pos: Vector2) -> void:
+	var total_voltage: float = 0.0
+	var count: int = 0
+
+	for storm: IonStormData in game_state.ionstorms:
+		if storm == null:
+			continue
+
+		if _point_in_ionstorm(storm, world_pos):
+			total_voltage += storm.voltage
+			count += 1
+
+	if count <= 0:
+		return
+
+	lines.append("Ion Storms: strength %d" % int(round(total_voltage)))
+
+func _append_nebula_hover(lines: PackedStringArray, world_pos: Vector2) -> void:
+	var total_visibility: float = 0.0
+	var count: int = 0
+
+	for nebula: NebulaData in game_state.nebulas:
+		if nebula == null:
+			continue
+
+		for circle: NebulaCircleData in nebula.circles:
+			if circle == null or circle.radius <= 0.0:
+				continue
+
+			if _nebula_circle_to_world(circle).distance_to(world_pos) <= circle.radius:
+				total_visibility += circle.intensity
+				count += 1
+
+	if count <= 0:
+		return
+
+	lines.append("Nebulae: visibility %d" % int(round(total_visibility)))
+
+func _append_minefield_hover(lines: PackedStringArray, world_pos: Vector2) -> void:
+	for mf: MinefieldData in game_state.minefields:
+		if mf == null:
+			continue
+
+		if mf.ishidden or mf.radius <= 0.0:
+			continue
+
+		if _minefield_to_world(mf).distance_to(world_pos) > mf.radius:
+			continue
+
+		var kind: String = "Web Minefield" if mf.isweb else "Minefield"
+		lines.append(
+			"%s #%d: %.0f mines, R %.0f, %s" % [
+				kind,
+				mf.minefield_id,
+				mf.units,
+				mf.radius,
+				_player_owner_label(mf.ownerid)
+			]
+		)
+
+func _append_starcluster_hover(lines: PackedStringArray, map_pos: Vector2) -> void:
+	for star: StarClusterData in game_state.starclusters:
+		if star == null:
+			continue
+
+		var voltage: int = get_starcluster_radiation_at_point(star, map_pos.x, map_pos.y)
+		if voltage <= 0:
+			continue
+
+		var label_name: String = star.name
+		if label_name.is_empty():
+			label_name = "#" + str(star.star_id)
+
+		lines.append("Star Cluster %s: voltage %d" % [label_name, voltage])
+
+func _point_in_ionstorm(storm: IonStormData, world_pos: Vector2) -> bool:
+	for circle: IonStormCircleData in storm.circles:
+		if circle == null or circle.radius <= 0.0:
+			continue
+
+		if _ionstorm_circle_to_world(circle).distance_to(world_pos) <= circle.radius:
+			return true
+
+	return false
+
+func _get_planet_by_id(planet_id: int) -> PlanetData:
+	for p: PlanetData in game_state.planets:
+		if int(p.planet_id) == planet_id:
+			return p
+	return null
+
+func _planet_owner_label(p: PlanetData) -> String:
+	if p == null or int(p.ownerid) <= 0:
+		return "unowned"
+	return _player_owner_label(int(p.ownerid))
+
+func _player_owner_label(player_id: int) -> String:
+	if player_id <= 0:
+		return "unowned"
+
+	var race_id: int = game_state.get_race_id_of_player(player_id)
+	if race_id <= 0:
+		return "Player %d" % player_id
+
+	return "%s / Player %d" % [
+		game_state.config.get_owner_abbrev(race_id),
+		player_id
+	]
+
 func _pick_planet(world_pos: Vector2, radius_world: float) -> int:
 	var best_id: int = -1
 	var best_dist2: float = INF
@@ -174,11 +386,11 @@ func _draw_minefields() -> void:
 
 		var center: Vector2 = _minefield_to_world(mf)
 		var color: Color = _minefield_color(mf)
-		color.a = 0.14
+		color.a = 0.24
 
 		if mf.isweb:
 			var fill_color: Color = color
-			fill_color.a = 0.10
+			fill_color.a = 0.18
 			draw_circle(center, mf.radius, fill_color)
 			_draw_web_mine_hatching(center, mf.radius, color)
 
@@ -200,10 +412,10 @@ func _ionstorm_circle_to_world(circle: IonStormCircleData) -> Vector2:
 	)
 	
 func _ionstorm_fill_alpha(voltage: float) -> float:
-	return clampf(voltage / 180.0, 0.08, 0.38)
+	return clampf(voltage / 260.0, 0.04, 0.22)
 
 func _ionstorm_border_alpha(voltage: float) -> float:
-	return clampf(voltage / 140.0, 0.22, 0.70)
+	return clampf(voltage / 210.0, 0.14, 0.45)
 
 func _ionstorm_fill_color(voltage: float) -> Color:
 	var c: Color = ION_STORM_BASE_COLOR
@@ -231,16 +443,27 @@ func _draw_ionstorm(storm: IonStormData) -> void:
 		var center: Vector2 = _ionstorm_circle_to_world(circle)
 
 		var fill_color: Color = _ionstorm_fill_color(storm.voltage)
-		var border_color: Color = _ionstorm_border_color(storm.voltage)
-
 		if i > 0:
 			fill_color.a *= 0.96
-			border_color.a *= 0.98
 
 		draw_circle(center, circle.radius, fill_color)
-		draw_arc(center, circle.radius, 0.0, TAU, 96, border_color, 2.0)
 
+	_draw_ionstorm_outer_outline(storm)
 	_draw_ionstorm_heading(storm)
+
+func _draw_ionstorm_outer_outline(storm: IonStormData) -> void:
+	var border_color: Color = _ionstorm_border_color(storm.voltage)
+
+	for i: int in range(storm.circles.size()):
+		var circle: IonStormCircleData = storm.circles[i]
+		if circle == null or circle.radius <= 0.0:
+			continue
+
+		if _is_ionstorm_circle_mostly_internal(storm, i):
+			continue
+
+		var center: Vector2 = _ionstorm_circle_to_world(circle)
+		draw_arc(center, circle.radius, 0.0, TAU, 96, border_color, 2.0)
 
 func _draw_ionstorm_heading(storm: IonStormData) -> void:
 	if storm.circles.is_empty():
@@ -281,7 +504,7 @@ func _nebula_circle_to_world(circle: NebulaCircleData) -> Vector2:
 	)
 
 func _nebula_fill_alpha(intensity: float) -> float:
-	return clampf(intensity / 140.0, 0.09, 0.14)
+	return clampf(intensity / 170.0, 0.05, 0.18)
 	
 func _nebula_outline_alpha() -> float:
 	return 0.42
@@ -309,7 +532,7 @@ func _draw_nebula(nebula: NebulaData) -> void:
 			continue
 
 		var center: Vector2 = _nebula_circle_to_world(circle)
-		_draw_nebula_soft_circle(center, circle.radius, circle.intensity)
+		draw_circle(center, circle.radius, _nebula_fill_color(circle.intensity))
 
 	_draw_nebula_outer_outline(nebula)
 func _draw_nebula_outer_outline(nebula: NebulaData) -> void:
@@ -324,22 +547,25 @@ func _draw_nebula_outer_outline(nebula: NebulaData) -> void:
 		var center: Vector2 = _nebula_circle_to_world(circle)
 		draw_arc(center, circle.radius, 0.0, TAU, 96, NEBULA_OUTLINE_COLOR, 2.0)
 		
-func _draw_nebula_soft_circle(center: Vector2, radius: float, intensity: float) -> void:
-	var steps: int = 14
-	var base_alpha: float = _nebula_core_alpha(intensity)
+func _is_ionstorm_circle_mostly_internal(storm: IonStormData, index: int) -> bool:
+	var a: IonStormCircleData = storm.circles[index]
+	var center_a: Vector2 = Vector2(a.x, a.y)
 
-	for i: int in range(steps, 0, -1):
-		var t: float = float(i) / float(steps)
-		var r: float = radius * t
-		var alpha: float = base_alpha * pow(t, 2.8) * 0.85
+	for j: int in range(storm.circles.size()):
+		if j == index:
+			continue
 
-		var c: Color = NEBULA_BASE_COLOR
-		c.a = alpha
+		var b: IonStormCircleData = storm.circles[j]
+		if b == null:
+			continue
 
-		draw_circle(center, r, c)
-		
-func _nebula_core_alpha(intensity: float) -> float:
-	return clampf(intensity / 160.0, 0.06, 0.18)
+		var center_b: Vector2 = Vector2(b.x, b.y)
+		var dist: float = center_a.distance_to(center_b)
+
+		if dist + a.radius <= b.radius * 0.98:
+			return true
+
+	return false
 
 func _is_nebula_circle_mostly_internal(nebula: NebulaData, index: int) -> bool:
 	var a: NebulaCircleData = nebula.circles[index]
