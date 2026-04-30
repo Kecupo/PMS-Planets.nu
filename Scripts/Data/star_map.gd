@@ -4,15 +4,17 @@ extends Node2D
 @onready var overlay: Control = get_node("%OverlayRoot") as Control
 const PLANET_RADIUS_DRAW: float = 9.0
 @export var click_radius_pixels: float = 21.0
-const HOVER_PANEL_WIDTH: float = 390.0
+const HOVER_PANEL_WIDTH: float = 270.0
 const HOVER_PANEL_MARGIN: float = 12.0
 const MERGED_SHAPE_SEGMENTS: int = 36
 const FIELD_CELL_SIZE: float = 28.0
 const DEBRIS_DISK_RADIUS: float = 40.0
 const SHIP_RADIUS_DRAW: float = 5.5
-const SHIP_GROUP_RADIUS_PIXELS: float = 30.0
-const SHIP_COMPACT_LABEL_ZOOM: float = 0.45
-const SHIP_FULL_DETAIL_ZOOM: float = 1.20
+const SHIP_GROUP_RADIUS_PIXELS: float = 46.0
+const SHIP_COMPACT_LABEL_ZOOM: float = 0.80
+const SHIP_FULL_DETAIL_ZOOM: float = 99.0
+const SHIP_LABEL_FONT_SIZE: int = 12
+const SHIP_MAX_LABELS_PER_GROUP: int = 8
 const SHIP_MODE_DOT: int = 0
 const SHIP_MODE_COMPACT: int = 1
 const SHIP_MODE_FULL: int = 2
@@ -257,6 +259,10 @@ func _update_hover_info(screen_pos: Vector2) -> void:
 	var lines: PackedStringArray = _build_hover_lines(world_pos, map_pos)
 
 	hover_label.text = "\n".join(lines)
+	hover_label.custom_minimum_size = Vector2(HOVER_PANEL_WIDTH - 20.0, 0.0)
+	hover_label.size = Vector2(HOVER_PANEL_WIDTH - 20.0, 0.0)
+	hover_panel.custom_minimum_size = Vector2(HOVER_PANEL_WIDTH, 0.0)
+	hover_panel.size = Vector2(HOVER_PANEL_WIDTH, 0.0)
 	hover_panel.visible = true
 
 func _screen_to_world(screen_pos: Vector2) -> Vector2:
@@ -520,10 +526,7 @@ func _draw_starships() -> void:
 		if group.is_empty():
 			continue
 
-		if group.size() > 1 and mode != SHIP_MODE_FULL:
-			_draw_ship_group(group, mode)
-		else:
-			_draw_ship_stack(group, mode)
+		_draw_ship_group(group, mode)
 
 func _ship_display_mode() -> int:
 	var z: float = $Camera2D.zoom.x
@@ -546,7 +549,7 @@ func _build_ship_groups(mode: int) -> Array:
 	for i: int in range(used.size()):
 		used[i] = false
 
-	var grouping_pixels: float = 6.0 if mode == SHIP_MODE_FULL else SHIP_GROUP_RADIUS_PIXELS
+	var grouping_pixels: float = SHIP_GROUP_RADIUS_PIXELS
 	var radius_world: float = grouping_pixels / maxf($Camera2D.zoom.x, 0.001)
 	var radius2: float = radius_world * radius_world
 
@@ -574,27 +577,14 @@ func _build_ship_groups(mode: int) -> Array:
 
 func _draw_ship_group(group: Array, mode: int) -> void:
 	var center: Vector2 = _ship_group_center(group)
-	var owner_color: Color = _ship_color(group[0] as StarshipData)
-	var fill: Color = owner_color
-	fill.a = 0.78
-	draw_circle(center, SHIP_RADIUS_DRAW + 4.0, fill)
-	draw_arc(center, SHIP_RADIUS_DRAW + 4.0, 0.0, TAU, 32, Color.WHITE, 1.5)
-	if mode >= SHIP_MODE_COMPACT:
-		_draw_map_text(center + Vector2(10.0, -8.0), "%d ships" % group.size(), Color.WHITE)
-
-func _draw_ship_stack(group: Array, mode: int) -> void:
-	var center: Vector2 = _ship_group_center(group)
-	var label_y: float = -14.0
-
 	for ship_v: Variant in group:
 		var ship: StarshipData = ship_v as StarshipData
 		_draw_single_ship(ship, mode >= SHIP_MODE_COMPACT)
-		if mode == SHIP_MODE_FULL:
-			_draw_ship_detail_label(ship, center + Vector2(10.0, label_y))
-			label_y += 24.0
-		elif mode == SHIP_MODE_COMPACT:
-			_draw_ship_compact_label(ship, center + Vector2(10.0, label_y))
-			label_y += 12.0
+
+	if mode < SHIP_MODE_COMPACT:
+		return
+
+	_draw_ship_group_label(group, center)
 
 func _draw_single_ship(ship: StarshipData, draw_vector: bool) -> void:
 	var center: Vector2 = _ship_to_world(ship)
@@ -603,9 +593,11 @@ func _draw_single_ship(ship: StarshipData, draw_vector: bool) -> void:
 	fill.a = 0.82
 	var outline: Color = Color.WHITE
 	outline.a = 0.78
+	var r: float = _screen_px_to_world(SHIP_RADIUS_DRAW)
+	var width: float = _screen_px_to_world(1.4)
 
-	draw_circle(center, SHIP_RADIUS_DRAW, fill)
-	draw_arc(center, SHIP_RADIUS_DRAW, 0.0, TAU, 28, outline, 1.4)
+	draw_circle(center, r, fill)
+	draw_arc(center, r, 0.0, TAU, 28, outline, width)
 	if draw_vector:
 		_draw_ship_vector(ship, center, color)
 
@@ -622,25 +614,45 @@ func _draw_ship_vector(ship: StarshipData, center: Vector2, color: Color) -> voi
 
 	var line_color: Color = color
 	line_color.a = 0.90
-	var length: float = maxf(10.0, ship.warp * 4.0)
+	var length: float = _screen_px_to_world(maxf(12.0, ship.warp * 7.0))
 	var tip: Vector2 = center + dir * length
-	draw_line(center, tip, line_color, 1.8)
+	var width: float = _screen_px_to_world(1.6)
+	draw_line(center, tip, line_color, width)
 
-	var head_length: float = 5.0
+	var head_length: float = _screen_px_to_world(5.0)
 	var head_angle: float = deg_to_rad(28.0)
-	draw_line(tip, tip + dir.rotated(PI - head_angle) * head_length, line_color, 1.8)
-	draw_line(tip, tip + dir.rotated(PI + head_angle) * head_length, line_color, 1.8)
+	draw_line(tip, tip + dir.rotated(PI - head_angle) * head_length, line_color, width)
+	draw_line(tip, tip + dir.rotated(PI + head_angle) * head_length, line_color, width)
 
-func _draw_ship_detail_label(ship: StarshipData, pos: Vector2) -> void:
-	_draw_map_text(pos, "#%d P%d" % [ship.ship_id, ship.ownerid], Color.WHITE)
-	_draw_map_text(pos + Vector2(0.0, 11.0), ship.display_hull_name(), Color(0.88, 0.93, 0.96, 0.92))
+func _draw_ship_group_label(group: Array, center: Vector2) -> void:
+	var summary: Array = _ship_group_summary(group)
+	var label_pos: Vector2 = center + Vector2(_screen_px_to_world(12.0), _screen_px_to_world(-8.0))
+	var line_step: float = _screen_px_to_world(13.0)
+	var line_count: int = min(summary.size(), SHIP_MAX_LABELS_PER_GROUP)
 
-func _draw_ship_compact_label(ship: StarshipData, pos: Vector2) -> void:
-	_draw_map_text(pos, "#%d P%d" % [ship.ship_id, ship.ownerid], Color.WHITE)
+	for i: int in range(line_count):
+		var item: Dictionary = summary[i] as Dictionary
+		var color: Color = item.get("color", Color.WHITE)
+		_draw_map_text(
+			label_pos + Vector2(0.0, line_step * float(i)),
+			"%d [%d] %s" % [int(item.get("count", 0)), int(item.get("ownerid", 0)), String(item.get("label", ""))],
+			color
+		)
+
+	if summary.size() > SHIP_MAX_LABELS_PER_GROUP:
+		_draw_map_text(
+			label_pos + Vector2(0.0, line_step * float(SHIP_MAX_LABELS_PER_GROUP)),
+			"+%d types" % (summary.size() - SHIP_MAX_LABELS_PER_GROUP),
+			Color(0.88, 0.93, 0.96, 0.88)
+		)
 
 func _draw_map_text(pos: Vector2, text: String, color: Color) -> void:
 	var font: Font = ThemeDB.fallback_font
-	draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10, color)
+	var font_size: int = max(6, int(round(float(SHIP_LABEL_FONT_SIZE) / maxf($Camera2D.zoom.x, 0.001))))
+	draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, color)
+
+func _screen_px_to_world(px: float) -> float:
+	return px / maxf($Camera2D.zoom.x, 0.001)
 
 func _ship_group_center(group: Array) -> Vector2:
 	var sum: Vector2 = Vector2.ZERO
@@ -655,6 +667,71 @@ func _ship_group_center(group: Array) -> Vector2:
 		return Vector2.ZERO
 
 	return sum / float(count)
+
+func _ship_group_summary(group: Array) -> Array:
+	var by_key: Dictionary = {}
+	var result: Array = []
+
+	for ship_v: Variant in group:
+		var ship: StarshipData = ship_v as StarshipData
+		var label: String = _ship_hull_short_name(ship)
+		var key: String = "%d|%s" % [ship.ownerid, label]
+		if not by_key.has(key):
+			var item: Dictionary = {
+				"ownerid": ship.ownerid,
+				"label": label,
+				"count": 0,
+				"color": _ship_color(ship)
+			}
+			by_key[key] = item
+			result.append(item)
+
+		var summary: Dictionary = by_key[key] as Dictionary
+		summary["count"] = int(summary.get("count", 0)) + 1
+
+	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var ca: int = int(a.get("count", 0))
+		var cb: int = int(b.get("count", 0))
+		if ca == cb:
+			return String(a.get("label", "")) < String(b.get("label", ""))
+		return ca > cb
+	)
+
+	return result
+
+func _ship_hull_short_name(ship: StarshipData) -> String:
+	var raw_name: String = ship.display_hull_name().strip_edges()
+	if raw_name.is_empty():
+		return "Ship"
+
+	var upper_name: String = raw_name.to_upper()
+	if raw_name == upper_name and raw_name.length() <= 12:
+		return raw_name
+
+	var words: PackedStringArray = raw_name.split(" ", false)
+	var ignored: Dictionary = {
+		"CLASS": true,
+		"THE": true,
+		"OF": true,
+		"AND": true
+	}
+	var initials: String = ""
+
+	for word: String in words:
+		var clean: String = word.strip_edges()
+		if clean.is_empty():
+			continue
+		if ignored.has(clean.to_upper()):
+			continue
+		initials += clean.substr(0, 1).to_upper()
+
+	if initials.length() >= 2 and initials.length() <= 6:
+		return initials
+
+	if raw_name.length() <= 14:
+		return raw_name
+
+	return raw_name.substr(0, 14)
 
 func _ship_color(ship: StarshipData) -> Color:
 	var race_id: int = game_state.get_race_id_of_player(ship.ownerid)
