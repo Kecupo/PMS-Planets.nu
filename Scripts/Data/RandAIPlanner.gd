@@ -35,26 +35,12 @@ static func apply_to_planets(
 		# -------------------------
 		# Native tax
 		# -------------------------
-		var nat_tax: int = 0
-
-		if _should_tax_natives(p, cfg):
-			var nat_cap_tax: int = _native_cap_tax(p, cfg, owner_race_id)
-			if nat_cap_tax >= 0:
-				nat_tax = nat_cap_tax
-			else:
-				nat_tax = _choose_tax_natives(p, cfg, owner_race_id)
+		var nat_tax: int = _calculate_native_tax(p, cfg, owner_race_id)
 
 		# -------------------------
 		# Colonist tax
 		# -------------------------
-		var col_tax: int = 0
-
-		if _should_tax_colonists(p, cfg, owner_race_id):
-			var col_cap_tax: int = _apply_colonist_cap_mode(p, cfg, owner_race_id)
-			if col_cap_tax >= 0:
-				col_tax = col_cap_tax
-			else:
-				col_tax = _choose_tax_colonists(p, cfg, owner_race_id)
+		var col_tax: int = _calculate_colonist_tax(p, cfg, owner_race_id)
 
 		col_tax = PlanetMath.colonist_tax_rate_for_planet_income_cap(
 			p,
@@ -63,10 +49,113 @@ static func apply_to_planets(
 			owner_race_id
 		)
 
-		GameState.set_planet_native_taxrate(planet_id, nat_tax)
-		GameState.set_planet_colonist_taxrate(planet_id, col_tax)
+		if nat_tax != int(p.nativetaxrate):
+			GameState.set_planet_native_taxrate(planet_id, nat_tax)
+		if col_tax != int(p.colonisttaxrate):
+			GameState.set_planet_colonist_taxrate(planet_id, col_tax)
 
 	GameState.end_batch_changes()
+
+
+static func apply_to_planets_async(
+	_game_id: int,
+	_cur_turn: int,
+	owner_race_id: int,
+	my_planets: Array,
+	cfg: Node,
+	orders_store: Node,
+	_planet_math: Node,
+	rng: RandomNumberGenerator,
+	progress_callback: Callable = Callable()
+) -> Dictionary:
+	var result: Dictionary = {
+		"success": true,
+		"processed": 0,
+		"managed": 0,
+		"changed": 0,
+		"message": ""
+	}
+
+	GameState.begin_batch_changes()
+
+	# Global FC operations first
+	_apply_fc_special_case(my_planets, cfg, rng)
+	_apply_fc_randomize_others(my_planets, cfg, rng)
+
+	var total: int = my_planets.size()
+	for i in range(total):
+		var p = my_planets[i]
+		if p == null:
+			continue
+
+		var planet_id: int = int(p.planet_id)
+		result["processed"] = int(result["processed"]) + 1
+
+		if int(p.ownerid) != GameState.my_player_id:
+			continue
+
+		if not orders_store.is_auto_managed(planet_id):
+			continue
+
+		var old_nat_tax: int = int(p.nativetaxrate)
+		var old_col_tax: int = int(p.colonisttaxrate)
+		var nat_tax: int = _calculate_native_tax(p, cfg, owner_race_id)
+		var col_tax: int = _calculate_colonist_tax(p, cfg, owner_race_id)
+
+		col_tax = PlanetMath.colonist_tax_rate_for_planet_income_cap(
+			p,
+			col_tax,
+			nat_tax,
+			owner_race_id
+		)
+
+		if nat_tax != old_nat_tax:
+			GameState.set_planet_native_taxrate(planet_id, nat_tax)
+		if col_tax != old_col_tax:
+			GameState.set_planet_colonist_taxrate(planet_id, col_tax)
+
+		result["managed"] = int(result["managed"]) + 1
+		if nat_tax != old_nat_tax or col_tax != old_col_tax:
+			result["changed"] = int(result["changed"]) + 1
+
+		if i % 10 == 0:
+			_emit_progress(progress_callback, i + 1, total)
+			var tree: SceneTree = Engine.get_main_loop() as SceneTree
+			if tree != null:
+				await tree.process_frame
+
+	GameState.end_batch_changes()
+	_emit_progress(progress_callback, total, total)
+	result["message"] = "Success: managed %d planets, changed %d." % [
+		int(result["managed"]),
+		int(result["changed"])
+	]
+	return result
+
+
+static func _emit_progress(progress_callback: Callable, value: int, total: int) -> void:
+	if progress_callback.is_valid():
+		progress_callback.call(value, total)
+
+
+static func _calculate_native_tax(p: PlanetData, cfg: RandAI_Config, owner_race_id: int) -> int:
+	if not _should_tax_natives(p, cfg):
+		return 0
+
+	var nat_cap_tax: int = _native_cap_tax(p, cfg, owner_race_id)
+	if nat_cap_tax >= 0:
+		return nat_cap_tax
+	return _choose_tax_natives(p, cfg, owner_race_id)
+
+
+static func _calculate_colonist_tax(p: PlanetData, cfg: RandAI_Config, owner_race_id: int) -> int:
+	if not _should_tax_colonists(p, cfg, owner_race_id):
+		return 0
+
+	var col_cap_tax: int = _apply_colonist_cap_mode(p, cfg, owner_race_id)
+	if col_cap_tax >= 0:
+		return col_cap_tax
+	return _choose_tax_colonists(p, cfg, owner_race_id)
 
 
 # -----------------------------------------------------------------------------

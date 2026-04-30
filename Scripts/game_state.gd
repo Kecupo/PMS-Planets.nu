@@ -447,10 +447,11 @@ func set_planet_friendlycode(planet_id: int, fc: String) -> void:
 			p.friendlycode = s
 			break
 
-	# 3) persist
-	_save_latest_turn_json()
-
-	emit_signal("orders_changed")
+	if _batch_mode:
+		_batch_dirty = true
+	else:
+		_save_latest_turn_json()
+		emit_signal("orders_changed")
 
 func begin_batch_changes() -> void:
 	_batch_mode = true

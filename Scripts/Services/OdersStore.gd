@@ -195,6 +195,8 @@ func clear_build_factories(game_id: int, planet_id: int) -> void:
 
 func set_auto_managed(game_id: int, planet_id: int, val: bool) -> void:
 	var d := _ensure_planet_dict(planet_id)
+	if bool(d.get("auto_managed", false)) == val:
+		return
 	d["auto_managed"] = val
 	orders[str(planet_id)] = d
 	_maybe_save(game_id)
