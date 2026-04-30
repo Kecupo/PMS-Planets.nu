@@ -16,6 +16,7 @@ const SHIP_COMPACT_LABEL_ZOOM: float = 0.80
 const SHIP_FULL_DETAIL_ZOOM: float = 1.80
 const SHIP_LABEL_FONT_SIZE: int = 15
 const SHIP_MAX_LABELS_PER_GROUP: int = 4
+const SHIP_LABEL_PADDING_PIXELS: float = 5.0
 const SHIP_MODE_DOT: int = 0
 const SHIP_MODE_SUMMARY: int = 1
 const SHIP_MODE_COMPACT: int = 2
@@ -37,6 +38,7 @@ var hover_label: Label = null
 var _last_hover_mouse_pos: Vector2 = Vector2(INF, INF)
 var _last_hover_camera_pos: Vector2 = Vector2(INF, INF)
 var _last_hover_camera_zoom: Vector2 = Vector2(INF, INF)
+var _ship_label_screen_rects: Array[Rect2] = []
 
 func _ready() -> void:
 	set_process_input(true)
@@ -522,6 +524,7 @@ func _draw_starships() -> void:
 
 	var mode: int = _ship_display_mode()
 	var groups: Array = _build_ship_groups(mode)
+	_ship_label_screen_rects.clear()
 
 	for group_v: Variant in groups:
 		var group: Array = group_v as Array
@@ -634,39 +637,90 @@ func _draw_ship_vector(ship: StarshipData, center: Vector2, color: Color) -> voi
 
 func _draw_ship_group_label(group: Array, center: Vector2) -> void:
 	var summary: Array = _ship_group_summary(group)
-	var label_pos: Vector2 = center + Vector2(_screen_px_to_world(18.0), _screen_px_to_world(-12.0))
 	var line_step: float = _screen_px_to_world(17.0)
 	var line_count: int = min(summary.size(), SHIP_MAX_LABELS_PER_GROUP)
+	var lines: Array[Dictionary] = []
 
 	for i: int in range(line_count):
 		var item: Dictionary = summary[i] as Dictionary
-		var color: Color = item.get("color", Color.WHITE)
-		_draw_map_text(
-			label_pos + Vector2(0.0, line_step * float(i)),
-			"%d [%d] %s" % [int(item.get("count", 0)), int(item.get("ownerid", 0)), String(item.get("label", ""))],
-			color
-		)
+		lines.append({
+			"text": "%d [%d] %s" % [int(item.get("count", 0)), int(item.get("ownerid", 0)), String(item.get("label", ""))],
+			"color": item.get("color", Color.WHITE)
+		})
 
 	if summary.size() > SHIP_MAX_LABELS_PER_GROUP:
+		lines.append({
+			"text": "+%d types / %d ships" % [summary.size() - SHIP_MAX_LABELS_PER_GROUP, _count_summary_ships(summary, SHIP_MAX_LABELS_PER_GROUP)],
+			"color": Color(0.88, 0.93, 0.96, 0.88)
+		})
+
+	var label_pos: Vector2 = _reserve_ship_label_position(center, lines)
+	for i: int in range(lines.size()):
+		var line: Dictionary = lines[i]
 		_draw_map_text(
-			label_pos + Vector2(0.0, line_step * float(SHIP_MAX_LABELS_PER_GROUP)),
-			"+%d types / %d ships" % [summary.size() - SHIP_MAX_LABELS_PER_GROUP, _count_summary_ships(summary, SHIP_MAX_LABELS_PER_GROUP)],
-			Color(0.88, 0.93, 0.96, 0.88)
+			label_pos + Vector2(0.0, line_step * float(i)),
+			String(line.get("text", "")),
+			line.get("color", Color.WHITE)
 		)
 
 func _draw_ship_summary_label(group: Array, center: Vector2) -> void:
 	var text: String = "1 ship" if group.size() == 1 else "%d ships" % group.size()
 	var ship: StarshipData = group[0] as StarshipData
-	_draw_map_text(center + Vector2(_screen_px_to_world(11.0), _screen_px_to_world(-5.0)), text, _ship_color(ship))
+	var lines: Array[Dictionary] = [{"text": text, "color": _ship_color(ship)}]
+	_draw_map_text(_reserve_ship_label_position(center, lines), text, _ship_color(ship))
 
 func _draw_map_text(pos: Vector2, text: String, color: Color) -> void:
 	var font: Font = ThemeDB.fallback_font
-	var z: float = maxf($Camera2D.zoom.x, 0.001)
-	var font_size: int = int(clamp(round(float(SHIP_LABEL_FONT_SIZE) / pow(z, 0.35)), 12.0, float(SHIP_LABEL_FONT_SIZE)))
-	draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, color)
+	var scale: float = _screen_px_to_world(1.0)
+	draw_set_transform(pos, 0.0, Vector2(scale, scale))
+	draw_string(font, Vector2.ZERO, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, SHIP_LABEL_FONT_SIZE, color)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 func _screen_px_to_world(px: float) -> float:
 	return px / maxf($Camera2D.zoom.x, 0.001)
+
+func _world_to_screen(world_pos: Vector2) -> Vector2:
+	return $Camera2D.get_canvas_transform() * world_pos
+
+func _reserve_ship_label_position(center: Vector2, lines: Array[Dictionary]) -> Vector2:
+	var center_screen: Vector2 = _world_to_screen(center)
+	var label_size: Vector2 = _estimate_ship_label_size(lines)
+	var offsets: Array[Vector2] = [
+		Vector2(18.0, -12.0),
+		Vector2(18.0, 14.0),
+		Vector2(-label_size.x - 18.0, -12.0),
+		Vector2(-label_size.x - 18.0, 14.0),
+		Vector2(18.0, -label_size.y - 18.0),
+		Vector2(-label_size.x - 18.0, -label_size.y - 18.0),
+		Vector2(18.0, 38.0),
+		Vector2(-label_size.x - 18.0, 38.0)
+	]
+
+	for offset: Vector2 in offsets:
+		var candidate: Rect2 = Rect2(center_screen + offset, label_size)
+		if not _ship_label_rect_overlaps(candidate):
+			_ship_label_screen_rects.append(candidate.grow(SHIP_LABEL_PADDING_PIXELS))
+			return _screen_to_world(candidate.position)
+
+	var fallback: Rect2 = Rect2(center_screen + Vector2(18.0, 62.0 + float(_ship_label_screen_rects.size()) * 10.0), label_size)
+	_ship_label_screen_rects.append(fallback.grow(SHIP_LABEL_PADDING_PIXELS))
+	return _screen_to_world(fallback.position)
+
+func _estimate_ship_label_size(lines: Array[Dictionary]) -> Vector2:
+	var max_chars: int = 1
+	for line: Dictionary in lines:
+		max_chars = max(max_chars, String(line.get("text", "")).length())
+
+	var width: float = float(max_chars) * float(SHIP_LABEL_FONT_SIZE) * 0.62
+	var height: float = maxf(1.0, float(lines.size())) * 17.0
+	return Vector2(width, height)
+
+func _ship_label_rect_overlaps(rect: Rect2) -> bool:
+	var padded: Rect2 = rect.grow(SHIP_LABEL_PADDING_PIXELS)
+	for existing: Rect2 in _ship_label_screen_rects:
+		if padded.intersects(existing):
+			return true
+	return false
 
 func _ship_group_center(group: Array) -> Vector2:
 	var sum: Vector2 = Vector2.ZERO
