@@ -17,3 +17,4 @@ mono_crash.*.json
 
 # User specific key
 api_key.json
+api_key.dat
