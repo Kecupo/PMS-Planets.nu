@@ -6,6 +6,8 @@ const PLANET_RADIUS_DRAW: float = 9.0
 @export var click_radius_pixels: float = 21.0
 const HOVER_PANEL_WIDTH: float = 390.0
 const HOVER_PANEL_MARGIN: float = 12.0
+const MERGED_SHAPE_SEGMENTS: int = 36
+const FIELD_CELL_SIZE: float = 28.0
 const Minefield_Data = preload("res://Scripts/Data/MinefieldData.gd")
 const IonStorm_Data = preload("res://Scripts/Data/IonStormData.gd")
 const IonStormCircle_Data = preload("res://Scripts/Data/IonStormCircleData.gd")
@@ -412,7 +414,7 @@ func _ionstorm_circle_to_world(circle: IonStormCircleData) -> Vector2:
 	)
 	
 func _ionstorm_fill_alpha(voltage: float) -> float:
-	return clampf(voltage / 260.0, 0.04, 0.22)
+	return clampf(voltage / 210.0, 0.06, 0.30)
 
 func _ionstorm_border_alpha(voltage: float) -> float:
 	return clampf(voltage / 210.0, 0.14, 0.45)
@@ -435,35 +437,28 @@ func _draw_ionstorms() -> void:
 		_draw_ionstorm(storm)
 
 func _draw_ionstorm(storm: IonStormData) -> void:
-	for i: int in range(storm.circles.size()):
-		var circle: IonStormCircleData = storm.circles[i]
+	var circle_specs: Array = []
+
+	for circle: IonStormCircleData in storm.circles:
 		if circle == null or circle.radius <= 0.0:
 			continue
 
-		var center: Vector2 = _ionstorm_circle_to_world(circle)
+		var voltage: float = circle.voltage
+		if voltage <= 0.0:
+			voltage = storm.voltage
 
-		var fill_color: Color = _ionstorm_fill_color(storm.voltage)
-		if i > 0:
-			fill_color.a *= 0.96
+		circle_specs.append([_ionstorm_circle_to_world(circle), circle.radius, voltage])
 
-		draw_circle(center, circle.radius, fill_color)
+	if not circle_specs.is_empty():
+		_draw_merged_circle_shape(
+			circle_specs,
+			ION_STORM_BASE_COLOR,
+			_ionstorm_border_color(storm.voltage),
+			2.0,
+			"ionstorm"
+		)
 
-	_draw_ionstorm_outer_outline(storm)
 	_draw_ionstorm_heading(storm)
-
-func _draw_ionstorm_outer_outline(storm: IonStormData) -> void:
-	var border_color: Color = _ionstorm_border_color(storm.voltage)
-
-	for i: int in range(storm.circles.size()):
-		var circle: IonStormCircleData = storm.circles[i]
-		if circle == null or circle.radius <= 0.0:
-			continue
-
-		if _is_ionstorm_circle_mostly_internal(storm, i):
-			continue
-
-		var center: Vector2 = _ionstorm_circle_to_world(circle)
-		draw_arc(center, circle.radius, 0.0, TAU, 96, border_color, 2.0)
 
 func _draw_ionstorm_heading(storm: IonStormData) -> void:
 	if storm.circles.is_empty():
@@ -504,7 +499,7 @@ func _nebula_circle_to_world(circle: NebulaCircleData) -> Vector2:
 	)
 
 func _nebula_fill_alpha(intensity: float) -> float:
-	return clampf(intensity / 170.0, 0.05, 0.18)
+	return clampf(intensity / 135.0, 0.07, 0.26)
 	
 func _nebula_outline_alpha() -> float:
 	return 0.42
@@ -527,66 +522,228 @@ func _draw_nebulas() -> void:
 		_draw_nebula(nebula)
 		
 func _draw_nebula(nebula: NebulaData) -> void:
+	var circle_specs: Array = []
+	var intensity: float = 0.0
+
 	for circle: NebulaCircleData in nebula.circles:
 		if circle == null or circle.radius <= 0.0:
 			continue
 
-		var center: Vector2 = _nebula_circle_to_world(circle)
-		draw_circle(center, circle.radius, _nebula_fill_color(circle.intensity))
+		circle_specs.append([_nebula_circle_to_world(circle), circle.radius, circle.intensity])
+		intensity = maxf(intensity, circle.intensity)
 
-	_draw_nebula_outer_outline(nebula)
-func _draw_nebula_outer_outline(nebula: NebulaData) -> void:
-	for i: int in range(nebula.circles.size()):
-		var circle: NebulaCircleData = nebula.circles[i]
-		if circle == null or circle.radius <= 0.0:
+	if not circle_specs.is_empty():
+		_draw_merged_circle_shape(
+			circle_specs,
+			NEBULA_BASE_COLOR,
+			_nebula_outline_color(),
+			2.0,
+			"nebula"
+		)
+
+func _draw_merged_circle_shape(
+	circle_specs: Array,
+	fill_color: Color,
+	outline_color: Color,
+	outline_width: float,
+	field_kind: String
+) -> void:
+	var hull: PackedVector2Array = _build_circle_hull(circle_specs)
+	if hull.size() < 3:
+		return
+
+	_draw_circle_field_fill(circle_specs, hull, fill_color, field_kind)
+
+	var outline: PackedVector2Array = PackedVector2Array(hull)
+	outline.append(hull[0])
+	draw_polyline(outline, outline_color, outline_width)
+
+func _draw_circle_field_fill(
+	circle_specs: Array,
+	hull: PackedVector2Array,
+	base_color: Color,
+	field_kind: String
+) -> void:
+	var bounds: Rect2 = _polygon_bounds(hull)
+	if bounds.size.x <= 0.0 or bounds.size.y <= 0.0:
+		return
+
+	var cell_size: float = _field_cell_size(bounds)
+	var x_steps: int = int(ceil(bounds.size.x / cell_size))
+	var y_steps: int = int(ceil(bounds.size.y / cell_size))
+
+	for xi: int in range(x_steps):
+		for yi: int in range(y_steps):
+			var p00: Vector2 = bounds.position + Vector2(float(xi) * cell_size, float(yi) * cell_size)
+			var p10: Vector2 = bounds.position + Vector2(float(xi + 1) * cell_size, float(yi) * cell_size)
+			var p01: Vector2 = bounds.position + Vector2(float(xi) * cell_size, float(yi + 1) * cell_size)
+			var p11: Vector2 = bounds.position + Vector2(float(xi + 1) * cell_size, float(yi + 1) * cell_size)
+			var center: Vector2 = (p00 + p11) * 0.5
+			if not _point_in_polygon(center, hull):
+				continue
+
+			_draw_field_triangle(p00, p10, p11, circle_specs, hull, base_color, field_kind)
+			_draw_field_triangle(p00, p11, p01, circle_specs, hull, base_color, field_kind)
+
+func _draw_field_triangle(
+	a: Vector2,
+	b: Vector2,
+	c: Vector2,
+	circle_specs: Array,
+	hull: PackedVector2Array,
+	base_color: Color,
+	field_kind: String
+) -> void:
+	var points: PackedVector2Array = PackedVector2Array([a, b, c])
+	var colors: PackedColorArray = PackedColorArray([
+		_field_color_at(a, circle_specs, hull, base_color, field_kind),
+		_field_color_at(b, circle_specs, hull, base_color, field_kind),
+		_field_color_at(c, circle_specs, hull, base_color, field_kind)
+	])
+	draw_primitive(points, colors, PackedVector2Array())
+
+func _field_color_at(
+	pos: Vector2,
+	circle_specs: Array,
+	hull: PackedVector2Array,
+	base_color: Color,
+	field_kind: String
+) -> Color:
+	var c: Color = base_color
+	if not _point_in_polygon(pos, hull):
+		c.a = 0.0
+		return c
+
+	var alpha: float = 0.0
+	for spec: Variant in circle_specs:
+		if not (spec is Array):
 			continue
 
-		if _is_nebula_circle_mostly_internal(nebula, i):
+		var arr: Array = spec as Array
+		if arr.size() < 3:
 			continue
 
-		var center: Vector2 = _nebula_circle_to_world(circle)
-		draw_arc(center, circle.radius, 0.0, TAU, 96, NEBULA_OUTLINE_COLOR, 2.0)
-		
-func _is_ionstorm_circle_mostly_internal(storm: IonStormData, index: int) -> bool:
-	var a: IonStormCircleData = storm.circles[index]
-	var center_a: Vector2 = Vector2(a.x, a.y)
-
-	for j: int in range(storm.circles.size()):
-		if j == index:
+		var center: Vector2 = arr[0] as Vector2
+		var radius: float = float(arr[1])
+		var strength: float = float(arr[2])
+		if radius <= 0.0 or strength <= 0.0:
 			continue
 
-		var b: IonStormCircleData = storm.circles[j]
-		if b == null:
+		var dist_ratio: float = center.distance_to(pos) / radius
+		var falloff: float = _smooth_falloff(dist_ratio)
+		if falloff <= 0.0:
 			continue
 
-		var center_b: Vector2 = Vector2(b.x, b.y)
-		var dist: float = center_a.distance_to(center_b)
+		var local_alpha: float = _field_alpha_for_strength(strength, field_kind) * falloff
+		alpha = maxf(alpha, local_alpha)
 
-		if dist + a.radius <= b.radius * 0.98:
-			return true
+	c.a = alpha
+	return c
 
-	return false
+func _field_alpha_for_strength(strength: float, field_kind: String) -> float:
+	if field_kind == "ionstorm":
+		return _ionstorm_fill_alpha(strength)
+	return _nebula_fill_alpha(strength)
 
-func _is_nebula_circle_mostly_internal(nebula: NebulaData, index: int) -> bool:
-	var a: NebulaCircleData = nebula.circles[index]
-	var center_a: Vector2 = Vector2(a.x, a.y)
+func _smooth_falloff(dist_ratio: float) -> float:
+	var t: float = clampf(dist_ratio / 1.35, 0.0, 1.0)
+	var s: float = t * t * (3.0 - 2.0 * t)
+	return 1.0 - s
 
-	for j: int in range(nebula.circles.size()):
-		if j == index:
+func _polygon_bounds(poly: PackedVector2Array) -> Rect2:
+	if poly.is_empty():
+		return Rect2()
+
+	var min_x: float = poly[0].x
+	var max_x: float = poly[0].x
+	var min_y: float = poly[0].y
+	var max_y: float = poly[0].y
+
+	for p: Vector2 in poly:
+		min_x = minf(min_x, p.x)
+		max_x = maxf(max_x, p.x)
+		min_y = minf(min_y, p.y)
+		max_y = maxf(max_y, p.y)
+
+	return Rect2(Vector2(min_x, min_y), Vector2(max_x - min_x, max_y - min_y))
+
+func _field_cell_size(bounds: Rect2) -> float:
+	var longest: float = maxf(bounds.size.x, bounds.size.y)
+	if longest <= 0.0:
+		return FIELD_CELL_SIZE
+	return maxf(FIELD_CELL_SIZE, longest / 48.0)
+
+func _point_in_polygon(point: Vector2, poly: PackedVector2Array) -> bool:
+	var inside: bool = false
+	var j: int = poly.size() - 1
+
+	for i: int in range(poly.size()):
+		var pi: Vector2 = poly[i]
+		var pj: Vector2 = poly[j]
+		var crosses: bool = ((pi.y > point.y) != (pj.y > point.y))
+		if crosses:
+			var x_at_y: float = (pj.x - pi.x) * (point.y - pi.y) / (pj.y - pi.y) + pi.x
+			if point.x < x_at_y:
+				inside = not inside
+		j = i
+
+	return inside
+
+func _build_circle_hull(circle_specs: Array) -> PackedVector2Array:
+	var points: Array[Vector2] = []
+
+	for spec: Variant in circle_specs:
+		if not (spec is Array):
 			continue
 
-		var b: NebulaCircleData = nebula.circles[j]
-		if b == null:
+		var arr: Array = spec as Array
+		if arr.size() < 2:
 			continue
 
-		var center_b: Vector2 = Vector2(b.x, b.y)
-		var dist: float = center_a.distance_to(center_b)
+		var center: Vector2 = arr[0] as Vector2
+		var radius: float = float(arr[1])
+		if radius <= 0.0:
+			continue
 
-		# Kreis A liegt weitgehend innerhalb von B
-		if dist + a.radius <= b.radius * 0.98:
-			return true
+		for i: int in range(MERGED_SHAPE_SEGMENTS):
+			var angle: float = TAU * float(i) / float(MERGED_SHAPE_SEGMENTS)
+			points.append(center + Vector2(cos(angle), sin(angle)) * radius)
 
-	return false
+	return _convex_hull(points)
+
+func _convex_hull(points: Array[Vector2]) -> PackedVector2Array:
+	if points.size() < 3:
+		return PackedVector2Array(points)
+
+	var sorted: Array[Vector2] = points.duplicate()
+	sorted.sort_custom(func(a: Vector2, b: Vector2) -> bool:
+		if is_equal_approx(a.x, b.x):
+			return a.y < b.y
+		return a.x < b.x
+	)
+
+	var lower: Array[Vector2] = []
+	for p: Vector2 in sorted:
+		while lower.size() >= 2 and _hull_cross(lower[lower.size() - 2], lower[lower.size() - 1], p) <= 0.0:
+			lower.pop_back()
+		lower.append(p)
+
+	var upper: Array[Vector2] = []
+	for i: int in range(sorted.size() - 1, -1, -1):
+		var p: Vector2 = sorted[i]
+		while upper.size() >= 2 and _hull_cross(upper[upper.size() - 2], upper[upper.size() - 1], p) <= 0.0:
+			upper.pop_back()
+		upper.append(p)
+
+	lower.pop_back()
+	upper.pop_back()
+
+	var hull: Array[Vector2] = lower
+	hull.append_array(upper)
+	return PackedVector2Array(hull)
+
+func _hull_cross(a: Vector2, b: Vector2, c: Vector2) -> float:
+	return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
 
 func _starcluster_to_world(star: StarClusterData) -> Vector2:
 	return Vector2(
