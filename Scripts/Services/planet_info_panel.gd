@@ -537,13 +537,11 @@ func _set_spin_value(spin: SpinBox, v: int) -> void:
 
 	spin.set_block_signals(true)
 	spin.value = float(v)
-	spin.set_block_signals(false)
-
 	var le: LineEdit = spin.get_line_edit()
 	if le != null:
-		# nur überschreiben, wenn der User nicht gerade tippt
-		if not le.has_focus():
-			le.text = str(v)
+		le.text = str(v)
+	spin.set_block_signals(false)
+
 
 func _configure_building_spin(spin: SpinBox, value: int, min_value_v: int, max_value_v: int) -> void:
 	if spin == null:
