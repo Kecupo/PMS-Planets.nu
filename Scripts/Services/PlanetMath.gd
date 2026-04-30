@@ -4,6 +4,9 @@ class_name PlanetMath
 # Godot 4.5.1
 # Pure calculation helpers (no UI, no IO).
 const PLANET_MAX_INCOME_MC: int = 5000
+const FACTORY_COST_MC: int = 3
+const MINE_COST_MC: int = 4
+const DEFENSE_COST_MC: int = 10
 const _PI_APPROX: float = 3.14
 
 # ------------------------------------------------------------

@@ -394,26 +394,23 @@ horizontal_alignment = 1
 custom_minimum_size = Vector2(100, 3)
 layout_mode = 2
 
-[node name="V_Factories" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
+[node name="V_Factories" type="SpinBox" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 20)
+custom_minimum_size = Vector2(80, 20)
 layout_mode = 2
-theme_override_font_sizes/font_size = 12
-horizontal_alignment = 1
+alignment = 1
 
-[node name="V_Mines" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
+[node name="V_Mines" type="SpinBox" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 20)
+custom_minimum_size = Vector2(80, 20)
 layout_mode = 2
-theme_override_font_sizes/font_size = 12
-horizontal_alignment = 1
+alignment = 1
 
-[node name="V_Defense" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
+[node name="V_Defense" type="SpinBox" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 20)
+custom_minimum_size = Vector2(80, 20)
 layout_mode = 2
-theme_override_font_sizes/font_size = 12
-horizontal_alignment = 1
+alignment = 1
 
 [node name="Label2" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection/SectionTitle/GridContainer"]
 layout_mode = 2

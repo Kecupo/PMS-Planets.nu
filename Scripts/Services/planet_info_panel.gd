@@ -57,11 +57,11 @@ extends PanelContainer
 # -------------------------
 # Industry (GridContainer columns=3)
 # -------------------------
-@onready var v_fact: Label = %V_Factories
+@onready var v_fact: SpinBox = %V_Factories
 @onready var m_fact_max: Label = %M_Factories_Max
-@onready var v_mines: Label = %V_Mines
+@onready var v_mines: SpinBox = %V_Mines
 @onready var m_mines_max: Label = %M_Mines_Max
-@onready var v_def: Label = %V_Defense
+@onready var v_def: SpinBox = %V_Defense
 @onready var m_def_max: Label = %M_Defense_Max
 @onready var horwasp_lbl: Label = %Horwasp_lbl
 @onready var v_larva: Label = %V_Larva
@@ -100,6 +100,9 @@ func _ready() -> void:
 	_update()
 	v_col_tax_spin.value_changed.connect(_on_colonist_tax_changed)
 	v_nat_tax_spin.value_changed.connect(_on_native_tax_changed)
+	v_fact.value_changed.connect(_on_factories_changed)
+	v_mines.value_changed.connect(_on_mines_changed)
+	v_def.value_changed.connect(_on_defense_changed)
 	GameState.orders_changed.connect(_on_orders_changed)
 	
 func _on_close_pressed() -> void:
@@ -163,8 +166,17 @@ func _update() -> void:
 
 	v_nat_tax_spin.editable = is_mine
 	v_nat_tax_spin.focus_mode = Control.FOCUS_ALL if is_mine else Control.FOCUS_NONE
+	v_fact.editable = is_mine
+	v_mines.editable = is_mine
+	v_def.editable = is_mine
+	v_fact.focus_mode = Control.FOCUS_ALL if is_mine else Control.FOCUS_NONE
+	v_mines.focus_mode = Control.FOCUS_ALL if is_mine else Control.FOCUS_NONE
+	v_def.focus_mode = Control.FOCUS_ALL if is_mine else Control.FOCUS_NONE
 	v_col_tax_spin.modulate = Color.WHITE if is_mine else Color(0.6, 0.6, 0.6)
 	v_nat_tax_spin.modulate = Color.WHITE if is_mine else Color(0.6, 0.6, 0.6)
+	v_fact.modulate = Color.WHITE if is_mine else Color(0.6, 0.6, 0.6)
+	v_mines.modulate = Color.WHITE if is_mine else Color(0.6, 0.6, 0.6)
+	v_def.modulate = Color.WHITE if is_mine else Color(0.6, 0.6, 0.6)
 	if p == null:
 		planet_id_lbl.text = ""
 		planet_name_lbl.text = "No selection"
@@ -291,17 +303,18 @@ func _update() -> void:
 	# -------------------------
 	# Industry
 	# -------------------------
-	_set_label(v_fact, _fmt_int_unknown(p.factories))
-	_set_label(v_mines, _fmt_int_unknown(p.mines))
-	_set_label(v_def, _fmt_int_unknown(p.defense))
 
 	var max_f: int = Planet_Math.max_factories(p)
+	var max_m: int = Planet_Math.max_mines(p)
+	var max_d: int = Planet_Math.max_defense(p)
+
+	_configure_building_spin(v_fact, int(p.factories), _building_min(p, "factories"), max_f)
+	_configure_building_spin(v_mines, int(p.mines), _building_min(p, "mines"), max_m)
+	_configure_building_spin(v_def, int(p.defense), _building_min(p, "defense"), max_d)
 	_set_label(m_fact_max, "%d" % max_f if max_f >= 0 else "Max: —")
 
-	var max_m: int = Planet_Math.max_mines(p)
 	_set_label(m_mines_max, "%d" % max_m if max_m >= 0 else "Max: —")
 
-	var max_d: int = Planet_Math.max_defense(p)
 	_set_label(m_def_max, "%d" % max_d if max_d >= 0 else "Max: —")
 
 
@@ -415,11 +428,11 @@ func _set_all_unknown() -> void:
 	_set_label(m_nat_happy_d, "?")
 
 	# Industry
-	_set_label(v_fact, "?")
+	_configure_building_spin(v_fact, 0, 0, 0)
 	_set_label(m_fact_max, "Max: ?")
-	_set_label(v_mines, "?")
+	_configure_building_spin(v_mines, 0, 0, 0)
 	_set_label(m_mines_max, "Max: ?")
-	_set_label(v_def, "?")
+	_configure_building_spin(v_def, 0, 0, 0)
 	_set_label(m_def_max, "Max: ?")
 
 	# Minerals
@@ -484,6 +497,40 @@ func _on_native_tax_changed(val: float) -> void:
 	game_state.end_batch_changes()
 	_update()
 
+func _on_factories_changed(val: float) -> void:
+	_apply_building_change("factories", int(round(val)))
+
+func _on_mines_changed(val: float) -> void:
+	_apply_building_change("mines", int(round(val)))
+
+func _on_defense_changed(val: float) -> void:
+	_apply_building_change("defense", int(round(val)))
+
+func _apply_building_change(kind: String, value: int) -> void:
+	var p: PlanetData = game_state.get_selected_planet()
+	if p == null:
+		return
+	if not game_state.is_my_planet(p):
+		return
+
+	var mines_v: int = int(v_mines.value)
+	var factories_v: int = int(v_fact.value)
+	var defense_v: int = int(v_def.value)
+
+	match kind:
+		"mines":
+			mines_v = value
+		"factories":
+			factories_v = value
+		"defense":
+			defense_v = value
+
+	if not game_state.set_planet_building_counts(int(p.planet_id), mines_v, factories_v, defense_v):
+		_update()
+		return
+
+	_update()
+
 func _set_spin_value(spin: SpinBox, v: int) -> void:
 	if spin == null:
 		return
@@ -497,6 +544,37 @@ func _set_spin_value(spin: SpinBox, v: int) -> void:
 		# nur überschreiben, wenn der User nicht gerade tippt
 		if not le.has_focus():
 			le.text = str(v)
+
+func _configure_building_spin(spin: SpinBox, value: int, min_value_v: int, max_value_v: int) -> void:
+	if spin == null:
+		return
+
+	var min_v: int = max(min_value_v, 0)
+	var max_v: int = max(max_value_v, min_v)
+
+	spin.min_value = float(min_v)
+	spin.max_value = float(max_v)
+	spin.step = 1.0
+	spin.page = 10.0
+	_set_spin_value(spin, clamp(value, min_v, max_v))
+
+func _building_min(p: PlanetData, key: String) -> int:
+	if p == null:
+		return 0
+
+	var start: Dictionary = game_state.get_planet_start_state(int(p.planet_id))
+	if start.is_empty():
+		match key:
+			"mines":
+				return int(p.mines)
+			"factories":
+				return int(p.factories)
+			"defense":
+				return int(p.defense)
+			_:
+				return 0
+
+	return int(start.get(key, 0))
 		
 func _on_orders_changed() -> void:
 	_update()

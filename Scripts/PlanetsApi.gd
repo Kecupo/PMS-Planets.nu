@@ -501,4 +501,22 @@ static func _planet_has_relevant_changes(orig_rst: Dictionary, pending_rst: Dict
 	if _to_int(orig_planet.get("nativetaxrate", 0)) != _to_int(mod_planet.get("nativetaxrate", 0)):
 		return true
 
+	if _to_int(orig_planet.get("mines", 0)) != _to_int(mod_planet.get("mines", 0)):
+		return true
+
+	if _to_int(orig_planet.get("factories", 0)) != _to_int(mod_planet.get("factories", 0)):
+		return true
+
+	if _to_int(orig_planet.get("defense", 0)) != _to_int(mod_planet.get("defense", 0)):
+		return true
+
+	if _to_int(orig_planet.get("megacredits", 0)) != _to_int(mod_planet.get("megacredits", 0)):
+		return true
+
+	if _to_int(orig_planet.get("supplies", 0)) != _to_int(mod_planet.get("supplies", 0)):
+		return true
+
+	if _to_int(orig_planet.get("suppliessold", 0)) != _to_int(mod_planet.get("suppliessold", 0)):
+		return true
+
 	return false

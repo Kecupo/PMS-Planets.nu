@@ -17,6 +17,7 @@ var selected_planet_id: int = -1
 var username: String = ""
 var my_planets: Array[PlanetData] = []
 var my_planets_by_id: Dictionary = {} # int -> PlanetData
+var planet_start_state_by_id: Dictionary = {}
 var _batch_mode: bool = false
 var _batch_dirty: bool = false
 const API_KEY_FILE: String = "user://api_key.dat"
@@ -105,6 +106,7 @@ func _process_loaded_turn(parsed: Dictionary) -> void:
 	nebulas = turn_data_model.nebulas
 	starclusters = turn_data_model.starclusters
 	rebuild_my_planets_cache()
+	rebuild_planet_start_state_cache()
 	
 	# Load static game config once (races, advantages, etc.)
 	if config.races_by_id.is_empty():
@@ -347,6 +349,86 @@ func set_planet_native_taxrate(planet_id: int, tax: int) -> void:
 	else:
 		_save_latest_turn_json()
 		emit_signal("orders_changed")
+
+func set_planet_building_counts(
+	planet_id: int,
+	mines_count: int,
+	factories_count: int,
+	defense_count: int
+) -> bool:
+	var p: PlanetData = my_planets_by_id.get(planet_id, null)
+	if p == null:
+		push_error("Planet not found for building update: " + str(planet_id))
+		return false
+
+	var start: Dictionary = get_planet_start_state(planet_id)
+	if start.is_empty():
+		push_error("No building start state for planet: " + str(planet_id))
+		return false
+
+	var start_mines: int = int(start.get("mines", 0))
+	var start_factories: int = int(start.get("factories", 0))
+	var start_defense: int = int(start.get("defense", 0))
+
+	var max_mines_v: int = Planet_Math.max_mines(p)
+	var max_factories_v: int = Planet_Math.max_factories(p)
+	var max_defense_v: int = Planet_Math.max_defense(p)
+	if max_mines_v < start_mines:
+		max_mines_v = start_mines
+	if max_factories_v < start_factories:
+		max_factories_v = start_factories
+	if max_defense_v < start_defense:
+		max_defense_v = start_defense
+
+	var new_mines: int = clamp(mines_count, start_mines, max_mines_v)
+	var new_factories: int = clamp(factories_count, start_factories, max_factories_v)
+	var new_defense: int = clamp(defense_count, start_defense, max_defense_v)
+
+	var build_mines: int = new_mines - start_mines
+	var build_factories: int = new_factories - start_factories
+	var build_defense: int = new_defense - start_defense
+
+	var needed_supplies: int = build_mines + build_factories + build_defense
+	var needed_mc: int = build_mines * PlanetMath.MINE_COST_MC \
+		+ build_factories * PlanetMath.FACTORY_COST_MC \
+		+ build_defense * PlanetMath.DEFENSE_COST_MC
+
+	var start_mc: int = int(start.get("megacredits", 0))
+	var start_supplies: int = int(start.get("supplies", 0))
+	var start_supplies_sold: int = int(start.get("suppliessold", 0))
+
+	if needed_supplies > start_supplies:
+		return false
+
+	var supplies_after_build: int = start_supplies - needed_supplies
+	var supplies_to_sell: int = max(needed_mc - start_mc, 0)
+	if supplies_to_sell > supplies_after_build:
+		return false
+
+	var final_mc: int = start_mc + supplies_to_sell - needed_mc
+	var final_supplies: int = supplies_after_build - supplies_to_sell
+	var final_supplies_sold: int = start_supplies_sold + supplies_to_sell
+
+	_set_planet_field_in_rst(planet_id, "mines", new_mines)
+	_set_planet_field_in_rst(planet_id, "factories", new_factories)
+	_set_planet_field_in_rst(planet_id, "defense", new_defense)
+	_set_planet_field_in_rst(planet_id, "megacredits", final_mc)
+	_set_planet_field_in_rst(planet_id, "supplies", final_supplies)
+	_set_planet_field_in_rst(planet_id, "suppliessold", final_supplies_sold)
+
+	p.mines = float(new_mines)
+	p.factories = float(new_factories)
+	p.defense = float(new_defense)
+	p.megacredits = float(final_mc)
+	p.supplies = float(final_supplies)
+
+	if _batch_mode:
+		_batch_dirty = true
+	else:
+		_save_latest_turn_json()
+		emit_signal("orders_changed")
+
+	return true
 		
 func _set_planet_taxrate_in_model(planet_id: int, is_native: bool, value: int) -> void:
 	for p in planets:
@@ -380,6 +462,24 @@ func rebuild_my_planets_cache() -> void:
 		if int(p.ownerid) == my_player_id:
 			my_planets.append(p)
 			my_planets_by_id[int(p.planet_id)] = p
+
+func rebuild_planet_start_state_cache() -> void:
+	planet_start_state_by_id.clear()
+
+	for p in planets:
+		if p == null:
+			continue
+		planet_start_state_by_id[int(p.planet_id)] = {
+			"mines": int(p.mines),
+			"factories": int(p.factories),
+			"defense": int(p.defense),
+			"megacredits": int(p.megacredits),
+			"supplies": int(p.supplies),
+			"suppliessold": int(p.raw.get("suppliessold", 0))
+		}
+
+func get_planet_start_state(planet_id: int) -> Dictionary:
+	return planet_start_state_by_id.get(planet_id, {})
 func has_api_credentials() -> bool:
 	return not api_key.is_empty()
 
