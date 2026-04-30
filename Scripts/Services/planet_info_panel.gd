@@ -206,12 +206,12 @@ func _update() -> void:
 		_set_label(m_sup_next, "+%d" % sup_next if sup_next >= 0 else _dash())
 
 	_set_label(v_col, _fmt_int_unknown(p.clans))
-var col_growth: int = PlanetMath.colonist_growth_clans_most(
-	int(p.temperature),
-	int(p.clans),
-	col_tax,
-	int(p.colonisthappypoints),
-	false
+	var col_growth: int = PlanetMath.colonist_growth_clans_most(
+		int(p.temperature),
+		int(p.clans),
+		col_tax,
+		int(p.colonisthappypoints),
+		false
 	)
 	if p.nativeracename == "Amorphous":
 		if col_growth >= 5: col_growth -= 5
