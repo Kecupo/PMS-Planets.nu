@@ -13,9 +13,9 @@ const SHIP_RADIUS_DRAW: float = 5.5
 const SHIP_GROUP_RADIUS_PIXELS: float = 46.0
 const SHIP_SUMMARY_LABEL_ZOOM: float = 0.35
 const SHIP_COMPACT_LABEL_ZOOM: float = 0.80
-const SHIP_FULL_DETAIL_ZOOM: float = 99.0
-const SHIP_LABEL_FONT_SIZE: int = 12
-const SHIP_MAX_LABELS_PER_GROUP: int = 8
+const SHIP_FULL_DETAIL_ZOOM: float = 1.80
+const SHIP_LABEL_FONT_SIZE: int = 15
+const SHIP_MAX_LABELS_PER_GROUP: int = 4
 const SHIP_MODE_DOT: int = 0
 const SHIP_MODE_SUMMARY: int = 1
 const SHIP_MODE_COMPACT: int = 2
@@ -553,7 +553,7 @@ func _build_ship_groups(mode: int) -> Array:
 	for i: int in range(used.size()):
 		used[i] = false
 
-	var grouping_pixels: float = SHIP_GROUP_RADIUS_PIXELS
+	var grouping_pixels: float = 80.0 if mode >= SHIP_MODE_COMPACT else SHIP_GROUP_RADIUS_PIXELS
 	var radius_world: float = grouping_pixels / maxf($Camera2D.zoom.x, 0.001)
 	var radius2: float = radius_world * radius_world
 
@@ -634,8 +634,8 @@ func _draw_ship_vector(ship: StarshipData, center: Vector2, color: Color) -> voi
 
 func _draw_ship_group_label(group: Array, center: Vector2) -> void:
 	var summary: Array = _ship_group_summary(group)
-	var label_pos: Vector2 = center + Vector2(_screen_px_to_world(12.0), _screen_px_to_world(-8.0))
-	var line_step: float = _screen_px_to_world(13.0)
+	var label_pos: Vector2 = center + Vector2(_screen_px_to_world(18.0), _screen_px_to_world(-12.0))
+	var line_step: float = _screen_px_to_world(17.0)
 	var line_count: int = min(summary.size(), SHIP_MAX_LABELS_PER_GROUP)
 
 	for i: int in range(line_count):
@@ -650,7 +650,7 @@ func _draw_ship_group_label(group: Array, center: Vector2) -> void:
 	if summary.size() > SHIP_MAX_LABELS_PER_GROUP:
 		_draw_map_text(
 			label_pos + Vector2(0.0, line_step * float(SHIP_MAX_LABELS_PER_GROUP)),
-			"+%d types" % (summary.size() - SHIP_MAX_LABELS_PER_GROUP),
+			"+%d types / %d ships" % [summary.size() - SHIP_MAX_LABELS_PER_GROUP, _count_summary_ships(summary, SHIP_MAX_LABELS_PER_GROUP)],
 			Color(0.88, 0.93, 0.96, 0.88)
 		)
 
@@ -662,7 +662,7 @@ func _draw_ship_summary_label(group: Array, center: Vector2) -> void:
 func _draw_map_text(pos: Vector2, text: String, color: Color) -> void:
 	var font: Font = ThemeDB.fallback_font
 	var z: float = maxf($Camera2D.zoom.x, 0.001)
-	var font_size: int = int(clamp(round(float(SHIP_LABEL_FONT_SIZE) / sqrt(z)), 10.0, float(SHIP_LABEL_FONT_SIZE)))
+	var font_size: int = int(clamp(round(float(SHIP_LABEL_FONT_SIZE) / pow(z, 0.35)), 12.0, float(SHIP_LABEL_FONT_SIZE)))
 	draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, color)
 
 func _screen_px_to_world(px: float) -> float:
@@ -712,6 +712,13 @@ func _ship_group_summary(group: Array) -> Array:
 	)
 
 	return result
+
+func _count_summary_ships(summary: Array, start_index: int) -> int:
+	var count: int = 0
+	for i: int in range(start_index, summary.size()):
+		var item: Dictionary = summary[i] as Dictionary
+		count += int(item.get("count", 0))
+	return count
 
 func _ship_hull_short_name(ship: StarshipData) -> String:
 	var raw_name: String = ship.display_hull_name().strip_edges()
