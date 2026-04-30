@@ -8,6 +8,7 @@ const HOVER_PANEL_WIDTH: float = 390.0
 const HOVER_PANEL_MARGIN: float = 12.0
 const MERGED_SHAPE_SEGMENTS: int = 36
 const FIELD_CELL_SIZE: float = 28.0
+const DEBRIS_DISK_RADIUS: float = 40.0
 const Minefield_Data = preload("res://Scripts/Data/MinefieldData.gd")
 const IonStorm_Data = preload("res://Scripts/Data/IonStormData.gd")
 const IonStormCircle_Data = preload("res://Scripts/Data/IonStormCircleData.gd")
@@ -21,11 +22,15 @@ const STARCLUSTER_OUTLINE_COLOR: Color = Color(0.80, 0.82, 0.86, 0.55)
 var hover_layer: CanvasLayer = null
 var hover_panel: PanelContainer = null
 var hover_label: Label = null
+var _last_hover_mouse_pos: Vector2 = Vector2(INF, INF)
+var _last_hover_camera_pos: Vector2 = Vector2(INF, INF)
+var _last_hover_camera_zoom: Vector2 = Vector2(INF, INF)
 
 func _ready() -> void:
 	set_process_input(true)
 	_create_hover_overlay()
 	GameState.turn_loaded.connect(_on_turn_loaded)
+	GameState.selection_changed.connect(_on_selection_changed)
 	GameState.orders_changed.connect(func() -> void:
 		queue_redraw()
 )
@@ -37,10 +42,24 @@ func _on_turn_loaded() -> void:
 	$Camera2D.position = center   # lokal, weil Camera2D Kind der StarMap ist
 	queue_redraw()
 
+func _on_selection_changed(kind: String, _selected_id: int) -> void:
+	if kind == "planet":
+		queue_redraw()
+
 	
 func _process(_delta: float) -> void:
-	queue_redraw()
-	_update_hover_info(get_viewport().get_mouse_position())
+	var mouse_pos: Vector2 = get_viewport().get_mouse_position()
+	var camera: Camera2D = $Camera2D
+
+	if mouse_pos == _last_hover_mouse_pos \
+	and camera.position == _last_hover_camera_pos \
+	and camera.zoom == _last_hover_camera_zoom:
+		return
+
+	_last_hover_mouse_pos = mouse_pos
+	_last_hover_camera_pos = camera.position
+	_last_hover_camera_zoom = camera.zoom
+	_update_hover_info(mouse_pos)
 
 func _draw() -> void:
 	if game_state.planets.is_empty() \
@@ -123,6 +142,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if mb.button_index != MOUSE_BUTTON_LEFT or not mb.pressed:
 		return
 
+	if _is_screen_pos_over_blocking_ui(mb.position):
+		return
+
 	# Screen -> World via camera transform (Godot 4)
 	var inv: Transform2D = $Camera2D.get_canvas_transform().affine_inverse()
 	var world_pos: Vector2 = inv * mb.position
@@ -135,6 +157,25 @@ func _unhandled_input(event: InputEvent) -> void:
 		game_state.select_planet(picked_id)
 		# Wichtig: hier KEIN UI-Hover-Filter und keine weiteren Änderungen
 		get_viewport().set_input_as_handled()
+
+func _is_screen_pos_over_blocking_ui(screen_pos: Vector2) -> bool:
+	var planet_panel: Control = _get_planet_info_panel()
+	if planet_panel != null and planet_panel.visible and planet_panel.get_global_rect().has_point(screen_pos):
+		return true
+
+	var hovered: Control = get_viewport().gui_get_hovered_control()
+	if hovered == null:
+		return false
+
+	if hover_panel != null and (hovered == hover_panel or hover_panel.is_ancestor_of(hovered)):
+		return false
+
+	return planet_panel != null and (hovered == planet_panel or planet_panel.is_ancestor_of(hovered))
+
+func _get_planet_info_panel() -> Control:
+	if overlay == null:
+		return null
+	return overlay.get_node_or_null("PlanetInfoPanel") as Control
 
 func _create_hover_overlay() -> void:
 	hover_layer = CanvasLayer.new()
@@ -213,6 +254,7 @@ func _build_hover_lines(world_pos: Vector2, map_pos: Vector2) -> PackedStringArr
 	lines.append("Coords: %d / %d" % [int(round(map_pos.x)), int(round(map_pos.y))])
 
 	_append_planet_hover(lines, world_pos)
+	_append_debris_disk_hover(lines, world_pos)
 	_append_ionstorm_hover(lines, world_pos)
 	_append_nebula_hover(lines, world_pos)
 	_append_minefield_hover(lines, world_pos)
@@ -231,6 +273,19 @@ func _append_planet_hover(lines: PackedStringArray, world_pos: Vector2) -> void:
 		return
 
 	lines.append("Planet: %s (%s)" % [p.name, _planet_owner_label(p)])
+
+func _append_debris_disk_hover(lines: PackedStringArray, world_pos: Vector2) -> void:
+	for p: PlanetData in game_state.planets:
+		if p == null:
+			continue
+
+		if not _is_debris_disk_anchor(p):
+			continue
+
+		if _map_to_world(p).distance_to(world_pos) > DEBRIS_DISK_RADIUS:
+			continue
+
+		lines.append("Asteroid Field: %s (R %.0f)" % [_debris_disk_label(p), DEBRIS_DISK_RADIUS])
 
 func _append_ionstorm_hover(lines: PackedStringArray, world_pos: Vector2) -> void:
 	var total_voltage: float = 0.0
@@ -817,6 +872,9 @@ func _get_starcluster_radiation_at_distance(star: StarClusterData, dist: float) 
 	if dist > radiation_radius:
 		return 0
 
+	if dist <= star.radius:
+		return 0
+
 	return int(ceil((star.temp / 100.0) * (1.0 - (dist / radiation_radius))))
 	
 func get_starcluster_radiation_at_point(star: StarClusterData, x: float, y: float) -> int:
@@ -839,12 +897,18 @@ func _get_planet_draw_radius(p: PlanetData) -> float:
 
 func _draw_debris_disk_outline(p: PlanetData) -> void:
 	var center: Vector2 = _map_to_world(p)
-	var radius: float = 40.0
+	var radius: float = DEBRIS_DISK_RADIUS
 	var fill_color: Color = Color(0.55, 0.52, 0.44, 0.03)
 	var line_color: Color = Color(0.76, 0.73, 0.60, 0.42)
 
 	draw_circle(center, radius, fill_color)
 	draw_arc(center, radius, 0.0, TAU, 128, line_color, 2.0)
+
+func _debris_disk_label(p: PlanetData) -> String:
+	var label: String = p.name.strip_edges()
+	if label.ends_with(" - 1"):
+		return label.substr(0, label.length() - 4)
+	return label
 
 func _is_in_starcluster_radiation_zone(p: PlanetData) -> bool:
 	var pos: Vector2 = Vector2(p.x, p.y)
