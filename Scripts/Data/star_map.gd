@@ -11,13 +11,15 @@ const FIELD_CELL_SIZE: float = 28.0
 const DEBRIS_DISK_RADIUS: float = 40.0
 const SHIP_RADIUS_DRAW: float = 5.5
 const SHIP_GROUP_RADIUS_PIXELS: float = 46.0
+const SHIP_SUMMARY_LABEL_ZOOM: float = 0.35
 const SHIP_COMPACT_LABEL_ZOOM: float = 0.80
 const SHIP_FULL_DETAIL_ZOOM: float = 99.0
 const SHIP_LABEL_FONT_SIZE: int = 12
 const SHIP_MAX_LABELS_PER_GROUP: int = 8
 const SHIP_MODE_DOT: int = 0
-const SHIP_MODE_COMPACT: int = 1
-const SHIP_MODE_FULL: int = 2
+const SHIP_MODE_SUMMARY: int = 1
+const SHIP_MODE_COMPACT: int = 2
+const SHIP_MODE_FULL: int = 3
 const Minefield_Data = preload("res://Scripts/Data/MinefieldData.gd")
 const Starship_Data = preload("res://Scripts/Data/StarshipData.gd")
 const IonStorm_Data = preload("res://Scripts/Data/IonStormData.gd")
@@ -534,6 +536,8 @@ func _ship_display_mode() -> int:
 		return SHIP_MODE_FULL
 	if z >= SHIP_COMPACT_LABEL_ZOOM:
 		return SHIP_MODE_COMPACT
+	if z >= SHIP_SUMMARY_LABEL_ZOOM:
+		return SHIP_MODE_SUMMARY
 	return SHIP_MODE_DOT
 
 func _build_ship_groups(mode: int) -> Array:
@@ -580,6 +584,10 @@ func _draw_ship_group(group: Array, mode: int) -> void:
 	for ship_v: Variant in group:
 		var ship: StarshipData = ship_v as StarshipData
 		_draw_single_ship(ship, mode >= SHIP_MODE_COMPACT)
+
+	if mode == SHIP_MODE_SUMMARY:
+		_draw_ship_summary_label(group, center)
+		return
 
 	if mode < SHIP_MODE_COMPACT:
 		return
@@ -646,9 +654,15 @@ func _draw_ship_group_label(group: Array, center: Vector2) -> void:
 			Color(0.88, 0.93, 0.96, 0.88)
 		)
 
+func _draw_ship_summary_label(group: Array, center: Vector2) -> void:
+	var text: String = "1 ship" if group.size() == 1 else "%d ships" % group.size()
+	var ship: StarshipData = group[0] as StarshipData
+	_draw_map_text(center + Vector2(_screen_px_to_world(11.0), _screen_px_to_world(-5.0)), text, _ship_color(ship))
+
 func _draw_map_text(pos: Vector2, text: String, color: Color) -> void:
 	var font: Font = ThemeDB.fallback_font
-	var font_size: int = max(6, int(round(float(SHIP_LABEL_FONT_SIZE) / maxf($Camera2D.zoom.x, 0.001))))
+	var z: float = maxf($Camera2D.zoom.x, 0.001)
+	var font_size: int = int(clamp(round(float(SHIP_LABEL_FONT_SIZE) / sqrt(z)), 10.0, float(SHIP_LABEL_FONT_SIZE)))
 	draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, color)
 
 func _screen_px_to_world(px: float) -> float:
