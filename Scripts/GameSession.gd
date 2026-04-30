@@ -17,14 +17,14 @@ func select_game(game_id: int, player_id: int) -> void:
 	var local_turn: int = 0
 	if not local_wrapper.is_empty():
 		local_turn = GameState.extract_turn_from_wrapper(local_wrapper)
-		GameState.load_turn_from_wrapper(local_wrapper)
+		GameState.load_turn_from_parsed_wrapper(local_wrapper)
 
 	# 2) online latest prüfen (und nur überschreiben wenn neuer)
 	PlanetsApi.turn_downloaded.connect(func(remote_wrapper: Dictionary) -> void:
 		var remote_turn: int = GameState.extract_turn_from_wrapper(remote_wrapper)
 		if remote_turn > local_turn:
 			GameStorage.save_json(GameStorage.latest_turn_path(game_id), remote_wrapper)
-			GameState.load_turn_from_wrapper(remote_wrapper)
+			GameState.load_turn_from_parsed_wrapper(remote_wrapper)
 	, CONNECT_ONE_SHOT)
 
 	PlanetsApi.turn_download_failed.connect(func(reason: String) -> void:

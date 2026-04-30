@@ -93,7 +93,6 @@ extends PanelContainer
 @onready var v_m_g: Label = %V_Moly_Ground
 @onready var v_m_d: Label = %V_Moly_Density
 @onready var m_m_mining: Label = %M_Moly_Mining
-var _ui_lock: bool = false
 
 func _ready() -> void:
 	close_btn.pressed.connect(_on_close_pressed)
@@ -119,9 +118,6 @@ func _fmt_int(v: float) -> String:
 
 func _fmt_int_unknown(v: float) -> String:
 	return "?" if v < 0.0 else str(int(v))
-
-func _fmt_pct_unknown(v: float) -> String:
-	return "?" if v < 0.0 else "%d%%" % int(v)
 
 func _dash() -> String:
 	return "—"
@@ -210,10 +206,10 @@ func _update() -> void:
 		_set_label(m_sup_next, "+%d" % sup_next if sup_next >= 0 else _dash())
 
 	_set_label(v_col, _fmt_int_unknown(p.clans))
-	var col_growth: int = PlanetMath.colonist_growth_clans_most(
+var col_growth: int = PlanetMath.colonist_growth_clans_most(
 	int(p.temperature),
 	int(p.clans),
-	int(p.colonisttaxrate),
+	col_tax,
 	int(p.colonisthappypoints),
 	false
 	)
@@ -333,10 +329,16 @@ func _update() -> void:
 	_set_label(m_m_mining, _dash())
 	var eff_col_tax: int = game_state.get_effective_colonist_taxrate(p)
 	var eff_nat_tax: int = game_state.get_effective_native_taxrate(p)
-	var my_race_id: int = game_state.my_race_id
-	var col_mc: int = PlanetMath.colonist_tax_mc(p, eff_col_tax, my_race_id)
-	var nat_mc: int = PlanetMath.native_tax_mc(p, eff_nat_tax, my_race_id)
-	_set_label(%M_ColonistTaxIncome, "+%d" % col_mc if col_mc >= 0 else "—")
+	var tax_owner_race_id: int = GameState.get_owner_race_id_of_planet(p)
+	var capped_col_tax: int = PlanetMath.colonist_tax_rate_for_planet_income_cap(
+		p,
+		eff_col_tax,
+		eff_nat_tax,
+		tax_owner_race_id
+	)
+	var col_mc: int = PlanetMath.colonist_tax_mc(p, capped_col_tax, tax_owner_race_id)
+	var nat_mc: int = PlanetMath.native_tax_mc(p, eff_nat_tax, tax_owner_race_id)
+	_set_label(m_col_tax_income, "+%d" % col_mc if col_mc >= 0 else "—")
 	if m_nat_tax_income != null:
 		_set_label(m_nat_tax_income, "+%d" % nat_mc if nat_mc >= 0 else "—")
 	# --- Total MC income preview (Colonists + Natives) in M_Megacredits ---
@@ -445,26 +447,41 @@ func _set_all_unknown() -> void:
 	_set_label(v_burrows, "?")
 
 func _on_colonist_tax_changed(val: float) -> void:
-	if _ui_lock:
-		return
-	
 	var p: PlanetData = game_state.get_selected_planet()
 	if p == null:
 		return
-	if int(p.ownerid) != game_state.get_my_race_id():
+	if not game_state.is_my_planet(p):
 		return
-	game_state.set_planet_colonist_taxrate(p.planet_id, int(round(val)))
+	var owner_race_id: int = GameState.get_owner_race_id_of_planet(p)
+	var native_tax: int = game_state.get_effective_native_taxrate(p)
+	var capped_tax: int = PlanetMath.colonist_tax_rate_for_planet_income_cap(
+		p,
+		int(round(val)),
+		native_tax,
+		owner_race_id
+	)
+	game_state.set_planet_colonist_taxrate(p.planet_id, capped_tax)
 	_update()
 
 func _on_native_tax_changed(val: float) -> void:
-	if _ui_lock:
-		return
 	var p: PlanetData = game_state.get_selected_planet()
 	if p == null:
 		return
-	if int(p.ownerid) != game_state.get_my_race_id():
+	if not game_state.is_my_planet(p):
 		return
-	game_state.set_planet_native_taxrate(p.planet_id, int(round(val)))
+	var native_tax: int = int(round(val))
+	var owner_race_id: int = GameState.get_owner_race_id_of_planet(p)
+	var colonist_tax: int = game_state.get_effective_colonist_taxrate(p)
+	var capped_colonist_tax: int = PlanetMath.colonist_tax_rate_for_planet_income_cap(
+		p,
+		colonist_tax,
+		native_tax,
+		owner_race_id
+	)
+	game_state.begin_batch_changes()
+	game_state.set_planet_native_taxrate(p.planet_id, native_tax)
+	game_state.set_planet_colonist_taxrate(p.planet_id, capped_colonist_tax)
+	game_state.end_batch_changes()
 	_update()
 
 func _set_spin_value(spin: SpinBox, v: int) -> void:

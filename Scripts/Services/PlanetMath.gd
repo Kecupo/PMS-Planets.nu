@@ -3,7 +3,7 @@ class_name PlanetMath
 
 # Godot 4.5.1
 # Pure calculation helpers (no UI, no IO).
-
+const PLANET_MAX_INCOME_MC: int = 5000
 const _PI_APPROX: float = 3.14
 
 # ------------------------------------------------------------
@@ -21,15 +21,6 @@ static func _to_int(v: Variant) -> int:
 			return s.to_int()
 	return 0
 
-static func _to_float(v: Variant) -> float:
-	if typeof(v) == TYPE_INT:
-		return float(int(v))
-	if typeof(v) == TYPE_FLOAT:
-		return float(v)
-	if typeof(v) == TYPE_STRING:
-		return float(String(v).to_float())
-	return 0.0
-
 static func _known_nonneg(v: float) -> bool:
 	return v >= 0.0
 
@@ -38,12 +29,6 @@ static func _trunc(x: float) -> int:
 
 static func _has(p: PlanetData, key: String) -> bool:
 	return not p.raw.is_empty() and p.raw.has(key)
-
-static func _native_type(p: PlanetData) -> int:
-	return int(p.nativetype)
-
-static func _native_race_name_lc(p: PlanetData) -> String:
-	return String(p.nativeracename).strip_edges().to_lower()
 
 # ------------------------------------------------------------
 # Buildings
@@ -255,6 +240,40 @@ static func native_tax_mc(p: PlanetData, native_tax_rate: int, owner_race_id: in
 		val = 5000
 
 	return max(val, 0)
+
+
+static func colonist_tax_rate_for_planet_income_cap(
+	p: PlanetData,
+	colonist_tax_rate: int,
+	native_tax_rate: int,
+	owner_race_id: int
+) -> int:
+	var col_tax_i: int = clamp(colonist_tax_rate, 0, 100)
+	var nat_mc: int = native_tax_mc(p, native_tax_rate, owner_race_id)
+	var col_mc: int = colonist_tax_mc(p, col_tax_i, owner_race_id)
+
+	if nat_mc + col_mc <= PLANET_MAX_INCOME_MC:
+		return col_tax_i
+
+	var remaining_mc: int = PLANET_MAX_INCOME_MC - nat_mc
+	if remaining_mc <= 0:
+		return 0
+
+	var best_tax: int = 0
+	var best_mc: int = 0
+
+	for t in range(0, col_tax_i + 1):
+		var mc: int = colonist_tax_mc(p, t, owner_race_id)
+		if mc > remaining_mc:
+			continue
+
+		if mc > best_mc:
+			best_mc = mc
+			best_tax = t
+		elif mc == best_mc and t < best_tax:
+			best_tax = t
+
+	return best_tax
 
 # ------------------------------------------------------------
 # Colonist max population / growth

@@ -15,7 +15,6 @@ signal save_success(response: Dictionary)
 signal save_failed(reason: String)
 var _pending_save_game_id: int = 0
 var _pending_save_player_id: int = 0
-#var _pending_save_wrapper: Dictionary = {}
 var _pending_save_forsave: bool = false
 var _pending_username: String = ""
 var _pending_save_rst: Dictionary = {}
@@ -35,8 +34,9 @@ func _ready() -> void:
 # =========================
 # ERROR HANDLING
 # =========================
-func _handle_error(reason: String) -> void:
-	match current_request:
+func _handle_error(reason: String, request_type: int = -1) -> void:
+	var req: int = current_request if request_type < 0 else request_type
+	match req:
 		RequestType.LOGIN:
 			emit_signal("login_failed", reason)
 		RequestType.LOAD_TURN:
@@ -65,12 +65,13 @@ func _handle_login_response(data: Dictionary) -> void:
 # TURN RESPONSE
 # =========================
 func _handle_turn_response(data: Dictionary) -> void:
-	GameState.save_turn(data)
-	emit_signal("turn_downloaded", data)
-
 	if _pending_save_forsave:
 		_pending_save_forsave = false
 		_save_turn_with_savekey_and_merge(data)
+		return
+
+	GameState.save_turn(data)
+	emit_signal("turn_downloaded", data)
 # =========================
 # LOGIN
 # =========================
@@ -128,12 +129,12 @@ func _on_request_completed(result: int, response_code: int,_headers: PackedStrin
 	var text: String = body.get_string_from_utf8()
 	
 	if response_code != 200:
-		_handle_error("HTTP " + str(response_code))
+		_handle_error("HTTP " + str(response_code), finished_request)
 		return
 
 	var data_v: Variant = JSON.parse_string(text)
 	if data_v == null:
-		_handle_error("Invalid JSON (parse_string returned null)")
+		_handle_error("Invalid JSON (parse_string returned null)", finished_request)
 		return
 
 	match finished_request:
@@ -141,13 +142,13 @@ func _on_request_completed(result: int, response_code: int,_headers: PackedStrin
 			if data_v is Dictionary:
 				_handle_login_response(data_v as Dictionary)
 			else:
-				_handle_error("Invalid JSON (LOGIN expected Dictionary)")
+				_handle_error("Invalid JSON (LOGIN expected Dictionary)", finished_request)
 
 		RequestType.LOAD_TURN:
 			if data_v is Dictionary:
 				_handle_turn_response(data_v as Dictionary)
 			else:
-				_handle_error("Invalid JSON (LOAD_TURN expected Dictionary)")
+				_handle_error("Invalid JSON (LOAD_TURN expected Dictionary)", finished_request)
 		
 		RequestType.SAVE_TURN:
 			if data_v is Dictionary:
@@ -158,7 +159,7 @@ func _on_request_completed(result: int, response_code: int,_headers: PackedStrin
 					var reason: String = String(d.get("error", "Save failed"))
 					emit_signal("save_failed", reason)
 			else:
-				_handle_error("Invalid JSON (SAVE_TURN expected Dictionary)")
+				_handle_error("Invalid JSON (SAVE_TURN expected Dictionary)", finished_request)
 				
 		RequestType.LIST_GAMES:
 			if data_v is Array:
@@ -169,7 +170,7 @@ func _on_request_completed(result: int, response_code: int,_headers: PackedStrin
 						out.append(it as Dictionary)
 				emit_signal("games_listed", out)
 			else:
-				_handle_error("Invalid JSON (LIST_GAMES expected Array)")
+				_handle_error("Invalid JSON (LIST_GAMES expected Array)", finished_request)
 
 		_:
 			# NONE oder unbekannt
@@ -342,67 +343,6 @@ func _save_turn_with_savekey_and_merge(fresh_wrapper: Dictionary) -> void:
 		_handle_error("HTTPRequest error: " + str(err))
 		return
 	
-static func _merge_rst_planet_changes(fresh_rst: Dictionary, pending_rst: Dictionary) -> void:
-	var f_v: Variant = fresh_rst.get("planets")
-	var p_v: Variant = pending_rst.get("planets")
-	if not (f_v is Array) or not (p_v is Array):
-		return
-
-	var fresh_planets: Array = f_v as Array
-	var pending_planets: Array = p_v as Array
-
-	# Map pending by id
-	var pending_by_id: Dictionary = {}
-	for it in pending_planets:
-		if it is Dictionary:
-			var d: Dictionary = it as Dictionary
-			var id_v: Variant = d.get("id", -1)
-			var pid: int = -1
-			if typeof(id_v) == TYPE_INT:
-				pid = int(id_v)
-			elif typeof(id_v) == TYPE_FLOAT:
-				pid = int(float(id_v))
-			if pid >= 0:
-				pending_by_id[pid] = d
-
-	# Apply selected fields
-	for i in range(fresh_planets.size()):
-		var it2: Variant = fresh_planets[i]
-		if not (it2 is Dictionary):
-			continue
-		var fd: Dictionary = it2 as Dictionary
-
-		var id2_v: Variant = fd.get("id", -1)
-		var pid2: int = -1
-		if typeof(id2_v) == TYPE_INT:
-			pid2 = int(id2_v)
-		elif typeof(id2_v) == TYPE_FLOAT:
-			pid2 = int(float(id2_v))
-
-		if pid2 < 0 or not pending_by_id.has(pid2):
-			continue
-
-		var pd: Dictionary = pending_by_id[pid2] as Dictionary
-
-		# Patch ONLY the fields we manage
-		if pd.has("colonisttaxrate"):
-			fd["colonisttaxrate"] = pd["colonisttaxrate"]
-		if pd.has("nativetaxrate"):
-			fd["nativetaxrate"] = pd["nativetaxrate"]
-		if pd.has("friendlycode"):
-			fd["friendlycode"] = pd["friendlycode"]
-
-		# write back (Array holds Dictionary ref, but keep explicit)
-		fresh_planets[i] = fd
-
-	fresh_rst["planets"] = fresh_planets
-
-func _extract_savekey(wrapper: Dictionary) -> String:
-	var sk_v: Variant = wrapper.get("savekey", "")
-	if typeof(sk_v) == TYPE_STRING:
-		return String(sk_v)
-	return ""
-
 static func _find_planet_dict_by_id(rst: Dictionary, planet_id: int) -> Dictionary:
 	var planets_v: Variant = rst.get("planets")
 	if not (planets_v is Array):
@@ -510,16 +450,6 @@ static func _pack_field_value(v: Variant) -> String:
 	return s
 
 
-static func _mkt_pack_body(fields: Dictionary) -> String:
-	var parts: PackedStringArray = PackedStringArray()
-
-	for k in fields.keys():
-		var key_s: String = String(k)
-		var val_s: String = _pack_field_value(fields[k])
-		parts.append(key_s + ":::" + val_s)
-
-	return "|||".join(parts)
-	
 static func _pack_planet_command(orig_rst: Dictionary, pending_rst: Dictionary, planet_id: int) -> String:
 	var cmd: Dictionary = _build_planet_save_command(orig_rst, pending_rst, planet_id)
 	if cmd.is_empty():

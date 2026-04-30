@@ -46,4 +46,5 @@ theme/custom_font="uid://dk37wsk7dvbbe"
 [rendering]
 
 renderer/rendering_method="mobile"
+textures/vram_compression/import_etc2_astc=true
 viewport/transparent_background=true

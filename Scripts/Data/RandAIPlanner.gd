@@ -56,6 +56,13 @@ static func apply_to_planets(
 			else:
 				col_tax = _choose_tax_colonists(p, cfg, owner_race_id)
 
+		col_tax = PlanetMath.colonist_tax_rate_for_planet_income_cap(
+			p,
+			col_tax,
+			nat_tax,
+			owner_race_id
+		)
+
 		GameState.set_planet_native_taxrate(planet_id, nat_tax)
 		GameState.set_planet_colonist_taxrate(planet_id, col_tax)
 

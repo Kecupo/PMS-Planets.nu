@@ -137,7 +137,7 @@ func mark_dirty() -> void:
 func _apply_defaults() -> void:
 	# FC
 	permute_special_fcs_case = false
-	fc_never_change_raw = ""
+	fc_never_change_raw = "MF"
 	randomize_other_fcs = false
 
 	# Colonists

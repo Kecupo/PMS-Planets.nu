@@ -14,8 +14,6 @@ var current_game_id: int = 0
 var my_player_id: int = -1   # wird aus rst.player.id gesetzt
 var my_race_id: int = 0          # später aus rst.player.raceid ziehen
 var selected_planet_id: int = -1
-# planet_id -> { "colonisttaxrate": int, "nativetaxrate": int }
-var planet_tax_overrides: Dictionary = {}
 var username: String = ""
 var my_planets: Array[PlanetData] = []
 var my_planets_by_id: Dictionary = {} # int -> PlanetData
@@ -350,38 +348,6 @@ func set_planet_native_taxrate(planet_id: int, tax: int) -> void:
 		_save_latest_turn_json()
 		emit_signal("orders_changed")
 		
-func _set_planet_taxrate_in_turn_json(planet_id: int, key: String, value: int) -> void:
-	if last_turn_json.is_empty():
-		push_error("No turn json loaded")
-		return
-
-	var rst_v: Variant = last_turn_json.get("rst")
-	if not (rst_v is Dictionary):
-		push_error("last_turn_json has no rst dictionary")
-		return
-	var rst: Dictionary = rst_v as Dictionary
-
-	var planets_v: Variant = rst.get("planets")
-	if not (planets_v is Array):
-		push_error("rst.planets missing/invalid")
-		return
-	var arr: Array = planets_v as Array
-
-	for i in range(arr.size()):
-		var it: Variant = arr[i]
-		if it is Dictionary:
-			var pd: Dictionary = it as Dictionary
-			var id_v: Variant = pd.get("id", -1)
-			var pid: int = int(id_v) if typeof(id_v) == TYPE_INT else int(float(id_v))
-			if pid == planet_id:
-				pd[key] = value
-				arr[i] = pd
-				rst["planets"] = arr
-				last_turn_json["rst"] = rst
-				return
-
-	push_error("Planet id not found in rst.planets: " + str(planet_id))
-
 func _set_planet_taxrate_in_model(planet_id: int, is_native: bool, value: int) -> void:
 	for p in planets:
 		if int(p.planet_id) == planet_id:
