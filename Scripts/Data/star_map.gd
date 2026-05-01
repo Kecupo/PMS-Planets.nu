@@ -58,7 +58,7 @@ func _on_turn_loaded() -> void:
 	queue_redraw()
 
 func _on_selection_changed(kind: String, _selected_id: int) -> void:
-	if kind == "planet":
+	if kind == "planet" or kind == "ship" or kind == "starbase" or kind == "none":
 		queue_redraw()
 
 	
@@ -114,6 +114,10 @@ func _draw() -> void:
 	var sel: PlanetData = game_state.get_selected_planet()
 	if sel != null:
 		_draw_selected_highlight(sel)
+	elif game_state.selected_starbase_planet_id >= 0:
+		var sb_planet: PlanetData = _get_planet_by_id(game_state.selected_starbase_planet_id)
+		if sb_planet != null:
+			_draw_selected_highlight(sb_planet)
 
 	_draw_starships()
 		
@@ -173,15 +177,29 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	# Screen -> World via camera transform (Godot 4)
-	var inv: Transform2D = $Camera2D.get_canvas_transform().affine_inverse()
-	var world_pos: Vector2 = inv * mb.position
+	var world_pos: Vector2 = _screen_to_world(mb.position)
 
 	# Klickradius in Weltkoordinaten, damit er sich bei Zoom "gleich groß" anfühlt
 	var radius_world: float = click_radius_pixels * $Camera2D.zoom.x
 
-	var picked_id: int = _pick_planet(world_pos, radius_world)
-	if picked_id != -1:
-		game_state.select_planet(picked_id)
+	var selection_mode: String = game_state.get_selection_mode()
+	match selection_mode:
+		"ship":
+			var picked_ship_id: int = _pick_ship(world_pos, _screen_px_to_world(maxf(22.0, SHIP_RADIUS_DRAW * 3.0)))
+			if picked_ship_id != -1:
+				game_state.select_ship(picked_ship_id)
+				get_viewport().set_input_as_handled()
+		"starbase":
+			var picked_starbase_planet_id: int = _pick_starbase(world_pos, radius_world)
+			if picked_starbase_planet_id != -1:
+				game_state.select_starbase(picked_starbase_planet_id)
+				get_viewport().set_input_as_handled()
+		_:
+			var picked_id: int = _pick_planet(world_pos, radius_world)
+			if picked_id != -1:
+				game_state.select_planet(picked_id)
+			if picked_id == -1:
+				return
 		# Wichtig: hier KEIN UI-Hover-Filter und keine weiteren Änderungen
 		get_viewport().set_input_as_handled()
 
@@ -196,6 +214,12 @@ func _is_screen_pos_over_blocking_ui(screen_pos: Vector2) -> bool:
 
 	if hover_panel != null and (hovered == hover_panel or hover_panel.is_ancestor_of(hovered)):
 		return false
+
+	var node: Node = hovered
+	while node != null:
+		if node.is_in_group("map_blocking_ui"):
+			return true
+		node = node.get_parent()
 
 	return planet_panel != null and (hovered == planet_panel or planet_panel.is_ancestor_of(hovered))
 
@@ -477,6 +501,36 @@ func _pick_planet(world_pos: Vector2, radius_world: float) -> int:
 		if d2 <= r2 and d2 < best_dist2:
 			best_dist2 = d2
 			best_id = p.planet_id
+
+	return best_id
+
+func _pick_ship(world_pos: Vector2, radius_world: float) -> int:
+	var best_id: int = -1
+	var best_dist2: float = INF
+	var r2: float = radius_world * radius_world
+
+	for ship: StarshipData in game_state.starships:
+		if ship == null or ship.ishidden:
+			continue
+		var d2: float = _ship_to_world(ship).distance_squared_to(world_pos)
+		if d2 <= r2 and d2 < best_dist2:
+			best_dist2 = d2
+			best_id = int(ship.ship_id)
+
+	return best_id
+
+func _pick_starbase(world_pos: Vector2, radius_world: float) -> int:
+	var best_id: int = -1
+	var best_dist2: float = INF
+	var r2: float = radius_world * radius_world
+
+	for p: PlanetData in game_state.planets:
+		if p == null or not game_state.planet_has_starbase(int(p.planet_id)):
+			continue
+		var d2: float = _map_to_world(p).distance_squared_to(world_pos)
+		if d2 <= r2 and d2 < best_dist2:
+			best_dist2 = d2
+			best_id = int(p.planet_id)
 
 	return best_id
 

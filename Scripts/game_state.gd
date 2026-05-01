@@ -13,7 +13,10 @@ var config: Game_Config = Game_Config.new()
 var current_game_id: int = 0
 var my_player_id: int = -1   # wird aus rst.player.id gesetzt
 var my_race_id: int = 0          # später aus rst.player.raceid ziehen
+var selection_mode: String = "planet"
 var selected_planet_id: int = -1
+var selected_ship_id: int = -1
+var selected_starbase_planet_id: int = -1
 var username: String = ""
 var my_planets: Array[PlanetData] = []
 var my_planets_by_id: Dictionary = {} # int -> PlanetData
@@ -194,8 +197,52 @@ func load_latest_turn_from_disk() -> bool:
 	return true
 
 func select_planet(planet_id: int) -> void:
+	selection_mode = "planet"
 	selected_planet_id = planet_id
+	selected_ship_id = -1
+	selected_starbase_planet_id = -1
 	emit_signal("selection_changed", "planet", planet_id)
+
+func clear_selection() -> void:
+	selected_planet_id = -1
+	selected_ship_id = -1
+	selected_starbase_planet_id = -1
+	emit_signal("selection_changed", "none", -1)
+
+func set_selection_mode(mode: String) -> void:
+	if mode != "planet" and mode != "ship" and mode != "starbase":
+		mode = "planet"
+	selection_mode = mode
+
+func get_selection_mode() -> String:
+	return selection_mode
+
+func clear_selection_for_kind(kind: String) -> void:
+	match kind:
+		"planet":
+			selected_planet_id = -1
+		"ship":
+			selected_ship_id = -1
+		"starbase":
+			selected_starbase_planet_id = -1
+		_:
+			clear_selection()
+			return
+	emit_signal("selection_changed", kind, -1)
+
+func select_ship(ship_id: int) -> void:
+	selection_mode = "ship"
+	selected_planet_id = -1
+	selected_ship_id = ship_id
+	selected_starbase_planet_id = -1
+	emit_signal("selection_changed", "ship", ship_id)
+
+func select_starbase(planet_id: int) -> void:
+	selection_mode = "starbase"
+	selected_planet_id = -1
+	selected_ship_id = -1
+	selected_starbase_planet_id = planet_id
+	emit_signal("selection_changed", "starbase", planet_id)
 
 func get_selected_planet() -> PlanetData:
 	if selected_planet_id < 0:
@@ -204,6 +251,19 @@ func get_selected_planet() -> PlanetData:
 		if p.planet_id == selected_planet_id:
 			return p
 	return null
+
+func get_selected_ship() -> StarshipData:
+	if selected_ship_id < 0:
+		return null
+	for ship: StarshipData in starships:
+		if ship != null and int(ship.ship_id) == selected_ship_id:
+			return ship
+	return null
+
+func get_selected_starbase() -> Dictionary:
+	if selected_starbase_planet_id < 0:
+		return {}
+	return get_starbase_for_planet(selected_starbase_planet_id)
 	
 func get_effective_native_taxrate(p: PlanetData) -> int:
 	return int(p.nativetaxrate)
