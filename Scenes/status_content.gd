@@ -496,21 +496,23 @@ func _starbase_mission_label(mission_id: int) -> String:
 		0:
 			return "None"
 		1:
-			return "Force a Surrender"
-		2:
 			return "Refuel"
-		3:
+		2:
 			return "Max Defense"
-		4:
+		3:
 			return "Load Torpedoes"
-		5:
+		4:
 			return "Unload Freighters"
-		6:
+		5:
 			return "Repair Base"
+		6:
+			return "Force a Surrender"
 		7:
 			return "Send Fighters"
 		8:
 			return "Receive Fighters"
+		9:
+			return "Sweep Mines"
 		_:
 			return "Mission %d" % mission_id
 
@@ -589,36 +591,34 @@ func _engine_name(engine_id: int) -> String:
 func _mission_label(mission_id: int, owner_id: int = 0) -> String:
 	match mission_id:
 		0:
-			return "None"
+			return "Exploration"
 		1:
-			return "Explore"
-		2:
 			return "Mine Sweep"
-		3:
+		2:
 			return "Lay Mines"
-		4:
+		3:
 			return "Kill"
-		5:
+		4:
 			return "Sensor Sweep"
-		6:
+		5:
 			return "Land and Disassemble"
-		7:
+		6:
 			return "Try to Tow"
-		8:
+		7:
 			return "Intercept"
-		9:
+		8:
 			return _special_ship_mission_label(owner_id)
-		10:
+		9:
 			return "Cloak"
-		11:
+		10:
 			return "Beam Up Neutronium"
-		12:
+		11:
 			return "Beam Up Duranium"
-		13:
+		12:
 			return "Beam Up Tritanium"
-		14:
+		13:
 			return "Beam Up Molybdenum"
-		15:
+		14:
 			return "Beam Up Supplies"
 		_:
 			return "Mission %d" % mission_id
