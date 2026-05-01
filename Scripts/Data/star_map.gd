@@ -6,6 +6,7 @@ const PLANET_RADIUS_DRAW: float = 7.5
 @export var click_radius_pixels: float = 21.0
 const HOVER_PANEL_WIDTH: float = 270.0
 const HOVER_PANEL_MARGIN: float = 12.0
+const HOVER_INFO_SEPARATOR: String = "------------------------------"
 const MERGED_SHAPE_SEGMENTS: int = 36
 const FIELD_CELL_SIZE: float = 28.0
 const DEBRIS_DISK_RADIUS: float = 40.0
@@ -303,6 +304,7 @@ func _append_planet_hover(lines: PackedStringArray, world_pos: Vector2) -> void:
 	if p == null:
 		return
 
+	_append_hover_separator(lines)
 	lines.append("Planet: %s (%s)" % [p.name, _planet_owner_label(p)])
 
 func _append_debris_disk_hover(lines: PackedStringArray, world_pos: Vector2) -> void:
@@ -316,6 +318,7 @@ func _append_debris_disk_hover(lines: PackedStringArray, world_pos: Vector2) -> 
 		if _map_to_world(p).distance_to(world_pos) > DEBRIS_DISK_RADIUS:
 			continue
 
+		_append_hover_separator(lines)
 		lines.append("Asteroid Field: %s (R %.0f)" % [_debris_disk_label(p), DEBRIS_DISK_RADIUS])
 
 func _append_starship_hover(lines: PackedStringArray, world_pos: Vector2) -> void:
@@ -333,10 +336,12 @@ func _append_starship_hover(lines: PackedStringArray, world_pos: Vector2) -> voi
 		return
 
 	if hits.size() > 3 and _ship_display_mode() != SHIP_MODE_FULL:
+		_append_hover_separator(lines)
 		lines.append("Ships: %d" % hits.size())
 		return
 
 	for ship: StarshipData in hits:
+		_append_hover_separator(lines)
 		lines.append("Ship #%d P%d: %s" % [ship.ship_id, ship.ownerid, ship.display_hull_name()])
 
 func _append_ionstorm_hover(lines: PackedStringArray, world_pos: Vector2) -> void:
@@ -354,6 +359,7 @@ func _append_ionstorm_hover(lines: PackedStringArray, world_pos: Vector2) -> voi
 	if count <= 0:
 		return
 
+	_append_hover_separator(lines)
 	lines.append("Ion Storms: strength %d" % int(round(total_voltage)))
 
 func _append_nebula_hover(lines: PackedStringArray, world_pos: Vector2) -> void:
@@ -375,6 +381,7 @@ func _append_nebula_hover(lines: PackedStringArray, world_pos: Vector2) -> void:
 	if count <= 0:
 		return
 
+	_append_hover_separator(lines)
 	lines.append("Nebulae: visibility %d" % int(round(total_visibility)))
 
 func _append_minefield_hover(lines: PackedStringArray, world_pos: Vector2) -> void:
@@ -389,6 +396,7 @@ func _append_minefield_hover(lines: PackedStringArray, world_pos: Vector2) -> vo
 			continue
 
 		var kind: String = "Web Minefield" if mf.isweb else "Minefield"
+		_append_hover_separator(lines)
 		lines.append(
 			"%s #%d: %.0f mines, R %.0f, %s" % [
 				kind,
@@ -412,7 +420,15 @@ func _append_starcluster_hover(lines: PackedStringArray, map_pos: Vector2) -> vo
 		if label_name.is_empty():
 			label_name = "#" + str(star.star_id)
 
+		_append_hover_separator(lines)
 		lines.append("Star Cluster %s: voltage %d" % [label_name, voltage])
+
+func _append_hover_separator(lines: PackedStringArray) -> void:
+	if lines.size() <= 0:
+		return
+	if lines[lines.size() - 1] == HOVER_INFO_SEPARATOR:
+		return
+	lines.append(HOVER_INFO_SEPARATOR)
 
 func _point_in_ionstorm(storm: IonStormData, world_pos: Vector2) -> bool:
 	for circle: IonStormCircleData in storm.circles:
