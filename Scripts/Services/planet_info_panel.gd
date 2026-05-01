@@ -587,12 +587,16 @@ func _update_defense_combat_label(p: PlanetData) -> void:
 	var starbase_defense: int = _dict_int_any(starbase, ["defense", "defenseposts", "defense_posts"], 0)
 	var starbase_beam_tech: int = _dict_int_any(starbase, ["beamtech", "beam_tech", "beamlevel"], 0)
 	var starbase_mass_bonus: int = _dict_int_any(starbase, ["massbonus", "mass_bonus"], 0)
+	var starbase_fighters: int = _dict_int_any(starbase, ["fighters", "fightercount", "fighter_count"], 0)
+	var starbase_bays: int = 5 if not starbase.is_empty() else 0
 
 	var summary: Dictionary = PlanetMath.planet_defense_summary(
 		int(p.defense),
 		starbase_defense,
 		starbase_mass_bonus,
-		starbase_beam_tech
+		starbase_beam_tech,
+		starbase_fighters,
+		starbase_bays
 	)
 
 	var beam_count: int = int(summary.get("beam_count", 0))

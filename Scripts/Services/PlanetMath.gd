@@ -76,7 +76,9 @@ static func planet_defense_summary(
 	defense_posts: int,
 	starbase_defense_posts: int = 0,
 	starbase_mass_bonus: int = 0,
-	starbase_beam_tech: int = 0
+	starbase_beam_tech: int = 0,
+	starbase_fighters: int = 0,
+	starbase_bays: int = 0
 ) -> Dictionary:
 	var planet_def: int = max(defense_posts, 0)
 	var base_def: int = max(starbase_defense_posts, 0)
@@ -89,8 +91,8 @@ static func planet_defense_summary(
 
 	return {
 		"combat_mass": 100 + planet_def + base_def + mass_bonus,
-		"fighters": int(round(sqrt(maxf(0.0, float(planet_def) - 0.75)))),
-		"bays": int(sqrt(float(planet_def))),
+		"fighters": int(round(sqrt(maxf(0.0, float(planet_def) - 0.75)))) + max(starbase_fighters, 0),
+		"bays": int(sqrt(float(planet_def))) + max(starbase_bays, 0),
 		"beam_count": min(10, int(round(sqrt(float(beam_count_src) / 3.0)))),
 		"beam_slot": beam_slot,
 		"beam_name": BEAM_NAMES[beam_slot]
