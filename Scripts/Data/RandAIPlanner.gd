@@ -1,6 +1,8 @@
 extends Node
 class_name RandAIPlanner
 
+const CYBORG_RACE_ID: int = 6
+
 
 static func apply_to_planets(
 	_game_id: int,
@@ -141,6 +143,10 @@ static func _emit_progress(progress_callback: Callable, value: int, total: int) 
 static func _calculate_native_tax(p: PlanetData, cfg: RandAI_Config, owner_race_id: int) -> int:
 	if not _should_tax_natives(p, cfg):
 		return 0
+
+	var cyborg_tax: int = _cyborg_always_native_tax(p, cfg, owner_race_id)
+	if cyborg_tax >= 0:
+		return cyborg_tax
 
 	var nat_cap_tax: int = _native_cap_tax(p, cfg, owner_race_id)
 	if nat_cap_tax >= 0:
@@ -294,6 +300,20 @@ static func _native_cap_tax(p: PlanetData, cfg: RandAI_Config, owner_race_id: in
 
 	var target: int = int(cfg.nat_tax_happy_target)
 	return _best_native_tax_for_target_happiness(p, target, owner_race_id)
+
+
+static func _cyborg_always_native_tax(p: PlanetData, cfg: RandAI_Config, owner_race_id: int) -> int:
+	if owner_race_id != CYBORG_RACE_ID:
+		return -1
+
+	if not bool(cfg.cyborg_always_tax_natives):
+		return -1
+
+	var target_next: int = 40
+	if int(p.clans) >= int(p.nativeclans):
+		target_next = -1000
+
+	return _best_native_tax_for_target_happiness(p, target_next, owner_race_id)
 
 
 static func _best_native_tax_for_target_happiness(p: PlanetData, target_next: int, owner_race_id: int) -> int:

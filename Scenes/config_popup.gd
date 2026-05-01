@@ -22,6 +22,7 @@ var _wired_natives: bool = false
 @onready var chk_nat_cap: CheckButton = %ChkNatCapEnabled
 @onready var btn_nat_cap_70: Button = %BtnNatCap70
 @onready var btn_nat_cap_40: Button = %BtnNatCap40
+@onready var chk_cyborg_always_tax_natives: CheckButton = %ChkCyborgAlwaysTaxNatives
 @onready var chk_col_cap_mode: CheckButton = %ChkColCapModeEnabled
 @onready var rb_col_cap_70: Button = %RbColCap70
 @onready var rb_col_cap_40: Button = %RbColCap40
@@ -83,6 +84,7 @@ func _wire_native_tab() -> void:
 	btn_nat_method_growth.toggled.connect(_on_nat_method_changed)
 	btn_nat_method_growth_plus.toggled.connect(_on_nat_method_changed)
 
+	chk_cyborg_always_tax_natives.toggled.connect(_on_cyborg_always_tax_natives_toggled)
 	chk_nat_cap.toggled.connect(_on_nat_cap_toggled)
 	btn_nat_cap_70.toggled.connect(_on_nat_cap_target_changed)
 	btn_nat_cap_40.toggled.connect(_on_nat_cap_target_changed)
@@ -108,6 +110,7 @@ func _sync_native_tab_from_config() -> void:
 	btn_nat_method_growth_plus.button_pressed = (m == 1)
 
 	chk_nat_cap.button_pressed = bool(RandAI_Config.nat_tax_cap_enabled)
+	chk_cyborg_always_tax_natives.button_pressed = bool(RandAI_Config.cyborg_always_tax_natives)
 
 	var tgt: int = int(RandAI_Config.nat_tax_happy_target)
 
@@ -149,6 +152,9 @@ func _update_native_controls() -> void:
 
 	btn_nat_method_growth.disabled = not on
 	btn_nat_method_growth_plus.disabled = not on
+
+	chk_cyborg_always_tax_natives.visible = _is_my_race_cyborg()
+	chk_cyborg_always_tax_natives.disabled = not on
 
 	chk_nat_cap.disabled = not on
 	var cap_on: bool = on and chk_nat_cap.button_pressed
@@ -211,6 +217,11 @@ func _on_nat_method_changed(_on: bool) -> void:
 	RandAI_Config.nat_tax_method = 1 if btn_nat_method_growth_plus.button_pressed else 0
 	RandAI_Config.mark_dirty()
 
+func _on_cyborg_always_tax_natives_toggled(on: bool) -> void:
+	if _syncing: return
+	RandAI_Config.cyborg_always_tax_natives = on
+	RandAI_Config.mark_dirty()
+
 func _on_nat_cap_toggled(on: bool) -> void:
 	if _syncing: return
 	RandAI_Config.nat_tax_cap_enabled = on
@@ -227,6 +238,10 @@ func _on_nat_cap_target_changed(_on: bool) -> void:
 	if _syncing: return
 	RandAI_Config.nat_tax_happy_target = 40 if btn_nat_cap_40.button_pressed else 70
 	RandAI_Config.mark_dirty()
+
+func _is_my_race_cyborg() -> bool:
+	return int(GameState.get_my_race_id()) == RandAIPlanner.CYBORG_RACE_ID
+
 # -------------------------
 # UI State helpers
 # -------------------------
@@ -380,45 +395,55 @@ func _build_race_color_tab() -> void:
 		c.queue_free()
 	#_add_race_color_row(-1, "")
 	# immer neutral anzeigen
-	_add_race_color_row(0, "   Neutral / Unknown")
+	_add_race_color_row(0, -1, "   Neutral / Unknown")
 
-	var race_ids: Array[int] = []
+	var players: Array[Dictionary] = GameState.get_players()
 
-	if GameState.config != null and GameState.config.races_by_id != null and not GameState.config.races_by_id.is_empty():
-		for k in GameState.config.races_by_id.keys():
-			var rid: int = -1
-			if typeof(k) == TYPE_INT:
-				rid = int(k)
-			elif typeof(k) == TYPE_FLOAT:
-				rid = int(float(k))
-			elif typeof(k) == TYPE_STRING:
-				var s: String = String(k)
-				if s.is_valid_int():
-					rid = s.to_int()
-
-			if rid > 0:
-				race_ids.append(rid)
-
-		race_ids.sort()
-		
+	if not players.is_empty():
+		for player: Dictionary in players:
+			var player_id: int = int(player.get("id", 0))
+			var race_id: int = int(player.get("raceid", -1))
+			if player_id > 0:
+				_add_race_color_row(player_id, race_id, _player_color_display_name(player))
 	else:
 		# Fallback: klassische 13 Slots
-		for rid in range(1, 14):
-			race_ids.append(rid)
-
-	for rid in race_ids:
-		var race_name: String = _race_display_name(rid)
-		_add_race_color_row(rid, race_name)
+		for player_id in range(1, 14):
+			_add_race_color_row(player_id, -1, "   P%d - Player %d" % [player_id, player_id])
 	
+func _player_color_display_name(player: Dictionary) -> String:
+	var player_id: int = int(player.get("id", 0))
+	var race_id: int = int(player.get("raceid", -1))
+	var race_name: String = _race_display_name(race_id)
+	var player_name: String = _player_name_from_dict(player)
+
+	if player_name.is_empty():
+		return "   P%d - %s" % [player_id, race_name]
+
+	return "   P%d - %s (%s)" % [player_id, race_name, player_name]
+
+func _player_name_from_dict(player: Dictionary) -> String:
+	var keys: PackedStringArray = [
+		"username",
+		"accountname",
+		"playername",
+		"name",
+		"nickname"
+	]
+	for key: String in keys:
+		var value: String = String(player.get(key, "")).strip_edges()
+		if not value.is_empty():
+			return value
+	return ""
+
 func _race_display_name(race_id: int) -> String:
 	if GameState.config != null:
 		var abbr: String = GameState.config.get_owner_abbrev(race_id)
 		if not abbr.is_empty() and abbr != "—":
-			return "   %d - %s" % [race_id, abbr]
+			return abbr
 
-	return "   %d - Race %d" % [race_id, race_id]
+	return "Race %d" % race_id
 	
-func _add_race_color_row(race_id: int, label_text: String) -> void:
+func _add_race_color_row(player_id: int, race_id: int, label_text: String) -> void:
 	var row: HBoxContainer = HBoxContainer.new()
 	row.custom_minimum_size = Vector2(0, 30)
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -431,12 +456,13 @@ func _add_race_color_row(race_id: int, label_text: String) -> void:
 	var picker: ColorPickerButton = ColorPickerButton.new()
 	picker.custom_minimum_size = Vector2(60, 24)
 	picker.text = ""
+	picker.set_meta("player_id", player_id)
 	picker.set_meta("race_id", race_id)
 	
-	if race_id == 0:
+	if player_id == 0:
 		picker.color = Color.from_string(RandAI_Config.neutral_color, Color.WHITE)
 	else:
-		picker.color = RandAI_Config.get_race_color(race_id)
+		picker.color = RandAI_Config.get_player_color(player_id, race_id)
 
 	picker.color_changed.connect(_on_race_color_changed.bind(picker))
 
@@ -449,17 +475,17 @@ func _on_race_color_changed(_color: Color, picker: ColorPickerButton) -> void:
 	if _syncing:
 		return
 
-	var race_id: int = int(picker.get_meta("race_id"))
+	var player_id: int = int(picker.get_meta("player_id"))
 	var preview: ColorRect = picker.get_meta("preview") as ColorRect
 
 	if preview != null:
 		preview.color = picker.color
 
-	if race_id == 0:
+	if player_id == 0:
 		RandAI_Config.neutral_color = picker.color.to_html()
 		RandAI_Config.mark_dirty()
 	else:
-		RandAI_Config.set_race_color(race_id, picker.color)
+		RandAI_Config.set_player_color(player_id, picker.color)
 
 func _on_col_enabled_toggled(on: bool) -> void:
 	if _syncing:

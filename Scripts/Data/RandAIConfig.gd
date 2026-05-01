@@ -56,12 +56,14 @@ var nat_tax_enabled: bool = false
 var nat_tax_method: int = TaxMethod.GROWTH
 var nat_tax_cap_enabled: bool = false
 var nat_tax_happy_target: int = 70
+var cyborg_always_tax_natives: bool = true
 
 # -------------------------
 # Race Colors
 # Stored per game in same config JSON
 # -------------------------
 var race_colors: Dictionary = {}
+var player_colors: Dictionary = {}
 var neutral_color: String = "#ffffff"
 
 const DEFAULT_RACE_COLORS: Dictionary = {
@@ -154,9 +156,11 @@ func _apply_defaults() -> void:
 	nat_tax_method = TaxMethod.GROWTH
 	nat_tax_cap_enabled = false
 	nat_tax_happy_target = 70
+	cyborg_always_tax_natives = true
 
 	# Race colors
 	race_colors = DEFAULT_RACE_COLORS.duplicate(true)
+	player_colors.clear()
 	neutral_color = "#ffffff"
 
 func _apply_from_dict(d: Dictionary) -> void:
@@ -188,6 +192,7 @@ func _apply_from_dict(d: Dictionary) -> void:
 	nat_tax_method = _read_int(d, "nat_tax_method", TaxMethod.GROWTH)
 	nat_tax_cap_enabled = _read_bool(d, "nat_tax_cap_enabled", false)
 	nat_tax_happy_target = _read_int(d, "nat_tax_happy_target", 70)
+	cyborg_always_tax_natives = _read_bool(d, "cyborg_always_tax_natives", true)
 
 	if nat_tax_method < TaxMethod.GROWTH or nat_tax_method > TaxMethod.GROWTH_PLUS:
 		nat_tax_method = TaxMethod.GROWTH
@@ -206,6 +211,15 @@ func _apply_from_dict(d: Dictionary) -> void:
 			var key_i: int = _read_int_from_variant(k, -1)
 			if key_i >= 0:
 				race_colors[key_i] = String(rc[k])
+
+	var pc_v: Variant = d.get("player_colors", {})
+	if pc_v is Dictionary:
+		player_colors.clear()
+		var pc: Dictionary = pc_v as Dictionary
+		for k in pc.keys():
+			var key_i: int = _read_int_from_variant(k, -1)
+			if key_i > 0:
+				player_colors[key_i] = String(pc[k])
 
 func _to_dict() -> Dictionary:
 	var d: Dictionary = {}
@@ -229,10 +243,12 @@ func _to_dict() -> Dictionary:
 	d["nat_tax_method"] = nat_tax_method
 	d["nat_tax_cap_enabled"] = nat_tax_cap_enabled
 	d["nat_tax_happy_target"] = nat_tax_happy_target
+	d["cyborg_always_tax_natives"] = cyborg_always_tax_natives
 
 	# Race colors
 	d["neutral_color"] = neutral_color
 	d["race_colors"] = race_colors
+	d["player_colors"] = player_colors
 
 	return d
 
@@ -253,6 +269,26 @@ func get_race_color(race_id: int) -> Color:
 
 func set_race_color(race_id: int, color: Color) -> void:
 	race_colors[race_id] = color.to_html()
+	mark_dirty()
+
+func get_player_color(player_id: int, race_id: int = -1) -> Color:
+	var s: String = neutral_color
+
+	if player_id > 0 and player_colors.has(player_id):
+		s = String(player_colors[player_id])
+	elif DEFAULT_RACE_COLORS.has(player_id):
+		s = String(DEFAULT_RACE_COLORS[player_id])
+	elif race_id > 0 and race_colors.has(race_id):
+		s = String(race_colors[race_id])
+	elif race_id > 0 and DEFAULT_RACE_COLORS.has(race_id):
+		s = String(DEFAULT_RACE_COLORS[race_id])
+
+	return Color.from_string(s, Color.WHITE)
+
+func set_player_color(player_id: int, color: Color) -> void:
+	if player_id <= 0:
+		return
+	player_colors[player_id] = color.to_html()
 	mark_dirty()
 
 # -----------------------------------------------------------------------------

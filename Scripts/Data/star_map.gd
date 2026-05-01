@@ -2,7 +2,7 @@ extends Node2D
 
 @onready var game_state = get_node("/root/GameState")
 @onready var overlay: Control = get_node("%OverlayRoot") as Control
-const PLANET_RADIUS_DRAW: float = 9.0
+const PLANET_RADIUS_DRAW: float = 7.5
 @export var click_radius_pixels: float = 21.0
 const HOVER_PANEL_WIDTH: float = 270.0
 const HOVER_PANEL_MARGIN: float = 12.0
@@ -491,9 +491,7 @@ func _ship_target_to_world(ship: StarshipData) -> Vector2:
 
 func _minefield_color(mf: MinefieldData) -> Color:
 	var race_id: int = game_state.get_race_id_of_player(mf.ownerid)
-	if race_id <= 0:
-		return Color.WHITE
-	return RandAI_Config.get_race_color(race_id)
+	return RandAI_Config.get_player_color(mf.ownerid, race_id)
 	
 func _draw_minefields() -> void:
 	for mf: MinefieldData in game_state.minefields:
@@ -810,17 +808,17 @@ func _ship_hull_short_name(ship: StarshipData) -> String:
 
 func _ship_color(ship: StarshipData) -> Color:
 	var race_id: int = game_state.get_race_id_of_player(ship.ownerid)
-	if race_id <= 0:
+	if ship.ownerid <= 0:
 		return Color(0.86, 0.90, 0.94, 1.0)
-	return RandAI_Config.get_race_color(race_id)
+	return RandAI_Config.get_player_color(ship.ownerid, race_id)
 		
 func _planet_color(p: PlanetData) -> Color:
 	var race_id: int = GameState.get_owner_race_id_of_planet(p)
 	var color: Color = Color.WHITE
-	if race_id <= 0:
+	if int(p.ownerid) <= 0:
 		color = Color.from_string(RandAI_Config.neutral_color, Color.WHITE)
 	else:
-		color = RandAI_Config.get_race_color(race_id)
+		color = RandAI_Config.get_player_color(int(p.ownerid), race_id)
 	return color
 
 func _ionstorm_circle_to_world(circle: IonStormCircleData) -> Vector2:

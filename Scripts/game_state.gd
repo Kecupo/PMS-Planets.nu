@@ -595,6 +595,35 @@ func get_race_id_of_player(player_id: int) -> int:
 					return int(race_v)
 
 	return -1
+
+func get_players() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if last_turn_json.is_empty():
+		return result
+
+	var rst_v: Variant = last_turn_json.get("rst")
+	if not (rst_v is Dictionary):
+		return result
+	var rst: Dictionary = rst_v as Dictionary
+
+	var players_v: Variant = rst.get("players")
+	if not (players_v is Array):
+		return result
+
+	for it: Variant in players_v as Array:
+		if it is Dictionary:
+			result.append(it as Dictionary)
+
+	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return int(a.get("id", 0)) < int(b.get("id", 0))
+	)
+	return result
+
+func get_player_info(player_id: int) -> Dictionary:
+	for p: Dictionary in get_players():
+		if int(p.get("id", -1)) == player_id:
+			return p
+	return {}
 	
 func planet_has_starbase(planet_id: int) -> bool:
 	return starbase_planet_ids.has(planet_id)
