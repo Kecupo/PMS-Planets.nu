@@ -274,26 +274,61 @@ func _populate_starbases_panel() -> void:
 
 	var planet_id: int = _dict_int(sb, ["planetid", "planet_id"], game_state.selected_starbase_planet_id)
 	var p: PlanetData = _planet_by_id(planet_id)
-	_add_summary_label(_starbases_list, "Planet #%d  %s" % [planet_id, p.name if p != null else ""])
-	_add_separator(_starbases_list)
+	var can_build_ships: bool = _starbase_can_build_ships(p, sb)
+	var base_type: String = _starbase_type_label(p, sb)
+	_add_summary_label(_starbases_list, "#%d  %s - %s" % [planet_id, p.name if p != null else "Unknown", base_type])
 	if p != null:
-		_add_wrapped_label(_starbases_list, "Owner: %s" % _player_owner_label(int(p.ownerid)), false)
-		_add_wrapped_label(_starbases_list, "Position: %.0f / %.0f" % [p.x, p.y], false)
-	_add_wrapped_label(_starbases_list, "Defense: %d  Fighters: %d  Damage: %d" % [
-		_dict_int(sb, ["defense", "defenseposts", "defense_posts"], 0),
-		_dict_int(sb, ["fighters", "fightercount", "fighter_count"], 0),
-		_dict_int(sb, ["damage"], 0)
-	], false)
-	_add_wrapped_label(_starbases_list, "Tech: hull %d, engine %d, beam %d, torp %d" % [
-		_dict_int(sb, ["hulltechlevel", "hulltech"], 0),
-		_dict_int(sb, ["enginetechlevel", "enginetech"], 0),
-		_dict_int(sb, ["beamtechlevel", "beamtech"], 0),
-		_dict_int(sb, ["torptechlevel", "torptech"], 0)
-	], false)
-	_add_wrapped_label(_starbases_list, "Storage: MC %d  Supplies %d" % [
-		_dict_int(sb, ["megacredits", "mc"], 0),
-		_dict_int(sb, ["supplies"], 0)
-	], false)
+		_add_wrapped_label(_starbases_list, "%s  %.0f / %.0f" % [_player_owner_label(int(p.ownerid)), p.x, p.y], false).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+	var base_defense: int = _dict_int(sb, ["defense", "defenseposts", "defense_posts"], 0)
+	var base_fighters: int = _dict_int(sb, ["fighters", "fightercount", "fighter_count"], 0)
+	var planet_defense: int = max(0, int(p.defense)) if p != null else 0
+	var base_bays: int = 5 if can_build_ships else 0
+	var defense_summary: Dictionary = PlanetMath.planet_defense_summary(
+		planet_defense,
+		base_defense,
+		_dict_int(sb, ["massbonus", "mass_bonus"], 0),
+		_dict_int(sb, ["beamtechlevel", "beamtech", "beamlevel"], 0),
+		base_fighters,
+		base_bays
+	)
+
+	_add_section_title(_starbases_list, "Defense")
+	var defense: GridContainer = _add_key_value_grid(_starbases_list)
+	_add_kv(defense, "Base Defense", str(base_defense))
+	_add_kv(defense, "Planet Defense", str(planet_defense) if p != null else "?")
+	_add_kv(defense, "Fighters", str(base_fighters))
+	_add_kv(defense, "Combat Mass", "%d kt" % int(defense_summary.get("combat_mass", 0)))
+	_add_kv(defense, "Beams", _weapon_count_name(int(defense_summary.get("beam_count", 0)), String(defense_summary.get("beam_name", "Beam"))))
+	_add_kv(defense, "Bays", str(int(defense_summary.get("bays", 0))))
+	if _dict_int(sb, ["damage"], 0) > 0:
+		_add_kv(defense, "Damage", "%d%%" % _dict_int(sb, ["damage"], 0))
+
+	_add_section_title(_starbases_list, "Shipyard / Resources")
+	var shipyard: GridContainer = _add_key_value_grid(_starbases_list)
+	if can_build_ships:
+		_add_kv(shipyard, "Hull Tech", str(_dict_int(sb, ["hulltechlevel", "hulltech"], 0)))
+		_add_kv(shipyard, "Engine Tech", str(_dict_int(sb, ["enginetechlevel", "enginetech"], 0)))
+		_add_kv(shipyard, "Beam Tech", str(_dict_int(sb, ["beamtechlevel", "beamtech"], 0)))
+		_add_kv(shipyard, "Torp Tech", str(_dict_int(sb, ["torptechlevel", "torptech"], 0)))
+		_add_kv(shipyard, "Building", _starbase_build_label(sb))
+	else:
+		_add_kv(shipyard, "Shipyard", "not available")
+	if p != null:
+		_add_kv(shipyard, "Neutronium", _planet_amount(p.neutronium, "kt"))
+		_add_kv(shipyard, "Duranium", _planet_amount(p.duranium, "kt"))
+		_add_kv(shipyard, "Tritanium", _planet_amount(p.tritanium, "kt"))
+		_add_kv(shipyard, "Molybdenum", _planet_amount(p.molybdenum, "kt"))
+		_add_kv(shipyard, "Supplies", _planet_amount(p.supplies, ""))
+		_add_kv(shipyard, "Megacredits", _planet_amount(p.megacredits, ""))
+
+	_add_section_title(_starbases_list, "Orders")
+	var orders: GridContainer = _add_key_value_grid(_starbases_list)
+	_add_kv(orders, "Mission", _starbase_mission_label(_dict_int(sb, ["mission"], 0)))
+	if p != null:
+		_add_kv(orders, "Friendly Code", p.friendlycode)
+	_add_kv(orders, "Repair Ship", _starbase_ship_order_target(sb, 1))
+	_add_kv(orders, "Recycle Ship", _starbase_ship_order_target(sb, 2))
 
 func _add_section_title(parent: VBoxContainer, text: String) -> Label:
 	_add_separator(parent)
@@ -393,6 +428,84 @@ func _planet_by_id(planet_id: int) -> PlanetData:
 		if int(p.planet_id) == planet_id:
 			return p
 	return null
+
+func _starbase_type_label(p: PlanetData, sb: Dictionary) -> String:
+	if _is_mining_station(p, sb):
+		return "Mining Station"
+	if _is_radiation_starbase(p, sb):
+		return "Radiation Starbase"
+	return "Starbase"
+
+func _starbase_can_build_ships(p: PlanetData, sb: Dictionary) -> bool:
+	return not _is_mining_station(p, sb)
+
+func _is_mining_station(p: PlanetData, sb: Dictionary) -> bool:
+	if _dict_int(sb, ["starbasetype"], 0) == 2:
+		return true
+	return p != null and p.debrisdisk > 0.0
+
+func _is_radiation_starbase(p: PlanetData, sb: Dictionary) -> bool:
+	if _dict_int(sb, ["starbasetype"], 0) == 1:
+		return true
+	return p != null and _is_in_starcluster_radiation_zone(p)
+
+func _is_in_starcluster_radiation_zone(p: PlanetData) -> bool:
+	for star: StarClusterData in game_state.starclusters:
+		if star == null:
+			continue
+		var dist: float = Vector2(star.x, star.y).distance_to(Vector2(p.x, p.y))
+		if dist > star.radius and dist <= sqrt(star.mass):
+			return true
+	return false
+
+func _starbase_build_label(sb: Dictionary) -> String:
+	if not bool(sb.get("isbuilding", false)):
+		return "none"
+	var hull_id: int = _dict_int(sb, ["buildhullid"], 0)
+	if hull_id <= 0:
+		return "none"
+	var parts: PackedStringArray = PackedStringArray()
+	parts.append(_hull_name(hull_id))
+	var engine_id: int = _dict_int(sb, ["buildengineid"], 0)
+	if engine_id > 0:
+		parts.append(_engine_name(engine_id))
+	var beam_count: int = _dict_int(sb, ["buildbeamcount"], 0)
+	if beam_count > 0:
+		parts.append("%d %s" % [beam_count, _beam_name(_dict_int(sb, ["buildbeamid"], 0))])
+	var torp_count: int = _dict_int(sb, ["buildtorpcount"], 0)
+	if torp_count > 0:
+		parts.append("%d %s" % [torp_count, _torpedo_name(_dict_int(sb, ["buildtorpedoid"], 0))])
+	return ", ".join(parts)
+
+func _hull_name(hull_id: int) -> String:
+	var hull: Dictionary = _hull_info(hull_id)
+	var name: String = _dict_string(hull, ["name"], "")
+	if not name.is_empty():
+		return name
+	return "Hull %d" % hull_id
+
+func _planet_amount(value: float, unit: String) -> String:
+	if value < 0.0:
+		return "?"
+	if unit.is_empty():
+		return str(int(value))
+	return "%d %s" % [int(value), unit]
+
+func _starbase_mission_label(mission_id: int) -> String:
+	match mission_id:
+		0:
+			return "None"
+		1:
+			return "Force surrender"
+		_:
+			return "Mission %d" % mission_id
+
+func _starbase_ship_order_target(sb: Dictionary, expected_shipmission: int) -> String:
+	var target_id: int = _dict_int(sb, ["targetshipid", "target_ship_id"], 0)
+	var shipmission: int = _dict_int(sb, ["shipmission", "ship_mission"], 0)
+	if target_id <= 0 or shipmission != expected_shipmission:
+		return "none"
+	return "#%d" % target_id
 
 func _hull_info(hull_id: int) -> Dictionary:
 	if game_state.last_turn_json.is_empty():
