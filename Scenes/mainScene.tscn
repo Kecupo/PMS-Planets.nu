@@ -690,8 +690,41 @@ custom_minimum_size = Vector2(0, 32)
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 4
-alignment = 1
 script = ExtResource("4_yyxd1")
+
+[node name="PlanetsButton" type="Button" parent="UILayer/UIRoot/RootLayout/StatusBar/StatusContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(86, 24)
+layout_mode = 2
+text = "Planets"
+
+[node name="ShipsButton" type="Button" parent="UILayer/UIRoot/RootLayout/StatusBar/StatusContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(74, 24)
+layout_mode = 2
+text = "Ships"
+
+[node name="StarbasesButton" type="Button" parent="UILayer/UIRoot/RootLayout/StatusBar/StatusContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(108, 24)
+layout_mode = 2
+text = "Starbases"
+
+[node name="VcrButton" type="Button" parent="UILayer/UIRoot/RootLayout/StatusBar/StatusContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(60, 24)
+layout_mode = 2
+text = "VCR"
+
+[node name="MessagesButton" type="Button" parent="UILayer/UIRoot/RootLayout/StatusBar/StatusContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(104, 24)
+layout_mode = 2
+text = "Messages"
+
+[node name="StatusSpacer" type="Control" parent="UILayer/UIRoot/RootLayout/StatusBar/StatusContent"]
+layout_mode = 2
+size_flags_horizontal = 3
 
 [node name="Turn" type="Label" parent="UILayer/UIRoot/RootLayout/StatusBar/StatusContent"]
 layout_mode = 2
@@ -703,10 +736,10 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"HeaderMedium"
 
-[node name="Rase" type="Label" parent="UILayer/UIRoot/RootLayout/StatusBar/StatusContent"]
+[node name="Race" type="Label" parent="UILayer/UIRoot/RootLayout/StatusBar/StatusContent"]
 layout_mode = 2
 theme_type_variation = &"HeaderMedium"
-text = "          Race:"
+text = "Race:"
 
 [node name="RaceLabel" type="Label" parent="UILayer/UIRoot/RootLayout/StatusBar/StatusContent"]
 unique_name_in_owner = true
