@@ -261,7 +261,7 @@ func _populate_ships_panel() -> void:
 	_add_kv(orders, "Warp", str(int(ship.warp)))
 	_add_kv(orders, "Heading", str(int(ship.heading)) if ship.heading >= 0.0 else "-")
 	_add_kv(orders, "Distance", "%.1f ly" % Vector2(ship.x, ship.y).distance_to(Vector2(ship.targetx, ship.targety)) if ship.has_target() else "0.0 ly")
-	_add_kv(orders, "Mission", _mission_label(_dict_int(ship.raw, ["mission"], 0)))
+	_add_kv(orders, "Mission", _mission_label(_dict_int(ship.raw, ["mission"], 0), ship.ownerid))
 	_add_kv(orders, "Enemy", _enemy_label(_dict_int(ship.raw, ["enemy"], 0)))
 	_add_kv(orders, "Friendly Code", _dict_string(ship.raw, ["friendlycode", "friendly_code"], ""))
 
@@ -496,7 +496,21 @@ func _starbase_mission_label(mission_id: int) -> String:
 		0:
 			return "None"
 		1:
-			return "Force surrender"
+			return "Force a Surrender"
+		2:
+			return "Refuel"
+		3:
+			return "Max Defense"
+		4:
+			return "Load Torpedoes"
+		5:
+			return "Unload Freighters"
+		6:
+			return "Repair Base"
+		7:
+			return "Send Fighters"
+		8:
+			return "Receive Fighters"
 		_:
 			return "Mission %d" % mission_id
 
@@ -572,10 +586,70 @@ func _engine_name(engine_id: int) -> String:
 		return ENGINE_NAMES[engine_id]
 	return "Engine %d" % engine_id
 
-func _mission_label(mission_id: int) -> String:
-	if mission_id <= 0:
-		return "None"
-	return "Mission %d" % mission_id
+func _mission_label(mission_id: int, owner_id: int = 0) -> String:
+	match mission_id:
+		0:
+			return "None"
+		1:
+			return "Explore"
+		2:
+			return "Mine Sweep"
+		3:
+			return "Lay Mines"
+		4:
+			return "Kill"
+		5:
+			return "Sensor Sweep"
+		6:
+			return "Land and Disassemble"
+		7:
+			return "Try to Tow"
+		8:
+			return "Intercept"
+		9:
+			return _special_ship_mission_label(owner_id)
+		10:
+			return "Cloak"
+		11:
+			return "Beam Up Neutronium"
+		12:
+			return "Beam Up Duranium"
+		13:
+			return "Beam Up Tritanium"
+		14:
+			return "Beam Up Molybdenum"
+		15:
+			return "Beam Up Supplies"
+		_:
+			return "Mission %d" % mission_id
+
+func _special_ship_mission_label(owner_id: int) -> String:
+	var race_id: int = game_state.get_race_id_of_player(owner_id)
+	match race_id:
+		1:
+			return "Super Refit"
+		2:
+			return "Hisssss!"
+		3:
+			return "Super Spy"
+		4:
+			return "Pillage Planet"
+		5:
+			return "Rob Ship"
+		6:
+			return "Self Repair"
+		7:
+			return "Lay Web Mines"
+		8:
+			return "Dark Sense"
+		9:
+			return "Build Fighters"
+		10:
+			return "Rebel Ground Attack"
+		11:
+			return "Build Fighters"
+		_:
+			return "Special Mission"
 
 func _enemy_label(enemy_player_id: int) -> String:
 	if enemy_player_id <= 0:
