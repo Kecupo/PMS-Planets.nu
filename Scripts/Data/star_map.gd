@@ -185,7 +185,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	var selection_mode: String = game_state.get_selection_mode()
 	match selection_mode:
 		"ship":
-			var picked_ship_id: int = _pick_ship(world_pos, _screen_px_to_world(maxf(22.0, SHIP_RADIUS_DRAW * 3.0)))
+			var picked_ship_id: int = _pick_ship_cycle(world_pos, _screen_px_to_world(maxf(22.0, SHIP_RADIUS_DRAW * 3.0)))
 			if picked_ship_id != -1:
 				game_state.select_ship(picked_ship_id)
 				get_viewport().set_input_as_handled()
@@ -516,6 +516,34 @@ func _pick_ship(world_pos: Vector2, radius_world: float) -> int:
 			best_id = int(ship.ship_id)
 
 	return best_id
+
+func _pick_ship_cycle(world_pos: Vector2, radius_world: float) -> int:
+	var hits: Array[StarshipData] = []
+	var r2: float = radius_world * radius_world
+
+	for ship: StarshipData in game_state.starships:
+		if ship == null or ship.ishidden:
+			continue
+		if _ship_to_world(ship).distance_squared_to(world_pos) <= r2:
+			hits.append(ship)
+
+	if hits.is_empty():
+		return -1
+
+	hits.sort_custom(func(a: StarshipData, b: StarshipData) -> bool:
+		if a.x == b.x:
+			if a.y == b.y:
+				return int(a.ship_id) < int(b.ship_id)
+			return a.y < b.y
+		return a.x < b.x
+	)
+
+	var current_id: int = game_state.selected_ship_id
+	for i: int in range(hits.size()):
+		if int(hits[i].ship_id) == current_id:
+			return int(hits[(i + 1) % hits.size()].ship_id)
+
+	return int(hits[0].ship_id)
 
 func _pick_starbase(world_pos: Vector2, radius_world: float) -> int:
 	var best_id: int = -1

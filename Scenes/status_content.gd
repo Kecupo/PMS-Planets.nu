@@ -208,25 +208,32 @@ func _populate_ships_panel() -> void:
 	var cargo_capacity: int = _dict_int(hull, ["cargo"], 0)
 	var fuel_capacity: int = _dict_int(hull, ["fueltank", "fuel"], 0)
 	var cargo_used: int = _ship_cargo_used(ship.raw)
+	var stack: Array[StarshipData] = _ships_at_same_position(ship)
 
 	_add_summary_label(_ships_list, "#%d  %s%s" % [ship.ship_id, ship.display_hull_name(), hidden_text])
 	_add_wrapped_label(_ships_list, _player_owner_label(ship.ownerid), false).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	if not ship.name.strip_edges().is_empty() and ship.name != ship.display_hull_name():
 		_add_wrapped_label(_ships_list, ship.name, false).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if stack.size() > 1:
+		_add_ship_stack_nav(_ships_list, stack, ship)
 
 	_add_section_title(_ships_list, "Weapons")
 	var weapons: GridContainer = _add_key_value_grid(_ships_list)
+	var beam_count: int = _dict_int(ship.raw, ["beams"], 0)
+	var torp_tubes: int = _dict_int(ship.raw, ["torps"], 0)
+	var fighter_bays: int = _dict_int(ship.raw, ["bays"], 0)
+	var ammo: int = _dict_int(ship.raw, ["ammo"], 0)
 	_add_kv(weapons, "Engine", _engine_name(_dict_int(ship.raw, ["engineid"], 0)))
-	_add_kv(weapons, "Beams", _weapon_count_name(
-		_dict_int(ship.raw, ["beams"], 0),
-		_beam_name(_dict_int(ship.raw, ["beamid"], 0))
-	))
-	_add_kv(weapons, "Torpedoes", _weapon_count_name(
-		_dict_int(ship.raw, ["torps"], 0),
-		_torpedo_name(_dict_int(ship.raw, ["torpedoid"], 0))
-	))
-	_add_kv(weapons, "Fighter Bays", str(_dict_int(ship.raw, ["bays"], 0)))
-	_add_kv(weapons, "Ammo", str(_dict_int(ship.raw, ["ammo"], 0)))
+	if beam_count > 0:
+		_add_kv(weapons, "Beams", _weapon_count_name(beam_count, _beam_name(_dict_int(ship.raw, ["beamid"], 0))))
+	if torp_tubes > 0:
+		_add_kv(weapons, "Launchers", _weapon_count_name(torp_tubes, _torpedo_name(_dict_int(ship.raw, ["torpedoid"], 0))))
+		_add_kv(weapons, "Torpedoes", str(ammo))
+	if fighter_bays > 0:
+		_add_kv(weapons, "Fighter Bays", str(fighter_bays))
+		_add_kv(weapons, "Fighters", str(ammo))
+	if beam_count <= 0 and torp_tubes <= 0 and fighter_bays <= 0:
+		_add_kv(weapons, "Weapons", "none")
 	_add_kv(weapons, "Damage", "%d%%" % _dict_int(ship.raw, ["damage"], 0))
 	_add_kv(weapons, "Crew", "%d / %d" % [
 		_dict_int(ship.raw, ["crew"], 0),
@@ -318,6 +325,39 @@ func _add_kv(parent: GridContainer, key: String, value: String) -> void:
 	value_label.add_theme_color_override("font_color", Color(0.54, 1.0, 0.58, 1.0))
 	parent.add_child(value_label)
 
+func _add_ship_stack_nav(parent: VBoxContainer, stack: Array[StarshipData], current_ship: StarshipData) -> void:
+	var index: int = _ship_stack_index(stack, int(current_ship.ship_id))
+	if index < 0:
+		return
+
+	var row: HBoxContainer = HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 8)
+	parent.add_child(row)
+
+	var prev_btn: Button = Button.new()
+	prev_btn.text = "<"
+	prev_btn.custom_minimum_size = Vector2(34.0, 0.0)
+	prev_btn.pressed.connect(func() -> void:
+		var prev_index: int = (index - 1 + stack.size()) % stack.size()
+		game_state.select_ship(int(stack[prev_index].ship_id))
+	)
+	row.add_child(prev_btn)
+
+	var label: Label = Label.new()
+	label.text = "%d / %d at this position" % [index + 1, stack.size()]
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	row.add_child(label)
+
+	var next_btn: Button = Button.new()
+	next_btn.text = ">"
+	next_btn.custom_minimum_size = Vector2(34.0, 0.0)
+	next_btn.pressed.connect(func() -> void:
+		var next_index: int = (index + 1) % stack.size()
+		game_state.select_ship(int(stack[next_index].ship_id))
+	)
+	row.add_child(next_btn)
+
 func _add_summary_label(parent: VBoxContainer, text: String) -> void:
 	var label: Label = _add_wrapped_label(parent, text, true)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -380,6 +420,24 @@ func _ship_cargo_used(raw: Dictionary) -> int:
 		+ _dict_int(raw, ["supplies"], 0) \
 		+ _dict_int(raw, ["megacredits"], 0) \
 		+ _dict_int(raw, ["ammo"], 0)
+
+func _ships_at_same_position(ship: StarshipData) -> Array[StarshipData]:
+	var result: Array[StarshipData] = []
+	for other: StarshipData in game_state.starships:
+		if other == null or other.ishidden:
+			continue
+		if abs(other.x - ship.x) <= 0.01 and abs(other.y - ship.y) <= 0.01:
+			result.append(other)
+	result.sort_custom(func(a: StarshipData, b: StarshipData) -> bool:
+		return int(a.ship_id) < int(b.ship_id)
+	)
+	return result
+
+func _ship_stack_index(stack: Array[StarshipData], ship_id: int) -> int:
+	for i: int in range(stack.size()):
+		if int(stack[i].ship_id) == ship_id:
+			return i
+	return -1
 
 func _weapon_count_name(count: int, name: String) -> String:
 	if count <= 0:
