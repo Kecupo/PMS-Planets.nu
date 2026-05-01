@@ -198,10 +198,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			var picked_id: int = _pick_planet(world_pos, radius_world)
 			if picked_id != -1:
 				game_state.select_planet(picked_id)
-			if picked_id == -1:
-				return
+				get_viewport().set_input_as_handled()
 		# Wichtig: hier KEIN UI-Hover-Filter und keine weiteren Änderungen
-		get_viewport().set_input_as_handled()
 
 func _is_screen_pos_over_blocking_ui(screen_pos: Vector2) -> bool:
 	var planet_panel: Control = _get_planet_info_panel()

@@ -1,5 +1,7 @@
 extends HBoxContainer
 
+const PlanetMath = preload("res://Scripts/Services/PlanetMath.gd")
+
 @onready var turn_label: Label = %TurnLabel
 @onready var race_label: Label = %RaceLabel
 @onready var planets_button: Button = %PlanetsButton
@@ -14,6 +16,31 @@ const VCR_SIM_PROJECT_PATH: String = "C:/Users/Windows/Documents/planets-vcr-sim
 const GODOT_EXE_FALLBACK: String = "C:/Tools/godot.exe"
 const PANEL_SIZE: Vector2 = Vector2(477.0, 708.0)
 const PANEL_POS: Vector2 = Vector2(8.0, 7.0)
+const TORPEDO_NAMES: PackedStringArray = [
+	"None",
+	"Mark 1 Photon",
+	"Proton Torpedo",
+	"Mark 2 Photon",
+	"Gamma Bomb",
+	"Mark 3 Photon",
+	"Mark 4 Photon",
+	"Mark 5 Photon",
+	"Mark 6 Photon",
+	"Mark 7 Photon",
+	"Mark 8 Photon"
+]
+const ENGINE_NAMES: PackedStringArray = [
+	"None",
+	"Stardrive 1",
+	"Stardrive 2",
+	"Stardrive 3",
+	"Super StarDrive 4",
+	"Nova Drive 5",
+	"HeavyNova Drive 6",
+	"Quantum Drive 7",
+	"Heavy Quantum Drive 8",
+	"Transwarp Drive"
+]
 
 var _ships_panel: PanelContainer = null
 var _ships_list: VBoxContainer = null
@@ -177,27 +204,59 @@ func _populate_ships_panel() -> void:
 		return
 
 	var hidden_text: String = " (hidden)" if ship.ishidden else ""
+	var hull: Dictionary = _hull_info(ship.hullid)
+	var cargo_capacity: int = _dict_int(hull, ["cargo"], 0)
+	var fuel_capacity: int = _dict_int(hull, ["fueltank", "fuel"], 0)
+	var cargo_used: int = _ship_cargo_used(ship.raw)
+
 	_add_summary_label(_ships_list, "#%d  %s%s" % [ship.ship_id, ship.display_hull_name(), hidden_text])
-	_add_separator(_ships_list)
-	_add_wrapped_label(_ships_list, "Owner: %s" % _player_owner_label(ship.ownerid), false)
-	_add_wrapped_label(_ships_list, "Position: %.0f / %.0f" % [ship.x, ship.y], false)
-	_add_wrapped_label(_ships_list, "Warp: %.0f  Heading: %.0f" % [ship.warp, ship.heading], false)
-	if ship.has_target():
-		_add_wrapped_label(_ships_list, "Target: %.0f / %.0f" % [ship.targetx, ship.targety], false)
-	if not ship.name.strip_edges().is_empty():
-		_add_wrapped_label(_ships_list, "Name: %s" % ship.name, false)
-	_add_wrapped_label(_ships_list, "Hull ID: %d" % ship.hullid, false)
-	if not ship.raw.is_empty():
-		_add_separator(_ships_list)
-		_add_wrapped_label(_ships_list, "Fuel: %d  Damage: %d  Crew: %d" % [
-			_dict_int(ship.raw, ["neutronium", "fuel"], 0),
-			_dict_int(ship.raw, ["damage"], 0),
-			_dict_int(ship.raw, ["crew"], 0)
-		], false)
-		_add_wrapped_label(_ships_list, "FC: %s  Mission: %d" % [
-			_dict_string(ship.raw, ["friendlycode", "friendly_code"], ""),
-			_dict_int(ship.raw, ["mission"], 0)
-		], false)
+	_add_wrapped_label(_ships_list, _player_owner_label(ship.ownerid), false).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if not ship.name.strip_edges().is_empty() and ship.name != ship.display_hull_name():
+		_add_wrapped_label(_ships_list, ship.name, false).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+	_add_section_title(_ships_list, "Weapons")
+	var weapons: GridContainer = _add_key_value_grid(_ships_list)
+	_add_kv(weapons, "Engine", _engine_name(_dict_int(ship.raw, ["engineid"], 0)))
+	_add_kv(weapons, "Beams", _weapon_count_name(
+		_dict_int(ship.raw, ["beams"], 0),
+		_beam_name(_dict_int(ship.raw, ["beamid"], 0))
+	))
+	_add_kv(weapons, "Torpedoes", _weapon_count_name(
+		_dict_int(ship.raw, ["torps"], 0),
+		_torpedo_name(_dict_int(ship.raw, ["torpedoid"], 0))
+	))
+	_add_kv(weapons, "Fighter Bays", str(_dict_int(ship.raw, ["bays"], 0)))
+	_add_kv(weapons, "Ammo", str(_dict_int(ship.raw, ["ammo"], 0)))
+	_add_kv(weapons, "Damage", "%d%%" % _dict_int(ship.raw, ["damage"], 0))
+	_add_kv(weapons, "Crew", "%d / %d" % [
+		_dict_int(ship.raw, ["crew"], 0),
+		_dict_int(hull, ["crew"], 0)
+	])
+	_add_kv(weapons, "Mass", "%d kt" % _dict_int(ship.raw, ["mass"], _dict_int(hull, ["mass"], 0)))
+
+	_add_section_title(_ships_list, "Cargo (%d / %s)" % [cargo_used, str(cargo_capacity) if cargo_capacity > 0 else "?"])
+	var cargo: GridContainer = _add_key_value_grid(_ships_list)
+	_add_kv(cargo, "Duranium", "%d kt" % _dict_int(ship.raw, ["duranium"], 0))
+	_add_kv(cargo, "Tritanium", "%d kt" % _dict_int(ship.raw, ["tritanium"], 0))
+	_add_kv(cargo, "Molybdenum", "%d kt" % _dict_int(ship.raw, ["molybdenum"], 0))
+	_add_kv(cargo, "Colonists", "%d clans" % _dict_int(ship.raw, ["clans"], 0))
+	_add_kv(cargo, "Supplies", "%d kt" % _dict_int(ship.raw, ["supplies"], 0))
+	_add_kv(cargo, "Megacredits", "%d" % _dict_int(ship.raw, ["megacredits"], 0))
+	_add_kv(cargo, "Neutronium", "%d / %s kt" % [
+		_dict_int(ship.raw, ["neutronium", "fuel"], 0),
+		str(fuel_capacity) if fuel_capacity > 0 else "?"
+	])
+
+	_add_section_title(_ships_list, "Orders")
+	var orders: GridContainer = _add_key_value_grid(_ships_list)
+	_add_kv(orders, "Position", "%.0f / %.0f" % [ship.x, ship.y])
+	_add_kv(orders, "Target", "%.0f / %.0f" % [ship.targetx, ship.targety] if ship.has_target() else "-")
+	_add_kv(orders, "Warp", str(int(ship.warp)))
+	_add_kv(orders, "Heading", str(int(ship.heading)) if ship.heading >= 0.0 else "-")
+	_add_kv(orders, "Distance", "%.1f ly" % Vector2(ship.x, ship.y).distance_to(Vector2(ship.targetx, ship.targety)) if ship.has_target() else "0.0 ly")
+	_add_kv(orders, "Mission", _mission_label(_dict_int(ship.raw, ["mission"], 0)))
+	_add_kv(orders, "Enemy", _enemy_label(_dict_int(ship.raw, ["enemy"], 0)))
+	_add_kv(orders, "Friendly Code", _dict_string(ship.raw, ["friendlycode", "friendly_code"], ""))
 
 func _populate_starbases_panel() -> void:
 	_clear_children(_starbases_list)
@@ -228,6 +287,36 @@ func _populate_starbases_panel() -> void:
 		_dict_int(sb, ["megacredits", "mc"], 0),
 		_dict_int(sb, ["supplies"], 0)
 	], false)
+
+func _add_section_title(parent: VBoxContainer, text: String) -> Label:
+	_add_separator(parent)
+	var label: Label = _add_wrapped_label(parent, text, true)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_color_override("font_color", Color(0.04, 0.55, 0.96, 1.0))
+	return label
+
+func _add_key_value_grid(parent: VBoxContainer) -> GridContainer:
+	var grid: GridContainer = GridContainer.new()
+	grid.columns = 2
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("h_separation", 18)
+	grid.add_theme_constant_override("v_separation", 4)
+	parent.add_child(grid)
+	return grid
+
+func _add_kv(parent: GridContainer, key: String, value: String) -> void:
+	var key_label: Label = Label.new()
+	key_label.text = key
+	key_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(key_label)
+
+	var value_label: Label = Label.new()
+	value_label.text = value if not value.is_empty() else "-"
+	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	value_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	value_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	value_label.add_theme_color_override("font_color", Color(0.54, 1.0, 0.58, 1.0))
+	parent.add_child(value_label)
 
 func _add_summary_label(parent: VBoxContainer, text: String) -> void:
 	var label: Label = _add_wrapped_label(parent, text, true)
@@ -264,6 +353,63 @@ func _planet_by_id(planet_id: int) -> PlanetData:
 		if int(p.planet_id) == planet_id:
 			return p
 	return null
+
+func _hull_info(hull_id: int) -> Dictionary:
+	if game_state.last_turn_json.is_empty():
+		return {}
+	var rst_v: Variant = game_state.last_turn_json.get("rst")
+	if not (rst_v is Dictionary):
+		return {}
+	var rst: Dictionary = rst_v as Dictionary
+	var hulls_v: Variant = rst.get("hulls", [])
+	if not (hulls_v is Array):
+		return {}
+	for hull_v: Variant in hulls_v as Array:
+		if not (hull_v is Dictionary):
+			continue
+		var hull: Dictionary = hull_v as Dictionary
+		if _dict_int(hull, ["id"], -1) == hull_id:
+			return hull
+	return {}
+
+func _ship_cargo_used(raw: Dictionary) -> int:
+	return _dict_int(raw, ["duranium"], 0) \
+		+ _dict_int(raw, ["tritanium"], 0) \
+		+ _dict_int(raw, ["molybdenum"], 0) \
+		+ _dict_int(raw, ["clans"], 0) \
+		+ _dict_int(raw, ["supplies"], 0) \
+		+ _dict_int(raw, ["megacredits"], 0) \
+		+ _dict_int(raw, ["ammo"], 0)
+
+func _weapon_count_name(count: int, name: String) -> String:
+	if count <= 0:
+		return "none"
+	return "%d %s" % [count, name]
+
+func _beam_name(beam_id: int) -> String:
+	if beam_id >= 0 and beam_id < PlanetMath.BEAM_NAMES.size():
+		return PlanetMath.BEAM_NAMES[beam_id]
+	return "Beam %d" % beam_id
+
+func _torpedo_name(torpedo_id: int) -> String:
+	if torpedo_id >= 0 and torpedo_id < TORPEDO_NAMES.size():
+		return TORPEDO_NAMES[torpedo_id]
+	return "Torpedo %d" % torpedo_id
+
+func _engine_name(engine_id: int) -> String:
+	if engine_id >= 0 and engine_id < ENGINE_NAMES.size():
+		return ENGINE_NAMES[engine_id]
+	return "Engine %d" % engine_id
+
+func _mission_label(mission_id: int) -> String:
+	if mission_id <= 0:
+		return "None"
+	return "Mission %d" % mission_id
+
+func _enemy_label(enemy_player_id: int) -> String:
+	if enemy_player_id <= 0:
+		return "None"
+	return _player_owner_label(enemy_player_id)
 
 func _dict_int(d: Dictionary, keys: Array[String], fallback: int = 0) -> int:
 	for key: String in keys:
