@@ -63,6 +63,7 @@ extends PanelContainer
 @onready var m_mines_max: Label = %M_Mines_Max
 @onready var v_def: SpinBox = %V_Defense
 @onready var m_def_max: Label = %M_Defense_Max
+@onready var m_def_combat: Label = %M_Defense_Combat
 @onready var horwasp_lbl: Label = %Horwasp_lbl
 @onready var v_larva: Label = %V_Larva
 @onready var v_burrows: Label = %L_Burrows
@@ -318,6 +319,8 @@ func _update() -> void:
 	_set_label(m_def_max, "%d" % max_d if max_d >= 0 else "Max: —")
 
 
+	_update_defense_combat_label(p)
+
 	# -------------------------
 	# Minerals
 	# -------------------------
@@ -434,6 +437,7 @@ func _set_all_unknown() -> void:
 	_set_label(m_mines_max, "Max: ?")
 	_configure_building_spin(v_def, 0, 0, 0)
 	_set_label(m_def_max, "Max: ?")
+	_set_label(m_def_combat, "?")
 
 	# Minerals
 	_set_label(v_n_s, "?")
@@ -573,6 +577,56 @@ func _building_min(p: PlanetData, key: String) -> int:
 				return 0
 
 	return int(start.get(key, 0))
+
+func _update_defense_combat_label(p: PlanetData) -> void:
+	if p == null:
+		_set_label(m_def_combat, "?")
+		return
+
+	var starbase: Dictionary = game_state.get_starbase_for_planet(int(p.planet_id))
+	var starbase_defense: int = _dict_int_any(starbase, ["defense", "defenseposts", "defense_posts"], 0)
+	var starbase_beam_tech: int = _dict_int_any(starbase, ["beamtech", "beam_tech", "beamlevel"], 0)
+	var starbase_mass_bonus: int = _dict_int_any(starbase, ["massbonus", "mass_bonus"], 0)
+
+	var summary: Dictionary = PlanetMath.planet_defense_summary(
+		int(p.defense),
+		starbase_defense,
+		starbase_mass_bonus,
+		starbase_beam_tech
+	)
+
+	var beam_count: int = int(summary.get("beam_count", 0))
+	var beam_text: String = "no beams"
+	if beam_count == 1:
+		beam_text = "1 %s" % String(summary.get("beam_name", "beam")).to_lower()
+	elif beam_count > 1:
+		beam_text = "%d %s" % [beam_count, String(summary.get("beam_name", "beam")).to_lower()]
+
+	_set_label(
+		m_def_combat,
+		"combat mass %d kt, %s, %d fighter, %d bays" % [
+			int(summary.get("combat_mass", 0)),
+			beam_text,
+			int(summary.get("fighters", 0)),
+			int(summary.get("bays", 0))
+		]
+	)
+
+func _dict_int_any(d: Dictionary, keys: Array[String], fallback: int = 0) -> int:
+	for key: String in keys:
+		if d.has(key):
+			var v: Variant = d.get(key)
+			if typeof(v) == TYPE_INT:
+				return int(v)
+			if typeof(v) == TYPE_FLOAT:
+				return int(float(v))
+			if typeof(v) == TYPE_STRING:
+				var s: String = String(v)
+				if s.is_valid_int():
+					return s.to_int()
+				if s.is_valid_float():
+					return int(float(s))
+	return fallback
 		
 func _on_orders_changed() -> void:
 	_update()

@@ -350,7 +350,7 @@ custom_minimum_size = Vector2(0, 5)
 layout_mode = 2
 
 [node name="InustrySection" type="VBoxContainer" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content"]
-custom_minimum_size = Vector2(0, 130)
+custom_minimum_size = Vector2(0, 154)
 layout_mode = 2
 
 [node name="SectionTitle" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection"]
@@ -439,6 +439,14 @@ horizontal_alignment = 1
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 text = "Maximum"
+
+[node name="M_Defense_Combat" type="Label" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content/InustrySection"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "combat mass ? kt"
+horizontal_alignment = 1
 
 [node name="Separator3" type="HSeparator" parent="UILayer/UIRoot/RootLayout/OverlayRoot/PlanetInfoPanel/MarginContainer/Content"]
 custom_minimum_size = Vector2(0, 5)

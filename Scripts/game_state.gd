@@ -42,6 +42,7 @@ var starships: Array[Starship_Data] = []
 var current_turn: int = 0
 var minefields: Array[Minefield_Data] = []
 var starbase_planet_ids: Dictionary = {}
+var starbases_by_planet_id: Dictionary = {}
 var ionstorms: Array[IonStorm_Data] = []
 var nebulas: Array[Nebula_Data] = []
 var starclusters: Array[StarCluster_Data] = []
@@ -106,6 +107,7 @@ func _process_loaded_turn(parsed: Dictionary) -> void:
 	minefields = turn_data_model.minefields
 	ionstorms = turn_data_model.ionstorms
 	starbase_planet_ids = turn_data_model.starbase_planet_ids
+	starbases_by_planet_id = turn_data_model.starbases_by_planet_id
 	nebulas = turn_data_model.nebulas
 	starclusters = turn_data_model.starclusters
 	rebuild_my_planets_cache()
@@ -627,3 +629,11 @@ func get_player_info(player_id: int) -> Dictionary:
 	
 func planet_has_starbase(planet_id: int) -> bool:
 	return starbase_planet_ids.has(planet_id)
+
+func get_starbase_for_planet(planet_id: int) -> Dictionary:
+	if not starbases_by_planet_id.has(planet_id):
+		return {}
+	var value: Variant = starbases_by_planet_id[planet_id]
+	if value is Dictionary:
+		return value as Dictionary
+	return {}

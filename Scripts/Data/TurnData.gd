@@ -8,6 +8,7 @@ const Nebula_Data = preload("res://Scripts/Data/NebulaData.gd")
 const StarCluster_Data = preload("res://Scripts/Data/StarClusterData.gd")
 const Starship_Data = preload("res://Scripts/Data/StarshipData.gd")
 var starbase_planet_ids: Dictionary = {}
+var starbases_by_planet_id: Dictionary = {}
 var planets: Array[PlanetData] = []
 var starships: Array[Starship_Data] = []
 var minefields: Array[Minefield_Data] = []
@@ -20,6 +21,7 @@ func load_from_turn(rst: Dictionary) -> void:
 	starships.clear()
 	minefields.clear()
 	starbase_planet_ids.clear()
+	starbases_by_planet_id.clear()
 	ionstorms.clear()
 	nebulas.clear()
 	starclusters.clear()
@@ -86,6 +88,7 @@ func load_from_turn(rst: Dictionary) -> void:
 			var planet_id: int = int(float(d.get("planetid", -1)))
 			if planet_id > 0:
 				starbase_planet_ids[planet_id] = true
+				starbases_by_planet_id[planet_id] = d
 	if rst.has("ionstorms"):
 		var ionstorm_array: Array = rst.get("ionstorms", [])
 
