@@ -260,7 +260,7 @@ func _populate_ships_panel() -> void:
 	_add_kv(orders, "Target", "%.0f / %.0f" % [ship.targetx, ship.targety] if ship.has_target() else "-")
 	_add_kv(orders, "Warp", str(int(ship.warp)))
 	_add_kv(orders, "Heading", str(int(ship.heading)) if ship.heading >= 0.0 else "-")
-	_add_kv(orders, "Distance", "%.1f ly" % Vector2(ship.x, ship.y).distance_to(Vector2(ship.targetx, ship.targety)) if ship.has_target() else "0.0 ly")
+	_add_kv(orders, "Distance", "%.1f ly" % _ship_travel_distance(ship))
 	_add_kv(orders, "Mission", _mission_label(_dict_int(ship.raw, ["mission"], 0), ship.ownerid))
 	_add_kv(orders, "Enemy", _enemy_label(_dict_int(ship.raw, ["enemy"], 0)))
 	_add_kv(orders, "Friendly Code", _dict_string(ship.raw, ["friendlycode", "friendly_code"], ""))
@@ -567,6 +567,19 @@ func _ship_stack_index(stack: Array[StarshipData], ship_id: int) -> int:
 		if int(stack[i].ship_id) == ship_id:
 			return i
 	return -1
+
+func _ship_travel_distance(ship: StarshipData) -> float:
+	var max_distance: float = ship.warp * ship.warp
+	if max_distance <= 0.0:
+		return 0.0
+	if ship.has_target():
+		var target_distance: float = Vector2(ship.x, ship.y).distance_to(Vector2(ship.targetx, ship.targety))
+		if target_distance <= 0.0:
+			return 0.0
+		return min(max_distance, target_distance)
+	if ship.heading >= 0.0:
+		return max_distance
+	return 0.0
 
 func _weapon_count_name(count: int, name: String) -> String:
 	if count <= 0:

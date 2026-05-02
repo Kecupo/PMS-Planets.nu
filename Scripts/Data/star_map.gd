@@ -708,8 +708,18 @@ func _draw_single_ship(ship: StarshipData, draw_vector: bool) -> void:
 
 func _draw_ship_vector(ship: StarshipData, center: Vector2, color: Color) -> void:
 	var dir: Vector2 = Vector2.ZERO
+	var max_distance: float = ship.warp * ship.warp
+	if max_distance <= 0.0:
+		return
+
 	if ship.has_target():
-		dir = (_ship_target_to_world(ship) - center).normalized()
+		var target: Vector2 = _ship_target_to_world(ship)
+		var to_target: Vector2 = target - center
+		var target_distance: float = to_target.length()
+		if target_distance <= 0.0:
+			return
+		dir = to_target / target_distance
+		max_distance = min(max_distance, target_distance)
 	elif ship.heading >= 0.0:
 		var heading_rad: float = deg_to_rad(ship.heading - 90.0)
 		dir = Vector2(cos(heading_rad), sin(heading_rad)).normalized()
@@ -719,8 +729,7 @@ func _draw_ship_vector(ship: StarshipData, center: Vector2, color: Color) -> voi
 
 	var line_color: Color = color
 	line_color.a = 0.90
-	var length: float = _screen_px_to_world(maxf(12.0, ship.warp * 7.0))
-	var tip: Vector2 = center + dir * length
+	var tip: Vector2 = center + dir * max_distance
 	var width: float = _screen_px_to_world(1.6)
 	draw_line(center, tip, line_color, width)
 
