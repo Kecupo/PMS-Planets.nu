@@ -261,6 +261,7 @@ func _populate_ships_panel() -> void:
 	_add_kv(orders, "Warp", str(int(ship.warp)))
 	_add_kv(orders, "Heading", str(int(ship.heading)) if ship.heading >= 0.0 else "-")
 	_add_kv(orders, "Distance", "%.1f ly" % _ship_travel_distance(ship))
+	_add_kv(orders, "Experience", str(_dict_int(ship.raw, ["experience"], 0)))
 	_add_kv(orders, "Mission", _mission_label(_dict_int(ship.raw, ["mission"], 0), ship.ownerid))
 	_add_kv(orders, "Enemy", _enemy_label(_dict_int(ship.raw, ["enemy"], 0)))
 	_add_kv(orders, "Friendly Code", _dict_string(ship.raw, ["friendlycode", "friendly_code"], ""))
