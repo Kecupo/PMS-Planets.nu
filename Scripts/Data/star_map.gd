@@ -10,6 +10,8 @@ const HOVER_INFO_SEPARATOR: String = "------------------------------"
 const MERGED_SHAPE_SEGMENTS: int = 36
 const FIELD_CELL_SIZE: float = 28.0
 const DEBRIS_DISK_RADIUS: float = 40.0
+const NEBULA_VISIBILITY_DENSITY_FACTOR: float = 5000.0
+const NEBULA_MAX_VISIBILITY: int = 2000
 const SHIP_RADIUS_DRAW: float = 5.5
 const SHIP_GROUP_RADIUS_PIXELS: float = 46.0
 const SHIP_SUMMARY_LABEL_ZOOM: float = 0.35
@@ -416,8 +418,7 @@ func _append_ionstorm_hover(lines: PackedStringArray, world_pos: Vector2) -> voi
 	lines.append("Ion Storms: strength %d" % int(round(total_voltage)))
 
 func _append_nebula_hover(lines: PackedStringArray, world_pos: Vector2) -> void:
-	var total_visibility: float = 0.0
-	var count: int = 0
+	var circle_specs: Array = []
 
 	for nebula: NebulaData in game_state.nebulas:
 		if nebula == null:
@@ -426,16 +427,15 @@ func _append_nebula_hover(lines: PackedStringArray, world_pos: Vector2) -> void:
 		for circle: NebulaCircleData in nebula.circles:
 			if circle == null or circle.radius <= 0.0:
 				continue
+			circle_specs.append([_nebula_circle_to_world(circle), circle.radius, circle.intensity])
 
-			if _nebula_circle_to_world(circle).distance_to(world_pos) <= circle.radius:
-				total_visibility += circle.intensity
-				count += 1
-
-	if count <= 0:
+	var density: float = _nebula_density_at(world_pos, circle_specs)
+	if density <= 0.0:
 		return
 
+	var visibility: int = _nebula_visibility_from_density(density)
 	_append_hover_separator(lines)
-	lines.append("Nebulae: visibility %d" % int(round(total_visibility)))
+	lines.append("Nebulae: visibility %d ly" % visibility)
 
 func _append_minefield_hover(lines: PackedStringArray, world_pos: Vector2) -> void:
 	for mf: MinefieldData in game_state.minefields:
@@ -1083,13 +1083,159 @@ func _draw_nebula(nebula: NebulaData) -> void:
 		intensity = maxf(intensity, circle.intensity)
 
 	if not circle_specs.is_empty():
-		_draw_merged_circle_shape(
-			circle_specs,
-			NEBULA_BASE_COLOR,
-			_nebula_outline_color(),
-			2.0,
-			"nebula"
-		)
+		_draw_nebula_shape(circle_specs)
+
+func _draw_nebula_shape(circle_specs: Array) -> void:
+	var bounds: Rect2 = _circle_specs_bounds(circle_specs)
+	if bounds.size.x <= 0.0 or bounds.size.y <= 0.0:
+		return
+
+	_draw_nebula_field_fill(circle_specs, bounds)
+	_draw_circle_union_outline(circle_specs, _nebula_outline_color(), 2.0)
+
+func _draw_nebula_field_fill(circle_specs: Array, bounds: Rect2) -> void:
+	var cell_size: float = maxf(16.0, maxf(bounds.size.x, bounds.size.y) / 80.0)
+	var x_steps: int = int(ceil(bounds.size.x / cell_size))
+	var y_steps: int = int(ceil(bounds.size.y / cell_size))
+
+	for xi: int in range(x_steps):
+		for yi: int in range(y_steps):
+			var p00: Vector2 = bounds.position + Vector2(float(xi) * cell_size, float(yi) * cell_size)
+			var p10: Vector2 = bounds.position + Vector2(float(xi + 1) * cell_size, float(yi) * cell_size)
+			var p01: Vector2 = bounds.position + Vector2(float(xi) * cell_size, float(yi + 1) * cell_size)
+			var p11: Vector2 = bounds.position + Vector2(float(xi + 1) * cell_size, float(yi + 1) * cell_size)
+			_draw_nebula_field_triangle(p00, p10, p11, circle_specs)
+			_draw_nebula_field_triangle(p00, p11, p01, circle_specs)
+
+func _draw_nebula_field_triangle(a: Vector2, b: Vector2, c: Vector2, circle_specs: Array) -> void:
+	var ca: Color = _nebula_color_at(a, circle_specs)
+	var cb: Color = _nebula_color_at(b, circle_specs)
+	var cc: Color = _nebula_color_at(c, circle_specs)
+	if ca.a <= 0.0 and cb.a <= 0.0 and cc.a <= 0.0:
+		return
+	draw_primitive(PackedVector2Array([a, b, c]), PackedColorArray([ca, cb, cc]), PackedVector2Array())
+
+func _nebula_color_at(pos: Vector2, circle_specs: Array) -> Color:
+	var c: Color = NEBULA_BASE_COLOR
+	if not _point_in_circle_union(pos, circle_specs):
+		c.a = 0.0
+		return c
+
+	var density: float = _nebula_density_at(pos, circle_specs)
+	if density <= 0.0:
+		c.a = 0.0
+		return c
+	c.a = _nebula_fill_alpha(density)
+	return c
+
+func _nebula_density_at(pos: Vector2, circle_specs: Array) -> float:
+	var density: float = 0.0
+	for spec: Variant in circle_specs:
+		if not (spec is Array):
+			continue
+		var arr: Array = spec as Array
+		if arr.size() < 3:
+			continue
+		var center: Vector2 = arr[0] as Vector2
+		var radius: float = float(arr[1])
+		var intensity: float = float(arr[2])
+		if radius <= 0.0 or intensity <= 0.0:
+			continue
+		var dist_ratio: float = center.distance_to(pos) / radius
+		var falloff: float = _smooth_falloff(dist_ratio)
+		if falloff > 0.0:
+			density += intensity * falloff
+	return density
+
+func _nebula_visibility_from_density(density: float) -> int:
+	if density <= 0.0:
+		return 0
+	return mini(NEBULA_MAX_VISIBILITY, int(round(NEBULA_VISIBILITY_DENSITY_FACTOR / density)))
+
+func _point_in_circle_union(pos: Vector2, circle_specs: Array) -> bool:
+	for spec: Variant in circle_specs:
+		if not (spec is Array):
+			continue
+		var arr: Array = spec as Array
+		if arr.size() < 2:
+			continue
+		var center: Vector2 = arr[0] as Vector2
+		var radius: float = float(arr[1])
+		if radius > 0.0 and center.distance_to(pos) <= radius:
+			return true
+	return false
+
+func _draw_circle_union_outline(circle_specs: Array, color: Color, width: float) -> void:
+	var segments: int = max(72, MERGED_SHAPE_SEGMENTS * 2)
+	for i: int in range(circle_specs.size()):
+		var arr: Array = circle_specs[i] as Array
+		if arr.size() < 2:
+			continue
+		var center: Vector2 = arr[0] as Vector2
+		var radius: float = float(arr[1])
+		if radius <= 0.0:
+			continue
+
+		var run: PackedVector2Array = PackedVector2Array()
+		for step: int in range(segments + 1):
+			var angle: float = TAU * float(step) / float(segments)
+			var point: Vector2 = center + Vector2(cos(angle), sin(angle)) * radius
+			if _is_exposed_circle_boundary_point(point, circle_specs, i):
+				run.append(point)
+			else:
+				if run.size() >= 2:
+					draw_polyline(run, color, width)
+				run = PackedVector2Array()
+		if run.size() >= 2:
+			draw_polyline(run, color, width)
+
+func _is_exposed_circle_boundary_point(point: Vector2, circle_specs: Array, own_index: int) -> bool:
+	for i: int in range(circle_specs.size()):
+		if i == own_index:
+			continue
+		var arr: Array = circle_specs[i] as Array
+		if arr.size() < 2:
+			continue
+		var center: Vector2 = arr[0] as Vector2
+		var radius: float = float(arr[1])
+		if radius <= 0.0:
+			continue
+		if center.distance_to(point) < radius - 0.5:
+			return false
+	return true
+
+func _circle_specs_bounds(circle_specs: Array) -> Rect2:
+	var has_value: bool = false
+	var min_x: float = 0.0
+	var max_x: float = 0.0
+	var min_y: float = 0.0
+	var max_y: float = 0.0
+
+	for spec: Variant in circle_specs:
+		if not (spec is Array):
+			continue
+		var arr: Array = spec as Array
+		if arr.size() < 2:
+			continue
+		var center: Vector2 = arr[0] as Vector2
+		var radius: float = float(arr[1])
+		if radius <= 0.0:
+			continue
+		if not has_value:
+			min_x = center.x - radius
+			max_x = center.x + radius
+			min_y = center.y - radius
+			max_y = center.y + radius
+			has_value = true
+		else:
+			min_x = minf(min_x, center.x - radius)
+			max_x = maxf(max_x, center.x + radius)
+			min_y = minf(min_y, center.y - radius)
+			max_y = maxf(max_y, center.y + radius)
+
+	if not has_value:
+		return Rect2()
+	return Rect2(Vector2(min_x, min_y), Vector2(max_x - min_x, max_y - min_y))
 
 func _draw_merged_circle_shape(
 	circle_specs: Array,
