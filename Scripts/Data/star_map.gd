@@ -136,6 +136,7 @@ func _draw() -> void:
 			_draw_selected_highlight(sb_planet)
 
 	_draw_starships()
+	_draw_selected_ship_highlight()
 		
 func _draw_starbase_marker(center: Vector2, color: Color) -> void:
 	var r: float = PLANET_RADIUS_DRAW + 5.5
@@ -169,7 +170,6 @@ func _draw_selected_highlight(p: PlanetData) -> void:
 		3.0
 	)
 
-	# Optional: zweiter, dünner Ring
 	draw_arc(
 		pos,
 		base_radius + inner_padding,
@@ -180,6 +180,21 @@ func _draw_selected_highlight(p: PlanetData) -> void:
 		2.0
 	)
 
+func _draw_selected_ship_highlight() -> void:
+	var ship: StarshipData = game_state.get_selected_ship()
+	if ship == null:
+		return
+
+	var pos: Vector2 = _ship_to_world(ship)
+	var outer_radius: float = _screen_px_to_world(13.0)
+	var inner_radius: float = _screen_px_to_world(9.0)
+	var outer_width: float = _screen_px_to_world(2.4)
+	var inner_width: float = _screen_px_to_world(1.4)
+
+	draw_arc(pos, outer_radius, 0.0, TAU, 48, Color(1.0, 0.9, 0.2, 0.95), outer_width)
+	draw_arc(pos, inner_radius, 0.0, TAU, 48, Color(1.0, 1.0, 1.0, 0.55), inner_width)
+
+	# Optional: zweiter, dünner Ring
 func _unhandled_input(event: InputEvent) -> void:
 	
 	if event is not InputEventMouseButton:

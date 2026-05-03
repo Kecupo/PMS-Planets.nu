@@ -186,7 +186,7 @@ func _relative_id(ids: Array[int], current_id: int, direction: int) -> int:
 func _sorted_planet_ids() -> Array[int]:
 	var ids: Array[int] = []
 	for p: PlanetData in game_state.planets:
-		if p != null:
+		if p != null and game_state.is_my_planet(p):
 			ids.append(int(p.planet_id))
 	ids.sort()
 	return ids
@@ -194,7 +194,7 @@ func _sorted_planet_ids() -> Array[int]:
 func _sorted_ship_ids() -> Array[int]:
 	var ids: Array[int] = []
 	for ship: StarshipData in game_state.starships:
-		if ship != null and not ship.ishidden:
+		if ship != null and not ship.ishidden and int(ship.ownerid) == int(game_state.my_player_id):
 			ids.append(int(ship.ship_id))
 	ids.sort()
 	return ids
@@ -203,7 +203,8 @@ func _sorted_starbase_planet_ids() -> Array[int]:
 	var ids: Array[int] = []
 	for key: Variant in game_state.starbases_by_planet_id.keys():
 		var planet_id: int = int(key)
-		if planet_id > 0 and not game_state.get_starbase_for_planet(planet_id).is_empty():
+		var p: PlanetData = _planet_by_id(planet_id)
+		if planet_id > 0 and p != null and game_state.is_my_planet(p) and not game_state.get_starbase_for_planet(planet_id).is_empty():
 			ids.append(planet_id)
 	ids.sort()
 	return ids
