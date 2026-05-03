@@ -16,6 +16,8 @@ const VCR_SIM_PROJECT_PATH: String = "C:/Users/Windows/Documents/planets-vcr-sim
 const GODOT_EXE_FALLBACK: String = "C:/Tools/godot.exe"
 const PANEL_SIZE: Vector2 = Vector2(477.0, 708.0)
 const PANEL_POS: Vector2 = Vector2(8.0, 7.0)
+const PANEL_BODY_FONT_SIZE: int = 13
+const STATUS_ARROW_MIN_SIZE: Vector2 = Vector2(28.0, 0.0)
 const TORPEDO_NAMES: PackedStringArray = [
 	"None",
 	"Mark 1 Photon",
@@ -46,8 +48,10 @@ var _ships_panel: PanelContainer = null
 var _ships_list: VBoxContainer = null
 var _starbases_panel: PanelContainer = null
 var _starbases_list: VBoxContainer = null
+var _status_controls_installed: bool = false
 
 func _ready() -> void:
+	_install_status_controls()
 	_update_status()
 	planets_button.pressed.connect(_on_planets_button_pressed)
 	ships_button.pressed.connect(_on_ships_button_pressed)
@@ -68,6 +72,46 @@ func _owner_abbrev(race_id: int) -> String:
 	if game_state.config == null:
 		return "-" if race_id <= 0 else str(race_id)
 	return game_state.config.get_owner_abbrev(race_id)
+
+func _install_status_controls() -> void:
+	if _status_controls_installed:
+		return
+	_status_controls_installed = true
+
+	_add_status_arrow(planets_button, true, Callable(self, "_select_previous_planet"))
+	_add_status_arrow(planets_button, false, Callable(self, "_select_next_planet"))
+	_add_status_separator_after(planets_button.get_index() + 1)
+
+	_add_status_arrow(ships_button, true, Callable(self, "_select_previous_ship"))
+	_add_status_arrow(ships_button, false, Callable(self, "_select_next_ship"))
+	_add_status_separator_after(ships_button.get_index() + 1)
+
+	_add_status_arrow(starbases_button, true, Callable(self, "_select_previous_starbase"))
+	_add_status_arrow(starbases_button, false, Callable(self, "_select_next_starbase"))
+	_add_status_separator_after(starbases_button.get_index() + 1)
+
+	_add_status_separator_after(vcr_button.get_index())
+	var messages_button: Control = get_node_or_null("%MessagesButton") as Control
+	if messages_button != null:
+		_add_status_separator_after(messages_button.get_index())
+
+	_add_status_separator_after(turn_label.get_index())
+
+func _add_status_arrow(target: Control, before: bool, callback: Callable) -> void:
+	var btn: Button = Button.new()
+	btn.text = "<" if before else ">"
+	btn.custom_minimum_size = STATUS_ARROW_MIN_SIZE
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.pressed.connect(callback)
+	add_child(btn)
+	var target_index: int = target.get_index()
+	move_child(btn, target_index if before else target_index + 1)
+
+func _add_status_separator_after(index: int) -> void:
+	var sep: VSeparator = VSeparator.new()
+	sep.custom_minimum_size = Vector2(8.0, 0.0)
+	add_child(sep)
+	move_child(sep, min(index + 1, get_child_count() - 1))
 
 func _on_planets_button_pressed() -> void:
 	game_state.set_selection_mode("planet")
@@ -91,6 +135,78 @@ func _on_starbases_button_pressed() -> void:
 	game_state.clear_selection()
 	_populate_starbases_panel()
 	_starbases_panel.visible = true
+
+func _select_previous_planet() -> void:
+	_select_planet_relative(-1)
+
+func _select_next_planet() -> void:
+	_select_planet_relative(1)
+
+func _select_previous_ship() -> void:
+	_select_ship_relative(-1)
+
+func _select_next_ship() -> void:
+	_select_ship_relative(1)
+
+func _select_previous_starbase() -> void:
+	_select_starbase_relative(-1)
+
+func _select_next_starbase() -> void:
+	_select_starbase_relative(1)
+
+func _select_planet_relative(direction: int) -> void:
+	var ids: Array[int] = _sorted_planet_ids()
+	if ids.is_empty():
+		return
+	game_state.set_selection_mode("planet")
+	_hide_aux_info_panels()
+	planet_info_panel.visible = true
+	game_state.select_planet(_relative_id(ids, game_state.selected_planet_id, direction))
+
+func _select_ship_relative(direction: int) -> void:
+	var ids: Array[int] = _sorted_ship_ids()
+	if ids.is_empty():
+		return
+	game_state.set_selection_mode("ship")
+	game_state.select_ship(_relative_id(ids, game_state.selected_ship_id, direction))
+
+func _select_starbase_relative(direction: int) -> void:
+	var ids: Array[int] = _sorted_starbase_planet_ids()
+	if ids.is_empty():
+		return
+	game_state.set_selection_mode("starbase")
+	game_state.select_starbase(_relative_id(ids, game_state.selected_starbase_planet_id, direction))
+
+func _relative_id(ids: Array[int], current_id: int, direction: int) -> int:
+	var start_index: int = ids.find(current_id)
+	if start_index < 0:
+		return ids[0] if direction >= 0 else ids[ids.size() - 1]
+	return ids[(start_index + direction + ids.size()) % ids.size()]
+
+func _sorted_planet_ids() -> Array[int]:
+	var ids: Array[int] = []
+	for p: PlanetData in game_state.planets:
+		if p != null:
+			ids.append(int(p.planet_id))
+	ids.sort()
+	return ids
+
+func _sorted_ship_ids() -> Array[int]:
+	var ids: Array[int] = []
+	for ship: StarshipData in game_state.starships:
+		if ship != null and not ship.ishidden:
+			ids.append(int(ship.ship_id))
+	ids.sort()
+	return ids
+
+func _sorted_starbase_planet_ids() -> Array[int]:
+	var ids: Array[int] = []
+	for key: Variant in game_state.starbases_by_planet_id.keys():
+		var planet_id: int = int(key)
+		if planet_id > 0 and not game_state.get_starbase_for_planet(planet_id).is_empty():
+			ids.append(planet_id)
+	ids.sort()
+	return ids
 
 func _refresh_open_info_panel() -> void:
 	if _ships_panel != null and _ships_panel.visible:
@@ -351,6 +467,7 @@ func _add_kv(parent: GridContainer, key: String, value: String) -> void:
 	var key_label: Label = Label.new()
 	key_label.text = key
 	key_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	key_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
 	parent.add_child(key_label)
 
 	var value_label: Label = Label.new()
@@ -358,6 +475,7 @@ func _add_kv(parent: GridContainer, key: String, value: String) -> void:
 	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	value_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	value_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	value_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
 	value_label.add_theme_color_override("font_color", Color(0.54, 1.0, 0.58, 1.0))
 	parent.add_child(value_label)
 
@@ -383,6 +501,7 @@ func _add_ship_stack_nav(parent: VBoxContainer, stack: Array[StarshipData], curr
 	var label: Label = Label.new()
 	label.text = "%d / %d at this position" % [index + 1, stack.size()]
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
 	row.add_child(label)
 
 	var next_btn: Button = Button.new()
@@ -408,6 +527,8 @@ func _add_wrapped_label(parent: VBoxContainer, text: String, highlight: bool) ->
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if highlight:
 		label.add_theme_color_override("font_color", Color(0.85, 0.96, 1.0, 1.0))
+	else:
+		label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
 	parent.add_child(label)
 	return label
 

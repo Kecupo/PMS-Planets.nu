@@ -59,7 +59,23 @@ func _on_turn_loaded() -> void:
 
 func _on_selection_changed(kind: String, _selected_id: int) -> void:
 	if kind == "planet" or kind == "ship" or kind == "starbase" or kind == "none":
+		_center_camera_on_selection(kind)
 		queue_redraw()
+
+func _center_camera_on_selection(kind: String) -> void:
+	match kind:
+		"planet":
+			var p: PlanetData = game_state.get_selected_planet()
+			if p != null:
+				$Camera2D.position = _map_to_world(p)
+		"ship":
+			var ship: StarshipData = game_state.get_selected_ship()
+			if ship != null:
+				$Camera2D.position = _ship_to_world(ship)
+		"starbase":
+			var sb_planet: PlanetData = _get_planet_by_id(game_state.selected_starbase_planet_id)
+			if sb_planet != null:
+				$Camera2D.position = _map_to_world(sb_planet)
 
 	
 func _process(_delta: float) -> void:
