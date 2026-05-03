@@ -401,17 +401,17 @@ func _append_starship_hover(lines: PackedStringArray, world_pos: Vector2) -> voi
 
 func _append_ionstorm_hover(lines: PackedStringArray, world_pos: Vector2) -> void:
 	var total_voltage: float = 0.0
-	var count: int = 0
 
 	for storm: IonStormData in game_state.ionstorms:
 		if storm == null:
 			continue
 
-		if _point_in_ionstorm(storm, world_pos):
-			total_voltage += storm.voltage
-			count += 1
+		var circle_specs: Array = _ionstorm_circle_specs(storm)
+		if not _point_in_circle_union(world_pos, circle_specs):
+			continue
+		total_voltage += _ionstorm_voltage_at(storm, world_pos, circle_specs)
 
-	if count <= 0:
+	if total_voltage <= 0.0:
 		return
 
 	_append_hover_separator(lines)
@@ -484,14 +484,39 @@ func _append_hover_separator(lines: PackedStringArray) -> void:
 	lines.append(HOVER_INFO_SEPARATOR)
 
 func _point_in_ionstorm(storm: IonStormData, world_pos: Vector2) -> bool:
+	return _point_in_circle_union(world_pos, _ionstorm_circle_specs(storm))
+
+func _ionstorm_circle_specs(storm: IonStormData) -> Array:
+	var circle_specs: Array = []
 	for circle: IonStormCircleData in storm.circles:
 		if circle == null or circle.radius <= 0.0:
 			continue
+		var voltage: float = circle.voltage
+		if voltage <= 0.0:
+			voltage = storm.voltage
+		circle_specs.append([_ionstorm_circle_to_world(circle), circle.radius, voltage])
+	return circle_specs
 
-		if _ionstorm_circle_to_world(circle).distance_to(world_pos) <= circle.radius:
-			return true
+func _ionstorm_voltage_at(storm: IonStormData, world_pos: Vector2, circle_specs: Array = []) -> float:
+	if circle_specs.is_empty():
+		circle_specs = _ionstorm_circle_specs(storm)
+	var voltage: float = 0.0
+	for spec: Variant in circle_specs:
+		if not (spec is Array):
+			continue
+		var arr: Array = spec as Array
+		if arr.size() < 3:
+			continue
+		var center: Vector2 = arr[0] as Vector2
+		var radius: float = float(arr[1])
+		var circle_voltage: float = float(arr[2])
+		if radius <= 0.0:
+			continue
+		var dist: float = center.distance_to(world_pos)
+		if dist <= radius:
+			voltage += ceil(circle_voltage * (1.0 - (dist / radius)))
 
-	return false
+	return voltage
 
 func _get_planet_by_id(planet_id: int) -> PlanetData:
 	for p: PlanetData in game_state.planets:
@@ -1000,15 +1025,17 @@ func _draw_ionstorm(storm: IonStormData) -> void:
 		circle_specs.append([_ionstorm_circle_to_world(circle), circle.radius, voltage])
 
 	if not circle_specs.is_empty():
-		_draw_merged_circle_shape(
-			circle_specs,
-			ION_STORM_BASE_COLOR,
-			_ionstorm_border_color(storm.voltage),
-			2.0,
-			"ionstorm"
-		)
+		_draw_ionstorm_shape(circle_specs, storm.voltage)
 
 	_draw_ionstorm_heading(storm)
+
+func _draw_ionstorm_shape(circle_specs: Array, storm_voltage: float) -> void:
+	var bounds: Rect2 = _circle_specs_bounds(circle_specs)
+	if bounds.size.x <= 0.0 or bounds.size.y <= 0.0:
+		return
+
+	_draw_circle_union_field_fill(circle_specs, bounds, ION_STORM_BASE_COLOR, "ionstorm")
+	_draw_circle_union_outline(circle_specs, _ionstorm_border_color(storm_voltage), 2.0)
 
 func _draw_ionstorm_heading(storm: IonStormData) -> void:
 	if storm.circles.is_empty():
@@ -1126,6 +1153,71 @@ func _nebula_color_at(pos: Vector2, circle_specs: Array) -> Color:
 		c.a = 0.0
 		return c
 	c.a = _nebula_fill_alpha(density)
+	return c
+
+func _draw_circle_union_field_fill(
+	circle_specs: Array,
+	bounds: Rect2,
+	base_color: Color,
+	field_kind: String
+) -> void:
+	var cell_size: float = maxf(16.0, maxf(bounds.size.x, bounds.size.y) / 80.0)
+	var x_steps: int = int(ceil(bounds.size.x / cell_size))
+	var y_steps: int = int(ceil(bounds.size.y / cell_size))
+
+	for xi: int in range(x_steps):
+		for yi: int in range(y_steps):
+			var p00: Vector2 = bounds.position + Vector2(float(xi) * cell_size, float(yi) * cell_size)
+			var p10: Vector2 = bounds.position + Vector2(float(xi + 1) * cell_size, float(yi) * cell_size)
+			var p01: Vector2 = bounds.position + Vector2(float(xi) * cell_size, float(yi + 1) * cell_size)
+			var p11: Vector2 = bounds.position + Vector2(float(xi + 1) * cell_size, float(yi + 1) * cell_size)
+			_draw_circle_union_field_triangle(p00, p10, p11, circle_specs, base_color, field_kind)
+			_draw_circle_union_field_triangle(p00, p11, p01, circle_specs, base_color, field_kind)
+
+func _draw_circle_union_field_triangle(
+	a: Vector2,
+	b: Vector2,
+	c: Vector2,
+	circle_specs: Array,
+	base_color: Color,
+	field_kind: String
+) -> void:
+	var ca: Color = _circle_union_color_at(a, circle_specs, base_color, field_kind)
+	var cb: Color = _circle_union_color_at(b, circle_specs, base_color, field_kind)
+	var cc: Color = _circle_union_color_at(c, circle_specs, base_color, field_kind)
+	if ca.a <= 0.0 and cb.a <= 0.0 and cc.a <= 0.0:
+		return
+	draw_primitive(PackedVector2Array([a, b, c]), PackedColorArray([ca, cb, cc]), PackedVector2Array())
+
+func _circle_union_color_at(
+	pos: Vector2,
+	circle_specs: Array,
+	base_color: Color,
+	field_kind: String
+) -> Color:
+	var c: Color = base_color
+	if not _point_in_circle_union(pos, circle_specs):
+		c.a = 0.0
+		return c
+
+	var alpha: float = 0.0
+	for spec: Variant in circle_specs:
+		if not (spec is Array):
+			continue
+		var arr: Array = spec as Array
+		if arr.size() < 3:
+			continue
+		var center: Vector2 = arr[0] as Vector2
+		var radius: float = float(arr[1])
+		var strength: float = float(arr[2])
+		if radius <= 0.0 or strength <= 0.0:
+			continue
+		var dist_ratio: float = center.distance_to(pos) / radius
+		var falloff: float = _contained_smooth_falloff(dist_ratio) if field_kind == "ionstorm" else _smooth_falloff(dist_ratio)
+		if falloff > 0.0:
+			alpha = maxf(alpha, _field_alpha_for_strength(strength, field_kind) * falloff)
+
+	c.a = alpha
 	return c
 
 func _nebula_density_at(pos: Vector2, circle_specs: Array) -> float:
@@ -1343,6 +1435,13 @@ func _field_alpha_for_strength(strength: float, field_kind: String) -> float:
 
 func _smooth_falloff(dist_ratio: float) -> float:
 	var t: float = clampf(dist_ratio / 1.35, 0.0, 1.0)
+	var s: float = t * t * (3.0 - 2.0 * t)
+	return 1.0 - s
+
+func _contained_smooth_falloff(dist_ratio: float) -> float:
+	if dist_ratio >= 1.0:
+		return 0.0
+	var t: float = clampf(dist_ratio, 0.0, 1.0)
 	var s: float = t * t * (3.0 - 2.0 * t)
 	return 1.0 - s
 
