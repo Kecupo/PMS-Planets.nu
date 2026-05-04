@@ -23,6 +23,7 @@ var _manage_running: bool = false
 var _upload_dialog: AcceptDialog = null
 var _upload_status_label: Label = null
 var _upload_running: bool = false
+var _menu_separators_installed: bool = false
 
 func _ready() -> void:
 	# Buttons
@@ -33,6 +34,7 @@ func _ready() -> void:
 	select_button.pressed.connect(_on_select_button_pressed)
 	config_button.pressed.connect(_on_config_button_pressed)
 	help_button.pressed.connect(_on_help_button_pressed)
+	_install_menu_separators()
 	# Game select popup must be in tree
 	add_child(_game_select_popup)
 	_game_select_popup.hide()
@@ -49,6 +51,25 @@ func _ready() -> void:
 	_refresh_login_button()
 	_refresh_ui_state()
 
+func _install_menu_separators() -> void:
+	if _menu_separators_installed:
+		return
+	_menu_separators_installed = true
+
+	var buttons: Array[Control] = [
+		login_btn,
+		select_button,
+		upload_button,
+		config_button,
+		manage_button,
+		quit_button
+	]
+
+	for button: Control in buttons:
+		var sep: VSeparator = VSeparator.new()
+		sep.custom_minimum_size = Vector2(8.0, 0.0)
+		add_child(sep)
+		move_child(sep, min(button.get_index() + 1, get_child_count() - 1))
 
 func _on_game_changed(_gid: int) -> void:
 	_refresh_ui_state()
