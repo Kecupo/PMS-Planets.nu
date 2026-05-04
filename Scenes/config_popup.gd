@@ -2,11 +2,12 @@ extends Window
 class_name ConfigPopup
 var _syncing: bool = false
 var _wired_natives: bool = false
-@onready var chk_perm_case: CheckButton = $"RootVBox/Tabs/Manage FCs/MarginContainer/VBoxContainer/ChkPermuteSPecialFcsCase"
+@onready var chk_perm_case: CheckButton = $"RootVBox/Tabs/Manage Planets/MarginContainer/VBoxContainer/ChkPermuteSPecialFcsCase"
 @onready var tabs: TabContainer = $RootVBox/Tabs
 @onready var close_btn: Button = $RootVBox/ButtonsRow/CloseBtn
-@onready var txt_never: TextEdit = $"RootVBox/Tabs/Manage FCs/MarginContainer/VBoxContainer/TxtNeverChangeFcs"
-@onready var chk_randomize: CheckButton = $"RootVBox/Tabs/Manage FCs/MarginContainer/VBoxContainer/ChkRandomizeOtherFcs"
+@onready var manage_planets_vbox: VBoxContainer = $"RootVBox/Tabs/Manage Planets/MarginContainer/VBoxContainer"
+@onready var txt_never: TextEdit = $"RootVBox/Tabs/Manage Planets/MarginContainer/VBoxContainer/TxtNeverChangeFcs"
+@onready var chk_randomize: CheckButton = $"RootVBox/Tabs/Manage Planets/MarginContainer/VBoxContainer/ChkRandomizeOtherFcs"
 # --- Colonist Tax Tab ---
 @onready var chk_col_tax_enabled: CheckButton = %ChkColTaxEnabed
 @onready var rb_col_gate_min_clans: Button = %RbColGateMinCLans
@@ -27,8 +28,17 @@ var _wired_natives: bool = false
 @onready var rb_col_cap_70: Button = %RbColCap70
 @onready var rb_col_cap_40: Button = %RbColCap40
 @onready var race_colors_vbox: VBoxContainer = %RaceColorsVbox
+var chk_calc_optimal_buildings: CheckButton = null
+var btn_mine_in_turns: Button = null
+var btn_mine_to_turn: Button = null
+var spin_mine_in_turns: SpinBox = null
+var spin_mine_to_turn: SpinBox = null
+var chk_build_defense: CheckButton = null
+var btn_build_21_defense: Button = null
+var btn_max_defense: Button = null
 
 func _ready() -> void:
+	_build_manage_planets_controls()
 	close_btn.pressed.connect(_on_close_pressed)
 	close_requested.connect(_on_close_pressed)
 
@@ -36,6 +46,7 @@ func _ready() -> void:
 	chk_perm_case.toggled.connect(_on_chk_perm_case_toggled)
 	txt_never.text_changed.connect(_on_txt_never_changed)
 	chk_randomize.toggled.connect(_on_chk_randomize_toggled)
+	_wire_manage_planets_tab()
 	_wire_colonist_tab()
 	_wire_native_tab()
 	# Initial pull
@@ -88,13 +99,94 @@ func _wire_native_tab() -> void:
 	chk_nat_cap.toggled.connect(_on_nat_cap_toggled)
 	btn_nat_cap_70.toggled.connect(_on_nat_cap_target_changed)
 	btn_nat_cap_40.toggled.connect(_on_nat_cap_target_changed)
+
+func _build_manage_planets_controls() -> void:
+	if chk_calc_optimal_buildings != null:
+		return
+
+	manage_planets_vbox.add_child(HSeparator.new())
+
+	chk_calc_optimal_buildings = CheckButton.new()
+	chk_calc_optimal_buildings.text = "Calculate optimal factories&mines"
+	chk_calc_optimal_buildings.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	manage_planets_vbox.add_child(chk_calc_optimal_buildings)
+
+	var mining_group: ButtonGroup = ButtonGroup.new()
+	mining_group.allow_unpress = false
+	var mine_row_1: HBoxContainer = HBoxContainer.new()
+	mine_row_1.add_theme_constant_override("separation", 8)
+	manage_planets_vbox.add_child(mine_row_1)
+	btn_mine_in_turns = _make_toggle_option("Mine the planet in", mining_group)
+	mine_row_1.add_child(btn_mine_in_turns)
+	spin_mine_in_turns = _make_turn_spinbox()
+	mine_row_1.add_child(spin_mine_in_turns)
+	mine_row_1.add_child(_make_option_suffix_label("turns"))
+
+	var mine_row_2: HBoxContainer = HBoxContainer.new()
+	mine_row_2.add_theme_constant_override("separation", 8)
+	manage_planets_vbox.add_child(mine_row_2)
+	btn_mine_to_turn = _make_toggle_option("Mine the planets to turn", mining_group)
+	mine_row_2.add_child(btn_mine_to_turn)
+	spin_mine_to_turn = _make_turn_spinbox()
+	mine_row_2.add_child(spin_mine_to_turn)
+
+	manage_planets_vbox.add_child(HSeparator.new())
+
+	chk_build_defense = CheckButton.new()
+	chk_build_defense.text = "Build defense"
+	chk_build_defense.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	manage_planets_vbox.add_child(chk_build_defense)
+
+	var defense_group: ButtonGroup = ButtonGroup.new()
+	defense_group.allow_unpress = false
+	var defense_row: HBoxContainer = HBoxContainer.new()
+	defense_row.add_theme_constant_override("separation", 8)
+	manage_planets_vbox.add_child(defense_row)
+	btn_build_21_defense = _make_toggle_option("Build 21 defense", defense_group)
+	btn_max_defense = _make_toggle_option("Max defense", defense_group)
+	defense_row.add_child(btn_build_21_defense)
+	defense_row.add_child(btn_max_defense)
+
+func _make_toggle_option(text: String, group: ButtonGroup) -> Button:
+	var btn: Button = Button.new()
+	btn.text = text
+	btn.toggle_mode = true
+	btn.button_group = group
+	btn.focus_mode = Control.FOCUS_ALL
+	return btn
+
+func _make_turn_spinbox() -> SpinBox:
+	var spin: SpinBox = SpinBox.new()
+	spin.min_value = 1.0
+	spin.max_value = 999.0
+	spin.step = 1.0
+	spin.rounded = true
+	spin.custom_minimum_size = Vector2(70, 0)
+	spin.alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	return spin
+
+func _make_option_suffix_label(text: String) -> Label:
+	var lbl: Label = Label.new()
+	lbl.text = text
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	return lbl
+
+func _wire_manage_planets_tab() -> void:
+	chk_calc_optimal_buildings.toggled.connect(_on_calc_optimal_buildings_toggled)
+	btn_mine_in_turns.toggled.connect(_on_mining_target_mode_changed)
+	btn_mine_to_turn.toggled.connect(_on_mining_target_mode_changed)
+	spin_mine_in_turns.value_changed.connect(_on_mine_in_turns_changed)
+	spin_mine_to_turn.value_changed.connect(_on_mine_to_turn_changed)
+	chk_build_defense.toggled.connect(_on_build_defense_toggled)
+	btn_build_21_defense.toggled.connect(_on_defense_build_mode_changed)
+	btn_max_defense.toggled.connect(_on_defense_build_mode_changed)
 # -------------------------
 # Sync UI <- Config
 # -------------------------
 func sync_from_config() -> void:
 	_syncing = true
 
-	_sync_fc_tab_from_config()
+	_sync_planet_manage_tab_from_config()
 	_sync_colonist_tab_from_config()
 	_sync_native_tab_from_config()
 
@@ -119,10 +211,19 @@ func _sync_native_tab_from_config() -> void:
 
 	_update_native_controls()
 	
-func _sync_fc_tab_from_config() -> void:
+func _sync_planet_manage_tab_from_config() -> void:
 	chk_perm_case.button_pressed = bool(RandAI_Config.permute_special_fcs_case)
 	txt_never.text = String(RandAI_Config.fc_never_change_raw)
 	chk_randomize.button_pressed = bool(RandAI_Config.randomize_other_fcs)
+	chk_calc_optimal_buildings.button_pressed = bool(RandAI_Config.calc_optimal_factories_mines)
+	btn_mine_in_turns.button_pressed = int(RandAI_Config.planet_mining_target_mode) == RandAI_Config.PlanetMiningTargetMode.IN_TURNS
+	btn_mine_to_turn.button_pressed = int(RandAI_Config.planet_mining_target_mode) == RandAI_Config.PlanetMiningTargetMode.TO_TURN
+	spin_mine_in_turns.value = float(RandAI_Config.planet_mining_in_turns)
+	spin_mine_to_turn.value = float(RandAI_Config.planet_mining_to_turn)
+	chk_build_defense.button_pressed = bool(RandAI_Config.build_defense_enabled)
+	btn_build_21_defense.button_pressed = int(RandAI_Config.planet_defense_build_mode) == RandAI_Config.PlanetDefenseBuildMode.BUILD_21
+	btn_max_defense.button_pressed = int(RandAI_Config.planet_defense_build_mode) == RandAI_Config.PlanetDefenseBuildMode.MAX_DEFENSE
+	_update_manage_planets_controls()
 	
 func _sync_colonist_tab_from_config() -> void:
 	chk_col_tax_enabled.button_pressed = bool(RandAI_Config.col_tax_enabled)
@@ -160,6 +261,21 @@ func _update_native_controls() -> void:
 	var cap_on: bool = on and chk_nat_cap.button_pressed
 	btn_nat_cap_70.disabled = not cap_on
 	btn_nat_cap_40.disabled = not cap_on
+
+func _update_manage_planets_controls() -> void:
+	var calc_on: bool = chk_calc_optimal_buildings.button_pressed
+	btn_mine_in_turns.disabled = not calc_on
+	btn_mine_to_turn.disabled = not calc_on
+	spin_mine_in_turns.editable = calc_on and btn_mine_in_turns.button_pressed
+	spin_mine_to_turn.editable = calc_on and btn_mine_to_turn.button_pressed
+	spin_mine_in_turns.focus_mode = Control.FOCUS_ALL if spin_mine_in_turns.editable else Control.FOCUS_NONE
+	spin_mine_to_turn.focus_mode = Control.FOCUS_ALL if spin_mine_to_turn.editable else Control.FOCUS_NONE
+
+	var defense_on: bool = chk_build_defense.button_pressed
+	btn_build_21_defense.disabled = not defense_on
+	btn_max_defense.disabled = not defense_on
+	btn_build_21_defense.focus_mode = Control.FOCUS_ALL if defense_on else Control.FOCUS_NONE
+	btn_max_defense.focus_mode = Control.FOCUS_ALL if defense_on else Control.FOCUS_NONE
 	
 func _on_close_pressed() -> void:
 	if RandAI_Config.dirty and GameState.current_game_id > 0:
@@ -183,6 +299,55 @@ func _on_chk_randomize_toggled(on: bool) -> void:
 	if _syncing:
 		return
 	RandAI_Config.randomize_other_fcs = on
+	RandAI_Config.mark_dirty()
+
+func _on_calc_optimal_buildings_toggled(on: bool) -> void:
+	if _syncing:
+		return
+	RandAI_Config.calc_optimal_factories_mines = on
+	RandAI_Config.mark_dirty()
+	_update_manage_planets_controls()
+
+func _on_mining_target_mode_changed(on: bool) -> void:
+	if _syncing:
+		return
+	if not on:
+		return
+	if btn_mine_to_turn.button_pressed:
+		RandAI_Config.planet_mining_target_mode = RandAI_Config.PlanetMiningTargetMode.TO_TURN
+	else:
+		RandAI_Config.planet_mining_target_mode = RandAI_Config.PlanetMiningTargetMode.IN_TURNS
+	RandAI_Config.mark_dirty()
+	_update_manage_planets_controls()
+
+func _on_mine_in_turns_changed(value: float) -> void:
+	if _syncing:
+		return
+	RandAI_Config.planet_mining_in_turns = max(1, int(round(value)))
+	RandAI_Config.mark_dirty()
+
+func _on_mine_to_turn_changed(value: float) -> void:
+	if _syncing:
+		return
+	RandAI_Config.planet_mining_to_turn = max(1, int(round(value)))
+	RandAI_Config.mark_dirty()
+
+func _on_build_defense_toggled(on: bool) -> void:
+	if _syncing:
+		return
+	RandAI_Config.build_defense_enabled = on
+	RandAI_Config.mark_dirty()
+	_update_manage_planets_controls()
+
+func _on_defense_build_mode_changed(on: bool) -> void:
+	if _syncing:
+		return
+	if not on:
+		return
+	if btn_max_defense.button_pressed:
+		RandAI_Config.planet_defense_build_mode = RandAI_Config.PlanetDefenseBuildMode.MAX_DEFENSE
+	else:
+		RandAI_Config.planet_defense_build_mode = RandAI_Config.PlanetDefenseBuildMode.BUILD_21
 	RandAI_Config.mark_dirty()
 
 func _on_col_tax_mode_selected(idx: int) -> void:

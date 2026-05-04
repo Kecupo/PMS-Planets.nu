@@ -462,9 +462,9 @@ static func _build_planet_save_command(orig_rst: Dictionary, pending_rst: Dictio
 	cmd["Factories"] = mod_factories
 	cmd["Defense"] = mod_defense
 
-	cmd["TargetMines"] = _to_int(orig_planet.get("targetmines", 0))
-	cmd["TargetFactories"] = _to_int(orig_planet.get("targetfactories", 0))
-	cmd["TargetDefense"] = _to_int(orig_planet.get("targetdefense", 0))
+	cmd["TargetMines"] = _to_int(mod_planet.get("targetmines", orig_planet.get("targetmines", 0)))
+	cmd["TargetFactories"] = _to_int(mod_planet.get("targetfactories", orig_planet.get("targetfactories", 0)))
+	cmd["TargetDefense"] = _to_int(mod_planet.get("targetdefense", orig_planet.get("targetdefense", 0)))
 
 	cmd["BuiltMines"] = mod_mines - orig_mines + orig_built_mines
 	cmd["BuiltFactories"] = mod_factories - orig_factories + orig_built_factories
@@ -673,6 +673,15 @@ static func _planet_has_relevant_changes(orig_rst: Dictionary, pending_rst: Dict
 		return true
 
 	if _to_int(orig_planet.get("defense", 0)) != _to_int(mod_planet.get("defense", 0)):
+		return true
+
+	if _to_int(orig_planet.get("targetmines", 0)) != _to_int(mod_planet.get("targetmines", 0)):
+		return true
+
+	if _to_int(orig_planet.get("targetfactories", 0)) != _to_int(mod_planet.get("targetfactories", 0)):
+		return true
+
+	if _to_int(orig_planet.get("targetdefense", 0)) != _to_int(mod_planet.get("targetdefense", 0)):
 		return true
 
 	if _to_int(orig_planet.get("megacredits", 0)) != _to_int(mod_planet.get("megacredits", 0)):

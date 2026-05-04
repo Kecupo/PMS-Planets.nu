@@ -502,6 +502,49 @@ func set_planet_building_counts(
 		emit_signal("orders_changed")
 
 	return true
+
+func set_planet_building_targets(
+	planet_id: int,
+	target_mines: int = -1,
+	target_factories: int = -1,
+	target_defense: int = -1
+) -> bool:
+	var changed: bool = false
+
+	for p: PlanetData in planets:
+		if p == null or int(p.planet_id) != planet_id:
+			continue
+
+		if target_mines >= 0 and int(p.raw.get("targetmines", -1)) != target_mines:
+			_set_planet_field_in_rst(planet_id, "targetmines", target_mines)
+			p.raw["targetmines"] = target_mines
+			p.targetmines = float(target_mines)
+			changed = true
+
+		if target_factories >= 0 and int(p.raw.get("targetfactories", -1)) != target_factories:
+			_set_planet_field_in_rst(planet_id, "targetfactories", target_factories)
+			p.raw["targetfactories"] = target_factories
+			p.targetfactories = float(target_factories)
+			changed = true
+
+		if target_defense >= 0 and int(p.raw.get("targetdefense", -1)) != target_defense:
+			_set_planet_field_in_rst(planet_id, "targetdefense", target_defense)
+			p.raw["targetdefense"] = target_defense
+			p.targetdefense = float(target_defense)
+			changed = true
+
+		break
+
+	if not changed:
+		return false
+
+	if _batch_mode:
+		_batch_dirty = true
+	else:
+		_save_latest_turn_json()
+		emit_signal("orders_changed")
+
+	return true
 		
 func _set_planet_taxrate_in_model(planet_id: int, is_native: bool, value: int) -> void:
 	for p in planets:

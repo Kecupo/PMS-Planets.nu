@@ -15,6 +15,16 @@ enum TaxMethod {
 	GROWTH_PLUS = 1
 }
 
+enum PlanetMiningTargetMode {
+	IN_TURNS = 0,
+	TO_TURN = 1
+}
+
+enum PlanetDefenseBuildMode {
+	BUILD_21 = 0,
+	MAX_DEFENSE = 1
+}
+
 # -------------------------
 # FC Config
 # -------------------------
@@ -30,6 +40,16 @@ const SPECIAL_FCS_CASE_DEFAULT: PackedStringArray = [
 var permute_special_fcs_case: bool = false
 var fc_never_change_raw: String = "MF"
 var randomize_other_fcs: bool = false
+
+# -------------------------
+# Planet Manage Config
+# -------------------------
+var calc_optimal_factories_mines: bool = false
+var planet_mining_target_mode: int = PlanetMiningTargetMode.IN_TURNS
+var planet_mining_in_turns: int = 30
+var planet_mining_to_turn: int = 40
+var build_defense_enabled: bool = false
+var planet_defense_build_mode: int = PlanetDefenseBuildMode.BUILD_21
 
 # -------------------------
 # Colonist Tax Config
@@ -145,6 +165,14 @@ func _apply_defaults() -> void:
 	fc_never_change_raw = "MF"
 	randomize_other_fcs = false
 
+	# Planet management
+	calc_optimal_factories_mines = false
+	planet_mining_target_mode = PlanetMiningTargetMode.IN_TURNS
+	planet_mining_in_turns = 30
+	planet_mining_to_turn = 40
+	build_defense_enabled = false
+	planet_defense_build_mode = PlanetDefenseBuildMode.BUILD_21
+
 	# Colonists
 	col_tax_enabled = false
 	col_tax_gate_mode = ColTaxGateMode.MIN_CLANS
@@ -171,6 +199,20 @@ func _apply_from_dict(d: Dictionary) -> void:
 	permute_special_fcs_case = _read_bool(d, "permute_special_fcs_case", false)
 	fc_never_change_raw = _read_string(d, "fc_never_change_raw", "")
 	randomize_other_fcs = _read_bool(d, "randomize_other_fcs", false)
+
+	# Planet management
+	calc_optimal_factories_mines = _read_bool(d, "calc_optimal_factories_mines", false)
+	planet_mining_target_mode = _read_int(d, "planet_mining_target_mode", PlanetMiningTargetMode.IN_TURNS)
+	planet_mining_in_turns = max(1, _read_int(d, "planet_mining_in_turns", 30))
+	planet_mining_to_turn = max(1, _read_int(d, "planet_mining_to_turn", 40))
+	build_defense_enabled = _read_bool(d, "build_defense_enabled", false)
+	planet_defense_build_mode = _read_int(d, "planet_defense_build_mode", PlanetDefenseBuildMode.BUILD_21)
+
+	if planet_mining_target_mode < PlanetMiningTargetMode.IN_TURNS or planet_mining_target_mode > PlanetMiningTargetMode.TO_TURN:
+		planet_mining_target_mode = PlanetMiningTargetMode.IN_TURNS
+
+	if planet_defense_build_mode < PlanetDefenseBuildMode.BUILD_21 or planet_defense_build_mode > PlanetDefenseBuildMode.MAX_DEFENSE:
+		planet_defense_build_mode = PlanetDefenseBuildMode.BUILD_21
 
 	# Colonists
 	col_tax_enabled = _read_bool(d, "col_tax_enabled", false)
@@ -231,6 +273,14 @@ func _to_dict() -> Dictionary:
 	d["permute_special_fcs_case"] = permute_special_fcs_case
 	d["fc_never_change_raw"] = fc_never_change_raw
 	d["randomize_other_fcs"] = randomize_other_fcs
+
+	# Planet management
+	d["calc_optimal_factories_mines"] = calc_optimal_factories_mines
+	d["planet_mining_target_mode"] = planet_mining_target_mode
+	d["planet_mining_in_turns"] = planet_mining_in_turns
+	d["planet_mining_to_turn"] = planet_mining_to_turn
+	d["build_defense_enabled"] = build_defense_enabled
+	d["planet_defense_build_mode"] = planet_defense_build_mode
 
 	# Colonists
 	d["col_tax_enabled"] = col_tax_enabled

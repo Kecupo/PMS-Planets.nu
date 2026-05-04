@@ -251,41 +251,41 @@ toggle_mode = true
 button_group = ExtResource("2_0issk")
 text = "Happiness down to 70"
 
-[node name="Manage FCs" type="VBoxContainer" parent="RootVBox/Tabs"]
+[node name="Manage Planets" type="VBoxContainer" parent="RootVBox/Tabs"]
 visible = false
 layout_mode = 2
 metadata/_tab_index = 2
 
-[node name="MarginContainer" type="MarginContainer" parent="RootVBox/Tabs/Manage FCs"]
+[node name="MarginContainer" type="MarginContainer" parent="RootVBox/Tabs/Manage Planets"]
 layout_mode = 2
 
-[node name="VBoxContainer" type="VBoxContainer" parent="RootVBox/Tabs/Manage FCs/MarginContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="RootVBox/Tabs/Manage Planets/MarginContainer"]
 layout_mode = 2
 
-[node name="LblSpecialFcsHint" type="Label" parent="RootVBox/Tabs/Manage FCs/MarginContainer/VBoxContainer"]
+[node name="LblSpecialFcsHint" type="Label" parent="RootVBox/Tabs/Manage Planets/MarginContainer/VBoxContainer"]
 layout_mode = 2
 text = "
-Manage FCs rules
+Manage Planets
 "
 horizontal_alignment = 1
 
-[node name="ChkPermuteSPecialFcsCase" type="CheckButton" parent="RootVBox/Tabs/Manage FCs/MarginContainer/VBoxContainer"]
+[node name="ChkPermuteSPecialFcsCase" type="CheckButton" parent="RootVBox/Tabs/Manage Planets/MarginContainer/VBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 0
 text = "Permute case of special FCs like NUK, ATT, rb1, etc ...   "
 
-[node name="Label" type="Label" parent="RootVBox/Tabs/Manage FCs/MarginContainer/VBoxContainer"]
+[node name="Label" type="Label" parent="RootVBox/Tabs/Manage Planets/MarginContainer/VBoxContainer"]
 layout_mode = 2
 text = "
 "
 
-[node name="ChkRandomizeOtherFcs" type="CheckButton" parent="RootVBox/Tabs/Manage FCs/MarginContainer/VBoxContainer"]
+[node name="ChkRandomizeOtherFcs" type="CheckButton" parent="RootVBox/Tabs/Manage Planets/MarginContainer/VBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 4
 text = "Never change these FCs (comma-separated)   "
 
-[node name="TxtNeverChangeFcs" type="TextEdit" parent="RootVBox/Tabs/Manage FCs/MarginContainer/VBoxContainer"]
+[node name="TxtNeverChangeFcs" type="TextEdit" parent="RootVBox/Tabs/Manage Planets/MarginContainer/VBoxContainer"]
 custom_minimum_size = Vector2(100, 40)
 layout_mode = 2
 placeholder_text = "do*, not, cha, nge"
