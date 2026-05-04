@@ -338,7 +338,7 @@ func is_fc_protected(fc: String) -> bool:
 
 	return false
 
-func random_safe_fc(rng: RandomNumberGenerator = null) -> String:
+func random_safe_fc(rng: RandomNumberGenerator = null, first_char: String = "") -> String:
 	var local_rng: RandomNumberGenerator = rng
 	if local_rng == null:
 		local_rng = RandomNumberGenerator.new()
@@ -346,9 +346,14 @@ func random_safe_fc(rng: RandomNumberGenerator = null) -> String:
 
 	const LETTERS: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	const ALNUM: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	var forced_first: String = first_char.strip_edges()
+	if forced_first.length() > 0:
+		forced_first = forced_first.substr(0, 1)
+		if LETTERS.find(forced_first.to_upper()) < 0:
+			forced_first = ""
 
 	for _i in range(200):
-		var fc: String = LETTERS[local_rng.randi_range(0, LETTERS.length() - 1)]
+		var fc: String = forced_first if not forced_first.is_empty() else LETTERS[local_rng.randi_range(0, LETTERS.length() - 1)]
 		fc += ALNUM[local_rng.randi_range(0, ALNUM.length() - 1)]
 		fc += ALNUM[local_rng.randi_range(0, ALNUM.length() - 1)]
 		var fc_u: String = fc.to_upper()
@@ -358,7 +363,7 @@ func random_safe_fc(rng: RandomNumberGenerator = null) -> String:
 			continue
 		return fc
 
-	return "AAA"
+	return (forced_first if not forced_first.is_empty() else "A") + "AA"
 
 # -----------------------------------------------------------------------------
 # Readers

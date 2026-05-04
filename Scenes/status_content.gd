@@ -544,12 +544,23 @@ func _on_ship_fc_gui_input(event: InputEvent, ship_id: int, edit: LineEdit) -> v
 	if ship == null or not game_state.is_my_ship(ship):
 		return
 
-	var fc: String = RandAI_Config.random_safe_fc()
+	var fc: String = _random_safe_ship_fc(ship)
 	edit.text = fc
 	game_state.set_ship_friendlycode(ship_id, fc)
 	edit.grab_focus()
 	edit.select_all()
 	edit.accept_event()
+
+func _random_safe_ship_fc(ship: StarshipData) -> String:
+	if ship == null:
+		return RandAI_Config.random_safe_fc()
+	var race_id: int = game_state.get_race_id_of_player(int(ship.ownerid))
+	if race_id == 3:
+		var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+		rng.randomize()
+		var first_char: String = "X" if rng.randi_range(0, 1) == 0 else "x"
+		return RandAI_Config.random_safe_fc(rng, first_char)
+	return RandAI_Config.random_safe_fc()
 
 func _add_ship_stack_nav(parent: VBoxContainer, stack: Array[StarshipData], current_ship: StarshipData) -> void:
 	var index: int = _ship_stack_index(stack, int(current_ship.ship_id))
