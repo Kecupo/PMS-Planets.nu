@@ -499,12 +499,15 @@ func _add_ship_fc_editor(parent: GridContainer, ship: StarshipData) -> void:
 	edit.editable = editable
 	edit.focus_mode = Control.FOCUS_ALL if editable else Control.FOCUS_NONE
 	edit.modulate = Color.WHITE if editable else Color(0.6, 0.6, 0.6)
+	edit.set_meta("fc_random_armed", true)
 	var ship_id: int = int(ship.ship_id)
 	edit.text_submitted.connect(func(_text: String) -> void:
 		_commit_ship_fc_edit(ship_id, edit)
 	)
 	edit.focus_exited.connect(func() -> void:
 		_commit_ship_fc_edit(ship_id, edit)
+		if is_instance_valid(edit):
+			edit.set_meta("fc_random_armed", true)
 	)
 	edit.gui_input.connect(func(event: InputEvent) -> void:
 		_on_ship_fc_gui_input(event, ship_id, edit)
@@ -538,13 +541,14 @@ func _on_ship_fc_gui_input(event: InputEvent, ship_id: int, edit: LineEdit) -> v
 	var mouse_event: InputEventMouseButton = event as InputEventMouseButton
 	if mouse_event.button_index != MOUSE_BUTTON_LEFT or not mouse_event.pressed:
 		return
-	if edit == null or edit.has_focus():
+	if edit == null or not bool(edit.get_meta("fc_random_armed", true)):
 		return
 	var ship: StarshipData = _ship_by_id(ship_id)
 	if ship == null or not game_state.is_my_ship(ship):
 		return
 
 	var fc: String = _random_safe_ship_fc(ship)
+	edit.set_meta("fc_random_armed", false)
 	edit.text = fc
 	game_state.set_ship_friendlycode(ship_id, fc)
 	edit.grab_focus()

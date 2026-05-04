@@ -21,6 +21,7 @@ extends PanelContainer
 @onready var coord_temp_lbl: Label = %CoordTempLabel  # temperature only (label name stays)
 var planet_fc_edit: LineEdit = null
 var planet_fc_edit_planet_id: int = -1
+var planet_fc_random_armed: bool = true
 
 # -------------------------
 # Economy (GridContainer columns=3)
@@ -495,6 +496,7 @@ func _set_planet_fc_editor(value: String, editable: bool, planet_id: int) -> voi
 		return
 	if not planet_fc_edit.has_focus() or planet_fc_edit_planet_id != planet_id:
 		planet_fc_edit.text = value
+		planet_fc_random_armed = true
 	planet_fc_edit_planet_id = planet_id
 	planet_fc_edit.editable = editable
 	planet_fc_edit.focus_mode = Control.FOCUS_ALL if editable else Control.FOCUS_NONE
@@ -511,6 +513,7 @@ func _on_planet_fc_submitted(_text: String) -> void:
 
 func _commit_planet_fc_edit() -> void:
 	var p: PlanetData = game_state.get_selected_planet()
+	planet_fc_random_armed = true
 	if p == null or planet_fc_edit == null:
 		return
 	if not game_state.is_my_planet(p):
@@ -529,13 +532,14 @@ func _on_planet_fc_gui_input(event: InputEvent) -> void:
 	var mouse_event: InputEventMouseButton = event as InputEventMouseButton
 	if mouse_event.button_index != MOUSE_BUTTON_LEFT or not mouse_event.pressed:
 		return
-	if planet_fc_edit == null or planet_fc_edit.has_focus():
+	if planet_fc_edit == null or not planet_fc_random_armed:
 		return
 	var p: PlanetData = game_state.get_selected_planet()
 	if p == null or not game_state.is_my_planet(p):
 		return
 
 	var fc: String = RandAI_Config.random_safe_fc()
+	planet_fc_random_armed = false
 	planet_fc_edit.text = fc
 	game_state.set_planet_friendlycode(int(p.planet_id), fc)
 	planet_fc_edit.grab_focus()
