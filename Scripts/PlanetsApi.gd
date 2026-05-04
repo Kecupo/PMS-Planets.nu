@@ -122,7 +122,7 @@ func download_turn(game_id: int, player_id, forsave: bool = false) -> void:
 # =========================
 # HTTP CALLBACK
 # =========================
-func _on_request_completed(result: int, response_code: int,_headers: PackedStringArray, body: PackedByteArray) -> void:
+func _on_request_completed(_result: int, response_code: int,_headers: PackedStringArray, body: PackedByteArray) -> void:
 	var finished_request: RequestType = current_request
 	current_request = RequestType.NONE  # <<< SOFORT resetten
 

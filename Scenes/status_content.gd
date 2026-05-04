@@ -8,6 +8,8 @@ const PlanetMathScript = preload("res://Scripts/Services/PlanetMath.gd")
 @onready var ships_button: Button = %ShipsButton
 @onready var starbases_button: Button = %StarbasesButton
 @onready var vcr_button: Button = %VcrButton
+@onready var messages_button: Button = %MessagesButton
+@onready var reports_button: Button = %ReportsButton
 @onready var game_state: Node = get_node("/root/GameState")
 @onready var overlay_root: Control = $"../../OverlayRoot"
 @onready var planet_info_panel: Control = $"../../OverlayRoot/PlanetInfoPanel"
@@ -48,6 +50,10 @@ var _ships_panel: PanelContainer = null
 var _ships_list: VBoxContainer = null
 var _starbases_panel: PanelContainer = null
 var _starbases_list: VBoxContainer = null
+var _messages_panel: PanelContainer = null
+var _messages_list: VBoxContainer = null
+var _reports_panel: PanelContainer = null
+var _reports_list: VBoxContainer = null
 var _status_controls_installed: bool = false
 
 func _ready() -> void:
@@ -57,6 +63,8 @@ func _ready() -> void:
 	ships_button.pressed.connect(_on_ships_button_pressed)
 	starbases_button.pressed.connect(_on_starbases_button_pressed)
 	vcr_button.pressed.connect(_on_vcr_button_pressed)
+	messages_button.pressed.connect(_on_messages_button_pressed)
+	reports_button.pressed.connect(_on_reports_button_pressed)
 
 	if game_state.has_signal("turn_loaded"):
 		game_state.connect("turn_loaded", Callable(self, "_update_status"))
@@ -91,9 +99,10 @@ func _install_status_controls() -> void:
 	_add_status_separator_after(starbases_button.get_index() + 1)
 
 	_add_status_separator_after(vcr_button.get_index())
-	var messages_button: Control = get_node_or_null("%MessagesButton") as Control
 	if messages_button != null:
 		_add_status_separator_after(messages_button.get_index())
+	if reports_button != null:
+		_add_status_separator_after(reports_button.get_index())
 
 	_add_status_separator_after(turn_label.get_index())
 
@@ -135,6 +144,18 @@ func _on_starbases_button_pressed() -> void:
 	game_state.clear_selection()
 	_populate_starbases_panel()
 	_starbases_panel.visible = true
+
+func _on_messages_button_pressed() -> void:
+	_ensure_messages_panel()
+	_hide_all_info_panels()
+	_populate_messages_panel()
+	_messages_panel.visible = true
+
+func _on_reports_button_pressed() -> void:
+	_ensure_reports_panel()
+	_hide_all_info_panels()
+	_populate_reports_panel()
+	_reports_panel.visible = true
 
 func _select_previous_planet() -> void:
 	_select_planet_relative(-1)
@@ -214,6 +235,10 @@ func _refresh_open_info_panel() -> void:
 		_populate_ships_panel()
 	if _starbases_panel != null and _starbases_panel.visible:
 		_populate_starbases_panel()
+	if _messages_panel != null and _messages_panel.visible:
+		_populate_messages_panel()
+	if _reports_panel != null and _reports_panel.visible:
+		_populate_reports_panel()
 
 func _on_selection_changed(kind: String, selected_id: int) -> void:
 	if kind == "planet" and selected_id >= 0:
@@ -238,6 +263,10 @@ func _hide_aux_info_panels() -> void:
 		_ships_panel.visible = false
 	if _starbases_panel != null:
 		_starbases_panel.visible = false
+	if _messages_panel != null:
+		_messages_panel.visible = false
+	if _reports_panel != null:
+		_reports_panel.visible = false
 
 func _ensure_ships_panel() -> void:
 	if _ships_panel != null:
@@ -252,6 +281,20 @@ func _ensure_starbases_panel() -> void:
 	var parts: Dictionary = _create_info_panel("Starbases")
 	_starbases_panel = parts["panel"] as PanelContainer
 	_starbases_list = parts["list"] as VBoxContainer
+
+func _ensure_messages_panel() -> void:
+	if _messages_panel != null:
+		return
+	var parts: Dictionary = _create_info_panel("Messages")
+	_messages_panel = parts["panel"] as PanelContainer
+	_messages_list = parts["list"] as VBoxContainer
+
+func _ensure_reports_panel() -> void:
+	if _reports_panel != null:
+		return
+	var parts: Dictionary = _create_info_panel("Turn Reports")
+	_reports_panel = parts["panel"] as PanelContainer
+	_reports_list = parts["list"] as VBoxContainer
 
 func _create_info_panel(title: String) -> Dictionary:
 	var panel: PanelContainer = PanelContainer.new()
@@ -446,6 +489,180 @@ func _populate_starbases_panel() -> void:
 		_add_kv(orders, "Friendly Code", p.friendlycode)
 	_add_kv(orders, "Repair Ship", _starbase_ship_order_target(sb, 1))
 	_add_kv(orders, "Recycle Ship", _starbase_ship_order_target(sb, 2))
+
+func _populate_messages_panel() -> void:
+	_clear_children(_messages_list)
+
+	var current_turn: int = game_state.get_current_turn()
+	var player_messages: Array[Dictionary] = _filtered_player_messages(current_turn)
+	if player_messages.is_empty():
+		_add_summary_label(_messages_list, "No messages")
+		return
+
+	_add_summary_label(_messages_list, "%d messages for turn %d" % [player_messages.size(), current_turn])
+
+	_add_section_title(_messages_list, "Player Messages / Diplomacy")
+	for msg: Dictionary in player_messages:
+		_add_message_entry(_messages_list, msg, true)
+
+func _populate_reports_panel() -> void:
+	_clear_children(_reports_list)
+
+	var current_turn: int = game_state.get_current_turn()
+	var turn_reports: Array[Dictionary] = _current_messages_from_rst("messages", current_turn)
+	if turn_reports.is_empty():
+		_add_summary_label(_reports_list, "No turn reports")
+		return
+
+	_add_summary_label(_reports_list, "%d reports for turn %d" % [turn_reports.size(), current_turn])
+	for msg: Dictionary in turn_reports:
+		_add_message_entry(_reports_list, msg, false)
+
+func _filtered_player_messages(current_turn: int) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var messages: Array[Dictionary] = _current_messages_from_rst("mymessages", current_turn)
+	for msg: Dictionary in messages:
+		var message_type: int = _dict_int(msg, ["messagetype"], 0)
+		if message_type == 18:
+			result.append(msg)
+			continue
+		if message_type == 17:
+			result.append(msg)
+	return result
+
+func _current_messages_from_rst(key: String, current_turn: int) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if game_state.last_turn_json.is_empty():
+		return result
+	var rst_v: Variant = game_state.last_turn_json.get("rst")
+	if not (rst_v is Dictionary):
+		return result
+	var rst: Dictionary = rst_v as Dictionary
+	var arr_v: Variant = rst.get(key, [])
+	if not (arr_v is Array):
+		return result
+
+	for item: Variant in arr_v as Array:
+		if not (item is Dictionary):
+			continue
+		var msg: Dictionary = item as Dictionary
+		if _dict_int(msg, ["turn"], current_turn) == current_turn:
+			result.append(msg)
+
+	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var turn_a: int = _dict_int(a, ["turn"], 0)
+		var turn_b: int = _dict_int(b, ["turn"], 0)
+		if turn_a != turn_b:
+			return turn_a > turn_b
+		return _dict_int(a, ["id"], 0) > _dict_int(b, ["id"], 0)
+	)
+	return result
+
+func _add_message_entry(parent: VBoxContainer, msg: Dictionary, is_player_message: bool) -> void:
+	var entry: VBoxContainer = VBoxContainer.new()
+	entry.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	entry.add_theme_constant_override("separation", 3)
+	parent.add_child(entry)
+
+	var header: HBoxContainer = HBoxContainer.new()
+	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_theme_constant_override("separation", 4)
+	entry.add_child(header)
+
+	var from_id: int = _message_from_id(msg, is_player_message)
+	var to_id: int = _message_to_id(msg, is_player_message)
+	_add_message_party_label(header, "From: " + _message_party_label(from_id, false), _message_party_color(from_id, false))
+	_add_message_party_label(header, ">", Color(0.78, 0.86, 0.88, 1.0))
+	_add_message_party_label(header, "To: " + _message_party_label(to_id, true), _message_party_color(to_id, true))
+
+	var spacer: Control = Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(spacer)
+
+	var turn_label_msg: Label = Label.new()
+	turn_label_msg.text = "T%d" % _dict_int(msg, ["turn"], game_state.get_current_turn())
+	turn_label_msg.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	turn_label_msg.add_theme_color_override("font_color", Color(0.72, 0.78, 0.8, 1.0))
+	header.add_child(turn_label_msg)
+
+	var headline: String = _dict_string(msg, ["headline", "title", "subject"], "").strip_edges()
+	if not headline.is_empty():
+		var headline_label: Label = _add_wrapped_label(entry, headline, true)
+		headline_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+
+	var body: String = _message_body_text(_dict_string(msg, ["body", "message", "text"], ""))
+	if body.is_empty():
+		body = "-"
+	_add_wrapped_label(entry, body, false)
+
+	var coords: Vector2 = Vector2(float(msg.get("x", 0.0)), float(msg.get("y", 0.0)))
+	if coords.x > 0.0 or coords.y > 0.0:
+		var coords_label: Label = _add_wrapped_label(entry, "%.0f / %.0f" % [coords.x, coords.y], false)
+		coords_label.add_theme_color_override("font_color", Color(0.58, 0.7, 0.76, 1.0))
+
+	_add_separator(parent)
+
+func _message_from_id(msg: Dictionary, is_player_message: bool) -> int:
+	if not is_player_message:
+		return 0
+	var message_type: int = _dict_int(msg, ["messagetype"], 0)
+	var owner_id: int = _dict_int(msg, ["ownerid", "fromid", "senderid"], -1)
+	var target_id: int = _dict_int(msg, ["target", "toid", "recipientid"], -1)
+	if message_type == 18 and owner_id == int(game_state.my_player_id) and target_id > 0:
+		return target_id
+	return owner_id
+
+func _message_to_id(msg: Dictionary, is_player_message: bool) -> int:
+	if not is_player_message:
+		return _dict_int(msg, ["ownerid"], game_state.my_player_id)
+	var message_type: int = _dict_int(msg, ["messagetype"], 0)
+	var owner_id: int = _dict_int(msg, ["ownerid", "fromid", "senderid"], -1)
+	var target_id: int = _dict_int(msg, ["target", "toid", "recipientid"], game_state.my_player_id)
+	if message_type == 18 and owner_id == int(game_state.my_player_id):
+		return owner_id
+	return target_id
+
+func _add_message_party_label(parent: HBoxContainer, text: String, color: Color) -> void:
+	var label: Label = Label.new()
+	label.text = text
+	label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	label.add_theme_color_override("font_color", color)
+	parent.add_child(label)
+
+func _message_party_label(player_id: int, recipient: bool) -> String:
+	if player_id <= 0:
+		return "System" if not recipient else "Unknown"
+	var info: Dictionary = game_state.get_player_info(player_id)
+	var username: String = _dict_string(info, ["username"], "").strip_edges()
+	var base: String = _player_owner_label(player_id)
+	if not username.is_empty() and username != "dead":
+		base += " (" + username + ")"
+	if player_id == int(game_state.my_player_id):
+		base = "Me: " + base
+	return base
+
+func _message_party_color(player_id: int, recipient: bool) -> Color:
+	if player_id <= 0:
+		return Color(0.74, 0.78, 0.82, 1.0) if recipient else Color(0.95, 0.78, 0.46, 1.0)
+	var race_id: int = game_state.get_race_id_of_player(player_id)
+	var color: Color = RandAI_Config.get_player_color(player_id, race_id)
+	color.a = 1.0
+	return color
+
+func _message_body_text(raw: String) -> String:
+	var text: String = raw.replace("\r", "")
+	text = text.replace("<br/>", "\n")
+	text = text.replace("<br />", "\n")
+	text = text.replace("<br>", "\n")
+	text = text.replace("&nbsp;", " ")
+	text = text.replace("&amp;", "&")
+	text = text.replace("&lt;", "<")
+	text = text.replace("&gt;", ">")
+	text = text.replace("&quot;", "\"")
+	text = text.replace("&#39;", "'")
+	while text.find("\n\n\n") >= 0:
+		text = text.replace("\n\n\n", "\n\n")
+	return text.strip_edges()
 
 func _add_section_title(parent: VBoxContainer, text: String) -> Label:
 	_add_separator(parent)

@@ -830,8 +830,8 @@ func _draw_ship_summary_label(group: Array, center: Vector2) -> void:
 
 func _draw_map_text(pos: Vector2, text: String, color: Color) -> void:
 	var font: Font = ThemeDB.fallback_font
-	var scale: float = _screen_px_to_world(1.0)
-	draw_set_transform(pos, 0.0, Vector2(scale, scale))
+	var dscale: float = _screen_px_to_world(1.0)
+	draw_set_transform(pos, 0.0, Vector2(dscale, dscale))
 	draw_string(font, Vector2.ZERO, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, SHIP_LABEL_FONT_SIZE, color)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
