@@ -22,6 +22,7 @@ extends PanelContainer
 var planet_fc_edit: LineEdit = null
 var planet_fc_edit_planet_id: int = -1
 var planet_fc_random_armed: bool = true
+var location_nav_row: HBoxContainer = null
 
 # -------------------------
 # Economy (GridContainer columns=3)
@@ -100,6 +101,7 @@ var planet_fc_random_armed: bool = true
 
 func _ready() -> void:
 	_setup_planet_fc_editor()
+	_setup_location_nav_row()
 	close_btn.pressed.connect(_on_close_pressed)
 	game_state.selection_changed.connect(_on_selection_changed)
 	_update()
@@ -132,6 +134,24 @@ func _setup_planet_fc_editor() -> void:
 	parent.add_child(planet_fc_edit)
 	parent.move_child(planet_fc_edit, planet_fc_lbl.get_index())
 	planet_fc_lbl.visible = false
+
+func _setup_location_nav_row() -> void:
+	if location_nav_row != null:
+		return
+	var header_row: Control = planet_id_lbl.get_parent() as Control
+	if header_row == null:
+		return
+	var content: VBoxContainer = header_row.get_parent() as VBoxContainer
+	if content == null:
+		return
+
+	location_nav_row = HBoxContainer.new()
+	location_nav_row.name = "LocationNavRow"
+	location_nav_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	location_nav_row.add_theme_constant_override("separation", 6)
+	location_nav_row.visible = false
+	content.add_child(location_nav_row)
+	content.move_child(location_nav_row, header_row.get_index() + 1)
 	
 func _on_close_pressed() -> void:
 	hide()
@@ -139,7 +159,8 @@ func _on_close_pressed() -> void:
 func _on_selection_changed(kind: String, _selected_id: int) -> void:
 	if kind == "planet":
 		_update()
-	if self.visible == false: self.visible = true
+		if self.visible == false:
+			self.visible = true
 
 # -------------------------
 # Helpers
@@ -209,6 +230,7 @@ func _update() -> void:
 		planet_id_lbl.text = ""
 		planet_name_lbl.text = "No selection"
 		_set_planet_fc_editor("", false, -1)
+		_update_location_nav(null)
 		planet_owner_lbl.text = ""
 		coord_temp_lbl.text = ""
 		_set_all_unknown()
@@ -226,6 +248,7 @@ func _update() -> void:
 	planet_id_lbl.text = "ID %d" % p.planet_id
 	planet_name_lbl.text = p.name
 	_set_planet_fc_editor(p.friendlycode, is_mine, int(p.planet_id))
+	_update_location_nav(p)
 	var rid: int = GameState.get_owner_race_id_of_planet(p)
 	planet_owner_lbl.text = _owner_abbrev(rid)
 	planet_owner_lbl.add_theme_color_override(
@@ -501,6 +524,61 @@ func _set_planet_fc_editor(value: String, editable: bool, planet_id: int) -> voi
 	planet_fc_edit.editable = editable
 	planet_fc_edit.focus_mode = Control.FOCUS_ALL if editable else Control.FOCUS_NONE
 	planet_fc_edit.modulate = Color.WHITE if editable else Color(0.6, 0.6, 0.6)
+
+func _update_location_nav(p: PlanetData) -> void:
+	if location_nav_row == null:
+		return
+	_clear_children(location_nav_row)
+	if p == null:
+		location_nav_row.visible = false
+		return
+
+	var ships: Array[StarshipData] = _ships_at_position(p.x, p.y)
+	var has_starbase: bool = not game_state.get_starbase_for_planet(int(p.planet_id)).is_empty()
+	if ships.is_empty() and not has_starbase:
+		location_nav_row.visible = false
+		return
+
+	location_nav_row.visible = true
+	_add_location_nav_button(location_nav_row, "Planet", true, func() -> void:
+		pass
+	)
+	if has_starbase:
+		_add_location_nav_button(location_nav_row, "Starbase", false, func() -> void:
+			game_state.select_starbase(int(p.planet_id))
+		)
+	if not ships.is_empty():
+		var first_ship_id: int = int(ships[0].ship_id)
+		var label: String = "Ship #%d" % first_ship_id if ships.size() == 1 else "Ships (%d)" % ships.size()
+		_add_location_nav_button(location_nav_row, label, false, func() -> void:
+			game_state.select_ship(first_ship_id)
+		)
+
+func _add_location_nav_button(parent: HBoxContainer, text: String, disabled: bool, callback: Callable) -> void:
+	var btn: Button = Button.new()
+	btn.text = text
+	btn.disabled = disabled
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.add_theme_font_size_override("font_size", 12)
+	btn.pressed.connect(callback)
+	parent.add_child(btn)
+
+func _ships_at_position(x: float, y: float) -> Array[StarshipData]:
+	var result: Array[StarshipData] = []
+	for ship: StarshipData in game_state.starships:
+		if ship == null or ship.ishidden:
+			continue
+		if abs(ship.x - x) <= 0.01 and abs(ship.y - y) <= 0.01:
+			result.append(ship)
+	result.sort_custom(func(a: StarshipData, b: StarshipData) -> bool:
+		return int(a.ship_id) < int(b.ship_id)
+	)
+	return result
+
+func _clear_children(node: Node) -> void:
+	for child: Node in node.get_children():
+		node.remove_child(child)
+		child.queue_free()
 
 func _normalize_fc(value: String) -> String:
 	var s: String = value.strip_edges()

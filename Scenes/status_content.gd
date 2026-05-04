@@ -1,6 +1,6 @@
 extends HBoxContainer
 
-const PlanetMath = preload("res://Scripts/Services/PlanetMath.gd")
+const PlanetMathScript = preload("res://Scripts/Services/PlanetMath.gd")
 
 @onready var turn_label: Label = %TurnLabel
 @onready var race_label: Label = %RaceLabel
@@ -325,14 +325,12 @@ func _populate_ships_panel() -> void:
 	var cargo_capacity: int = _dict_int(hull, ["cargo"], 0)
 	var fuel_capacity: int = _dict_int(hull, ["fueltank", "fuel"], 0)
 	var cargo_used: int = _ship_cargo_used(ship.raw)
-	var stack: Array[StarshipData] = _ships_at_same_position(ship)
 
 	_add_summary_label(_ships_list, "#%d  %s%s" % [ship.ship_id, ship.display_hull_name(), hidden_text])
 	_add_wrapped_label(_ships_list, _player_owner_label(ship.ownerid), false).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	if not ship.name.strip_edges().is_empty() and ship.name != ship.display_hull_name():
 		_add_wrapped_label(_ships_list, ship.name, false).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	if stack.size() > 1:
-		_add_ship_stack_nav(_ships_list, stack, ship)
+	_add_location_nav(_ships_list, "ship", ship.x, ship.y, int(ship.ship_id))
 
 	_add_section_title(_ships_list, "Weapons")
 	var weapons: GridContainer = _add_key_value_grid(_ships_list)
@@ -397,6 +395,7 @@ func _populate_starbases_panel() -> void:
 	_add_summary_label(_starbases_list, "#%d  %s - %s" % [planet_id, p.name if p != null else "Unknown", base_type])
 	if p != null:
 		_add_wrapped_label(_starbases_list, "%s  %.0f / %.0f" % [_player_owner_label(int(p.ownerid)), p.x, p.y], false).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_add_location_nav(_starbases_list, "starbase", p.x, p.y, -1)
 
 	var base_defense: int = _dict_int(sb, ["defense", "defenseposts", "defense_posts"], 0)
 	var base_fighters: int = _dict_int(sb, ["fighters", "fightercount", "fighter_count"], 0)
@@ -566,39 +565,85 @@ func _random_safe_ship_fc(ship: StarshipData) -> String:
 		return RandAI_Config.random_safe_fc(rng, first_char)
 	return RandAI_Config.random_safe_fc()
 
-func _add_ship_stack_nav(parent: VBoxContainer, stack: Array[StarshipData], current_ship: StarshipData) -> void:
-	var index: int = _ship_stack_index(stack, int(current_ship.ship_id))
-	if index < 0:
+func _add_location_nav(parent: VBoxContainer, current_kind: String, x: float, y: float, current_ship_id: int = -1) -> void:
+	var p: PlanetData = _planet_at_position(x, y)
+	var ships: Array[StarshipData] = _ships_at_position(x, y)
+	var has_starbase: bool = p != null and not game_state.get_starbase_for_planet(int(p.planet_id)).is_empty()
+	if p == null and not has_starbase and ships.size() <= 1:
 		return
 
 	var row: HBoxContainer = HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 8)
+	row.add_theme_constant_override("separation", 6)
 	parent.add_child(row)
+
+	if p != null:
+		_add_location_nav_button(row, "Planet", current_kind == "planet", func() -> void:
+			game_state.select_planet(int(p.planet_id))
+		)
+
+	if has_starbase:
+		_add_location_nav_button(row, "Starbase", current_kind == "starbase", func() -> void:
+			game_state.select_starbase(int(p.planet_id))
+		)
+
+	if ships.size() <= 0:
+		return
+
+	if current_kind == "ship":
+		_add_ship_stack_nav_controls(row, ships, current_ship_id)
+	else:
+		var first_ship_id: int = int(ships[0].ship_id)
+		var label: String = "Ship #%d" % first_ship_id if ships.size() == 1 else "Ships (%d)" % ships.size()
+		_add_location_nav_button(row, label, false, func() -> void:
+			game_state.select_ship(first_ship_id)
+		)
+
+func _add_location_nav_button(parent: HBoxContainer, text: String, disabled: bool, callback: Callable) -> void:
+	var btn: Button = Button.new()
+	btn.text = text
+	btn.disabled = disabled
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	btn.pressed.connect(callback)
+	parent.add_child(btn)
+
+func _add_ship_stack_nav_controls(parent: HBoxContainer, stack: Array[StarshipData], current_ship_id: int) -> void:
+	var index: int = _ship_stack_index(stack, current_ship_id)
+	if index < 0:
+		index = 0
+
+	if stack.size() <= 1:
+		_add_location_nav_button(parent, "Ship #%d" % int(stack[0].ship_id), true, func() -> void:
+			pass
+		)
+		return
 
 	var prev_btn: Button = Button.new()
 	prev_btn.text = "<"
 	prev_btn.custom_minimum_size = Vector2(34.0, 0.0)
+	prev_btn.focus_mode = Control.FOCUS_NONE
 	prev_btn.pressed.connect(func() -> void:
 		var prev_index: int = (index - 1 + stack.size()) % stack.size()
 		game_state.select_ship(int(stack[prev_index].ship_id))
 	)
-	row.add_child(prev_btn)
+	parent.add_child(prev_btn)
 
 	var label: Label = Label.new()
-	label.text = "%d / %d at this position" % [index + 1, stack.size()]
+	label.text = "Ship %d / %d" % [index + 1, stack.size()]
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
-	row.add_child(label)
+	parent.add_child(label)
 
 	var next_btn: Button = Button.new()
 	next_btn.text = ">"
 	next_btn.custom_minimum_size = Vector2(34.0, 0.0)
+	next_btn.focus_mode = Control.FOCUS_NONE
 	next_btn.pressed.connect(func() -> void:
 		var next_index: int = (index + 1) % stack.size()
 		game_state.select_ship(int(stack[next_index].ship_id))
 	)
-	row.add_child(next_btn)
+	parent.add_child(next_btn)
 
 func _add_summary_label(parent: VBoxContainer, text: String) -> void:
 	var label: Label = _add_wrapped_label(parent, text, true)
@@ -638,11 +683,31 @@ func _planet_by_id(planet_id: int) -> PlanetData:
 			return p
 	return null
 
+func _planet_at_position(x: float, y: float) -> PlanetData:
+	for p: PlanetData in game_state.planets:
+		if p == null:
+			continue
+		if abs(p.x - x) <= 0.01 and abs(p.y - y) <= 0.01:
+			return p
+	return null
+
 func _ship_by_id(ship_id: int) -> StarshipData:
 	for ship: StarshipData in game_state.starships:
 		if ship != null and int(ship.ship_id) == ship_id:
 			return ship
 	return null
+
+func _ships_at_position(x: float, y: float) -> Array[StarshipData]:
+	var result: Array[StarshipData] = []
+	for ship: StarshipData in game_state.starships:
+		if ship == null or ship.ishidden:
+			continue
+		if abs(ship.x - x) <= 0.01 and abs(ship.y - y) <= 0.01:
+			result.append(ship)
+	result.sort_custom(func(a: StarshipData, b: StarshipData) -> bool:
+		return int(a.ship_id) < int(b.ship_id)
+	)
+	return result
 
 func _starbase_type_label(p: PlanetData, sb: Dictionary) -> String:
 	if _is_mining_station(p, sb):
@@ -694,9 +759,9 @@ func _starbase_build_label(sb: Dictionary) -> String:
 
 func _hull_name(hull_id: int) -> String:
 	var hull: Dictionary = _hull_info(hull_id)
-	var name: String = _dict_string(hull, ["name"], "")
-	if not name.is_empty():
-		return name
+	var hname: String = _dict_string(hull, ["name"], "")
+	if not hname.is_empty():
+		return hname
 	return "Hull %d" % hull_id
 
 func _planet_amount(value: float, unit: String) -> String:
@@ -765,18 +830,6 @@ func _ship_cargo_used(raw: Dictionary) -> int:
 		+ _dict_int(raw, ["megacredits"], 0) \
 		+ _dict_int(raw, ["ammo"], 0)
 
-func _ships_at_same_position(ship: StarshipData) -> Array[StarshipData]:
-	var result: Array[StarshipData] = []
-	for other: StarshipData in game_state.starships:
-		if other == null or other.ishidden:
-			continue
-		if abs(other.x - ship.x) <= 0.01 and abs(other.y - ship.y) <= 0.01:
-			result.append(other)
-	result.sort_custom(func(a: StarshipData, b: StarshipData) -> bool:
-		return int(a.ship_id) < int(b.ship_id)
-	)
-	return result
-
 func _ship_stack_index(stack: Array[StarshipData], ship_id: int) -> int:
 	for i: int in range(stack.size()):
 		if int(stack[i].ship_id) == ship_id:
@@ -796,10 +849,10 @@ func _ship_travel_distance(ship: StarshipData) -> float:
 		return max_distance
 	return 0.0
 
-func _weapon_count_name(count: int, name: String) -> String:
+func _weapon_count_name(count: int, wname: String) -> String:
 	if count <= 0:
 		return "none"
-	return "%d %s" % [count, name]
+	return "%d %s" % [count, wname]
 
 func _beam_name(beam_id: int) -> String:
 	if beam_id >= 0 and beam_id < PlanetMath.BEAM_NAMES.size():
