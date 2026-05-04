@@ -726,6 +726,45 @@ func set_ship_friendlycode(ship_id: int, fc: String) -> void:
 		_save_latest_turn_json()
 		emit_signal("orders_changed")
 
+func set_relation_to(relation_id: int, relation_to: int) -> bool:
+	if relation_to < -1 or relation_to > 4:
+		return false
+	if last_turn_json.is_empty():
+		return false
+
+	var rst_v: Variant = last_turn_json.get("rst")
+	if not (rst_v is Dictionary):
+		return false
+	var rst: Dictionary = rst_v as Dictionary
+	var relations_v: Variant = rst.get("relations")
+	if not (relations_v is Array):
+		return false
+	var relations: Array = relations_v as Array
+
+	for i: int in range(relations.size()):
+		var item: Variant = relations[i]
+		if not (item is Dictionary):
+			continue
+		var relation: Dictionary = item as Dictionary
+		var rid: int = int(float(relation.get("id", -1)))
+		if rid != relation_id:
+			continue
+		if int(float(relation.get("relationto", 0))) == relation_to:
+			return false
+		relation["relationto"] = relation_to
+		relations[i] = relation
+		rst["relations"] = relations
+		last_turn_json["rst"] = rst
+
+		if _batch_mode:
+			_batch_dirty = true
+		else:
+			_save_latest_turn_json()
+			emit_signal("orders_changed")
+		return true
+
+	return false
+
 func begin_batch_changes() -> void:
 	_batch_mode = true
 	_batch_dirty = false

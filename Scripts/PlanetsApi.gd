@@ -337,8 +337,19 @@ func _save_turn_with_savekey_and_merge(fresh_wrapper: Dictionary) -> void:
 		fields["Planet" + str(planet_id)] = packed_planet
 		command_count += 1
 
+	# -------------------------
+	# add changed relations
+	# -------------------------
+	if _relations_have_relevant_changes(fresh_rst, _pending_save_rst):
+		for relation: Dictionary in _relation_dicts(_pending_save_rst):
+			var relation_id: int = _to_int(relation.get("id", 0))
+			if relation_id <= 0:
+				continue
+			fields["Relation" + str(relation_id)] = _pack_relation_command(relation)
+			command_count += 1
+
 	if command_count <= 0:
-		emit_signal("save_failed", "No changed own planets found for upload")
+		emit_signal("save_failed", "No changed planets, ships or diplomacy found for upload")
 		return
 
 	# Perl reference: keycount = 8 + scalar(@commands)
@@ -432,6 +443,22 @@ static func _find_owned_planet_id_at_position(rst: Dictionary, owner_id: int, x:
 		return _to_int(pd.get("id", -1))
 
 	return -1
+
+static func _relation_dicts(rst: Dictionary) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var relations_v: Variant = rst.get("relations")
+	if not (relations_v is Array):
+		return result
+	for it: Variant in relations_v as Array:
+		if it is Dictionary:
+			result.append(it as Dictionary)
+	return result
+
+static func _find_relation_dict_by_id(rst: Dictionary, relation_id: int) -> Dictionary:
+	for relation: Dictionary in _relation_dicts(rst):
+		if _to_int(relation.get("id", -1)) == relation_id:
+			return relation
+	return {}
 
 static func _build_planet_save_command(orig_rst: Dictionary, pending_rst: Dictionary, planet_id: int) -> Dictionary:
 
@@ -638,6 +665,13 @@ static func _pack_ship_command(orig_rst: Dictionary, pending_rst: Dictionary, sh
 
 	return "|||".join(parts)
 
+static func _pack_relation_command(relation: Dictionary) -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	parts.append("Id:::" + _pack_field_value(_to_int(relation.get("id", 0))))
+	parts.append("RelationTo:::" + _pack_field_value(_to_int(relation.get("relationto", 0))))
+	parts.append("Color:::" + _pack_field_value(String(relation.get("color", ""))))
+	return "|||".join(parts)
+
 static func _pack_waypoints(value: Variant) -> String:
 	if value is Array:
 		var out: PackedStringArray = PackedStringArray()
@@ -705,4 +739,18 @@ static func _ship_has_relevant_changes(orig_rst: Dictionary, pending_rst: Dictio
 	if String(orig_ship.get("friendlycode", "")) != String(mod_ship.get("friendlycode", "")):
 		return true
 
+	return false
+
+static func _relations_have_relevant_changes(orig_rst: Dictionary, pending_rst: Dictionary) -> bool:
+	for mod_relation: Dictionary in _relation_dicts(pending_rst):
+		var relation_id: int = _to_int(mod_relation.get("id", -1))
+		if relation_id <= 0:
+			continue
+		var orig_relation: Dictionary = _find_relation_dict_by_id(orig_rst, relation_id)
+		if orig_relation.is_empty():
+			continue
+		if _to_int(orig_relation.get("relationto", 0)) != _to_int(mod_relation.get("relationto", 0)):
+			return true
+		if String(orig_relation.get("color", "")) != String(mod_relation.get("color", "")):
+			return true
 	return false

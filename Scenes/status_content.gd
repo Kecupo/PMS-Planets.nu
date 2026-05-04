@@ -595,6 +595,7 @@ func _relations_from_rst() -> Array[Dictionary]:
 	return result
 
 func _add_diplomacy_entry(parent: VBoxContainer, relation: Dictionary, player: Dictionary) -> void:
+	var relation_id: int = _dict_int(relation, ["id"], -1)
 	var player_id: int = _dict_int(relation, ["playertoid"], -1)
 	var relation_to: int = _dict_int(relation, ["relationto"], 0)
 	var relation_from: int = _dict_int(relation, ["relationfrom"], 0)
@@ -620,12 +621,37 @@ func _add_diplomacy_entry(parent: VBoxContainer, relation: Dictionary, player: D
 	title_row.add_child(state_label)
 
 	var details: GridContainer = _add_key_value_grid(parent)
-	_add_colored_kv(details, "We give", _relation_label(relation_to), _relation_color(relation_to))
+	_add_relation_editor(details, relation_id, relation_to)
 	_add_colored_kv(details, "They give", _relation_label(relation_from), _relation_color(relation_from))
 	var conflict_level: int = _dict_int(relation, ["conflictlevel"], 0)
 	if conflict_level > 0:
 		_add_colored_kv(details, "Conflict", str(conflict_level), Color(1.0, 0.48, 0.42, 1.0))
 	_add_separator(parent)
+
+func _add_relation_editor(parent: GridContainer, relation_id: int, current_value: int) -> void:
+	var key_label: Label = Label.new()
+	key_label.text = "We give"
+	key_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	key_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	parent.add_child(key_label)
+
+	var option: OptionButton = OptionButton.new()
+	option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	option.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	for value: int in [-1, 0, 1, 2, 3, 4]:
+		option.add_item(_relation_label(value), value)
+		var index: int = option.get_item_count() - 1
+		option.set_item_metadata(index, value)
+		if value == current_value:
+			option.select(index)
+	option.item_selected.connect(func(index: int) -> void:
+		var selected_value: int = int(option.get_item_metadata(index))
+		if selected_value == current_value:
+			return
+		if game_state.set_relation_to(relation_id, selected_value):
+			_populate_diplomacy_panel()
+	)
+	parent.add_child(option)
 
 func _add_colored_kv(parent: GridContainer, key: String, value: String, color: Color) -> void:
 	var key_label: Label = Label.new()
