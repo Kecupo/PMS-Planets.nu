@@ -19,6 +19,8 @@ extends PanelContainer
 @onready var planet_fc_lbl: Label = %PlanetFcLabel
 @onready var planet_owner_lbl: Label = %PlanetOwnerLabel
 @onready var coord_temp_lbl: Label = %CoordTempLabel  # temperature only (label name stays)
+var planet_fc_edit: LineEdit = null
+var planet_fc_edit_planet_id: int = -1
 
 # -------------------------
 # Economy (GridContainer columns=3)
@@ -96,6 +98,7 @@ extends PanelContainer
 @onready var m_m_mining: Label = %M_Moly_Mining
 
 func _ready() -> void:
+	_setup_planet_fc_editor()
 	close_btn.pressed.connect(_on_close_pressed)
 	game_state.selection_changed.connect(_on_selection_changed)
 	_update()
@@ -105,6 +108,29 @@ func _ready() -> void:
 	v_mines.value_changed.connect(_on_mines_changed)
 	v_def.value_changed.connect(_on_defense_changed)
 	GameState.orders_changed.connect(_on_orders_changed)
+
+func _setup_planet_fc_editor() -> void:
+	if planet_fc_lbl == null or planet_fc_edit != null:
+		return
+
+	var parent: Node = planet_fc_lbl.get_parent()
+	if parent == null:
+		return
+
+	planet_fc_edit = LineEdit.new()
+	planet_fc_edit.name = "PlanetFcEdit"
+	planet_fc_edit.max_length = 3
+	planet_fc_edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	planet_fc_edit.custom_minimum_size = planet_fc_lbl.custom_minimum_size
+	planet_fc_edit.size_flags_horizontal = planet_fc_lbl.size_flags_horizontal
+	planet_fc_edit.tooltip_text = "Friendly Code"
+	planet_fc_edit.text_submitted.connect(_on_planet_fc_submitted)
+	planet_fc_edit.focus_exited.connect(_commit_planet_fc_edit)
+	planet_fc_edit.gui_input.connect(_on_planet_fc_gui_input)
+
+	parent.add_child(planet_fc_edit)
+	parent.move_child(planet_fc_edit, planet_fc_lbl.get_index())
+	planet_fc_lbl.visible = false
 	
 func _on_close_pressed() -> void:
 	hide()
@@ -181,7 +207,7 @@ func _update() -> void:
 	if p == null:
 		planet_id_lbl.text = ""
 		planet_name_lbl.text = "No selection"
-		planet_fc_lbl.text = ""
+		_set_planet_fc_editor("", false, -1)
 		planet_owner_lbl.text = ""
 		coord_temp_lbl.text = ""
 		_set_all_unknown()
@@ -198,7 +224,7 @@ func _update() -> void:
 	# Header
 	planet_id_lbl.text = "ID %d" % p.planet_id
 	planet_name_lbl.text = p.name
-	planet_fc_lbl.text = p.friendlycode
+	_set_planet_fc_editor(p.friendlycode, is_mine, int(p.planet_id))
 	var rid: int = GameState.get_owner_race_id_of_planet(p)
 	planet_owner_lbl.text = _owner_abbrev(rid)
 	planet_owner_lbl.add_theme_color_override(
@@ -462,6 +488,59 @@ func _set_all_unknown() -> void:
 		# Horwasp
 	_set_label(v_larva, "?")
 	_set_label(v_burrows, "?")
+
+func _set_planet_fc_editor(value: String, editable: bool, planet_id: int) -> void:
+	if planet_fc_edit == null:
+		planet_fc_lbl.text = value
+		return
+	if not planet_fc_edit.has_focus() or planet_fc_edit_planet_id != planet_id:
+		planet_fc_edit.text = value
+	planet_fc_edit_planet_id = planet_id
+	planet_fc_edit.editable = editable
+	planet_fc_edit.focus_mode = Control.FOCUS_ALL if editable else Control.FOCUS_NONE
+	planet_fc_edit.modulate = Color.WHITE if editable else Color(0.6, 0.6, 0.6)
+
+func _normalize_fc(value: String) -> String:
+	var s: String = value.strip_edges()
+	if s.length() > 3:
+		s = s.substr(0, 3)
+	return s
+
+func _on_planet_fc_submitted(_text: String) -> void:
+	_commit_planet_fc_edit()
+
+func _commit_planet_fc_edit() -> void:
+	var p: PlanetData = game_state.get_selected_planet()
+	if p == null or planet_fc_edit == null:
+		return
+	if not game_state.is_my_planet(p):
+		_set_planet_fc_editor(p.friendlycode, false, int(p.planet_id))
+		return
+
+	var fc: String = _normalize_fc(planet_fc_edit.text)
+	planet_fc_edit.text = fc
+	if fc == p.friendlycode:
+		return
+	game_state.set_planet_friendlycode(int(p.planet_id), fc)
+
+func _on_planet_fc_gui_input(event: InputEvent) -> void:
+	if not (event is InputEventMouseButton):
+		return
+	var mouse_event: InputEventMouseButton = event as InputEventMouseButton
+	if mouse_event.button_index != MOUSE_BUTTON_LEFT or not mouse_event.pressed:
+		return
+	if planet_fc_edit == null or planet_fc_edit.has_focus():
+		return
+	var p: PlanetData = game_state.get_selected_planet()
+	if p == null or not game_state.is_my_planet(p):
+		return
+
+	var fc: String = RandAI_Config.random_safe_fc()
+	planet_fc_edit.text = fc
+	game_state.set_planet_friendlycode(int(p.planet_id), fc)
+	planet_fc_edit.grab_focus()
+	planet_fc_edit.select_all()
+	planet_fc_edit.accept_event()
 
 func _on_colonist_tax_changed(val: float) -> void:
 	var p: PlanetData = game_state.get_selected_planet()

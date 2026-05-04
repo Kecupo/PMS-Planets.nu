@@ -291,9 +291,34 @@ func _save_turn_with_savekey_and_merge(fresh_wrapper: Dictionary) -> void:
 	}
 
 	# -------------------------
-	# add changed planets
+	# add changed ships
 	# -------------------------
 	var command_count: int = 0
+	var forced_planet_ids: Dictionary = {}
+	for ship: StarshipData in GameState.starships:
+		if ship == null:
+			continue
+		if not GameState.is_my_ship(ship):
+			continue
+
+		var ship_id: int = int(ship.ship_id)
+		if not _ship_has_relevant_changes(fresh_rst, _pending_save_rst, ship_id):
+			continue
+
+		var packed_ship: String = _pack_ship_command(fresh_rst, _pending_save_rst, ship_id)
+		if packed_ship.is_empty():
+			continue
+
+		fields["Ship" + str(ship_id)] = packed_ship
+		command_count += 1
+
+		var owned_planet_id: int = _find_owned_planet_id_at_position(_pending_save_rst, int(ship.ownerid), float(ship.x), float(ship.y))
+		if owned_planet_id > 0:
+			forced_planet_ids[owned_planet_id] = true
+
+	# -------------------------
+	# add changed planets
+	# -------------------------
 	var my_planets: Array[PlanetData] = GameState.get_my_planets()
 
 	for p in my_planets:
@@ -302,7 +327,7 @@ func _save_turn_with_savekey_and_merge(fresh_wrapper: Dictionary) -> void:
 
 		var planet_id: int = int(p.planet_id)
 
-		if not _planet_has_relevant_changes(fresh_rst, _pending_save_rst, planet_id):
+		if not forced_planet_ids.has(planet_id) and not _planet_has_relevant_changes(fresh_rst, _pending_save_rst, planet_id):
 			continue
 
 		var packed_planet: String = _pack_planet_command(fresh_rst, _pending_save_rst, planet_id)
@@ -366,6 +391,48 @@ static func _find_planet_dict_by_id(rst: Dictionary, planet_id: int) -> Dictiona
 
 	return {}
 
+static func _find_ship_dict_by_id(rst: Dictionary, ship_id: int) -> Dictionary:
+	var ships_v: Variant = rst.get("ships")
+	if not (ships_v is Array):
+		return {}
+
+	var ships: Array = ships_v as Array
+	for it in ships:
+		if not (it is Dictionary):
+			continue
+		var sd: Dictionary = it as Dictionary
+
+		var id_v: Variant = sd.get("id", -1)
+		var sid: int = -1
+		if typeof(id_v) == TYPE_INT:
+			sid = int(id_v)
+		elif typeof(id_v) == TYPE_FLOAT:
+			sid = int(float(id_v))
+
+		if sid == ship_id:
+			return sd
+
+	return {}
+
+static func _find_owned_planet_id_at_position(rst: Dictionary, owner_id: int, x: float, y: float) -> int:
+	var planets_v: Variant = rst.get("planets")
+	if not (planets_v is Array):
+		return -1
+
+	for it in planets_v as Array:
+		if not (it is Dictionary):
+			continue
+		var pd: Dictionary = it as Dictionary
+		if _to_int(pd.get("ownerid", 0)) != owner_id:
+			continue
+		if abs(float(pd.get("x", 0.0)) - x) > 0.01:
+			continue
+		if abs(float(pd.get("y", 0.0)) - y) > 0.01:
+			continue
+		return _to_int(pd.get("id", -1))
+
+	return -1
+
 static func _build_planet_save_command(orig_rst: Dictionary, pending_rst: Dictionary, planet_id: int) -> Dictionary:
 
 	var orig_planet: Dictionary = _find_planet_dict_by_id(orig_rst, planet_id)
@@ -422,6 +489,49 @@ static func _build_planet_save_command(orig_rst: Dictionary, pending_rst: Dictio
 	cmd["ColHappyChange"] = _to_int(orig_planet.get("colhappychange", 0))
 	cmd["ColChange"] = _to_int(orig_planet.get("colchange", 0))
 	cmd["ReadyStatus"] = _to_int(orig_planet.get("readystatus", 0))
+
+	return cmd
+
+static func _build_ship_save_command(orig_rst: Dictionary, pending_rst: Dictionary, ship_id: int) -> Dictionary:
+	var orig_ship: Dictionary = _find_ship_dict_by_id(orig_rst, ship_id)
+	var mod_ship: Dictionary = _find_ship_dict_by_id(pending_rst, ship_id)
+
+	if orig_ship.is_empty() or mod_ship.is_empty():
+		return {}
+
+	var cmd: Dictionary = {}
+	cmd["Id"] = ship_id
+	cmd["Name"] = String(mod_ship.get("name", ""))
+	cmd["Neutronium"] = _to_int(mod_ship.get("neutronium", 0))
+	cmd["Duranium"] = _to_int(mod_ship.get("duranium", 0))
+	cmd["Tritanium"] = _to_int(mod_ship.get("tritanium", 0))
+	cmd["Molybdenum"] = _to_int(mod_ship.get("molybdenum", 0))
+	cmd["MegaCredits"] = _to_int(mod_ship.get("megacredits", 0))
+	cmd["Supplies"] = _to_int(mod_ship.get("supplies", 0))
+	cmd["Clans"] = _to_int(mod_ship.get("clans", 0))
+	cmd["Ammo"] = _to_int(mod_ship.get("ammo", 0))
+	cmd["TransferNeutronium"] = _to_int(mod_ship.get("transferneutronium", 0))
+	cmd["TransferDuranium"] = _to_int(mod_ship.get("transferduranium", 0))
+	cmd["TransferTritanium"] = _to_int(mod_ship.get("transfertritanium", 0))
+	cmd["TransferMolybdenum"] = _to_int(mod_ship.get("transfermolybdenum", 0))
+	cmd["TransferMegaCredits"] = _to_int(mod_ship.get("transfermegacredits", 0))
+	cmd["TransferSupplies"] = _to_int(mod_ship.get("transfersupplies", 0))
+	cmd["TransferClans"] = _to_int(mod_ship.get("transferclans", 0))
+	cmd["TransferAmmo"] = _to_int(mod_ship.get("transferammo", 0))
+	cmd["TransferTargetId"] = _to_int(mod_ship.get("transfertargetid", 0))
+	cmd["TransferTargetType"] = _to_int(mod_ship.get("transfertargettype", 0))
+	cmd["TargetX"] = mod_ship.get("targetx", orig_ship.get("targetx", 0))
+	cmd["TargetY"] = mod_ship.get("targety", orig_ship.get("targety", 0))
+	cmd["FriendlyCode"] = String(mod_ship.get("friendlycode", ""))
+	cmd["Warp"] = _to_int(mod_ship.get("warp", 0))
+	cmd["Mission"] = _to_int(mod_ship.get("mission", 0))
+	cmd["Mission1Target"] = _to_int(mod_ship.get("mission1target", 0))
+	cmd["Mission2Target"] = _to_int(mod_ship.get("mission2target", 0))
+	cmd["PodHullId"] = _to_int(mod_ship.get("podhullid", 0))
+	cmd["PodCargo"] = _to_int(mod_ship.get("podcargo", 0))
+	cmd["Enemy"] = _to_int(mod_ship.get("enemy", 0))
+	cmd["Waypoints"] = _pack_waypoints(mod_ship.get("waypoints", ""))
+	cmd["ReadyStatus"] = _to_int(mod_ship.get("readystatus", 0))
 
 	return cmd
 	
@@ -485,6 +595,61 @@ static func _pack_planet_command(orig_rst: Dictionary, pending_rst: Dictionary, 
 	parts.append("ReadyStatus:::" + _pack_field_value(cmd.get("ReadyStatus", 0)))
 
 	return "|||".join(parts)
+
+static func _pack_ship_command(orig_rst: Dictionary, pending_rst: Dictionary, ship_id: int) -> String:
+	var cmd: Dictionary = _build_ship_save_command(orig_rst, pending_rst, ship_id)
+	if cmd.is_empty():
+		return ""
+
+	var parts: PackedStringArray = PackedStringArray()
+
+	parts.append("Id:::" + _pack_field_value(cmd.get("Id", 0)))
+	parts.append("Name:::" + _pack_field_value(cmd.get("Name", "")))
+	parts.append("Neutronium:::" + _pack_field_value(cmd.get("Neutronium", 0)))
+	parts.append("Duranium:::" + _pack_field_value(cmd.get("Duranium", 0)))
+	parts.append("Tritanium:::" + _pack_field_value(cmd.get("Tritanium", 0)))
+	parts.append("Molybdenum:::" + _pack_field_value(cmd.get("Molybdenum", 0)))
+	parts.append("MegaCredits:::" + _pack_field_value(cmd.get("MegaCredits", 0)))
+	parts.append("Supplies:::" + _pack_field_value(cmd.get("Supplies", 0)))
+	parts.append("Clans:::" + _pack_field_value(cmd.get("Clans", 0)))
+	parts.append("Ammo:::" + _pack_field_value(cmd.get("Ammo", 0)))
+	parts.append("TransferNeutronium:::" + _pack_field_value(cmd.get("TransferNeutronium", 0)))
+	parts.append("TransferDuranium:::" + _pack_field_value(cmd.get("TransferDuranium", 0)))
+	parts.append("TransferTritanium:::" + _pack_field_value(cmd.get("TransferTritanium", 0)))
+	parts.append("TransferMolybdenum:::" + _pack_field_value(cmd.get("TransferMolybdenum", 0)))
+	parts.append("TransferMegaCredits:::" + _pack_field_value(cmd.get("TransferMegaCredits", 0)))
+	parts.append("TransferSupplies:::" + _pack_field_value(cmd.get("TransferSupplies", 0)))
+	parts.append("TransferClans:::" + _pack_field_value(cmd.get("TransferClans", 0)))
+	parts.append("TransferAmmo:::" + _pack_field_value(cmd.get("TransferAmmo", 0)))
+	parts.append("TransferTargetId:::" + _pack_field_value(cmd.get("TransferTargetId", 0)))
+	parts.append("TransferTargetType:::" + _pack_field_value(cmd.get("TransferTargetType", 0)))
+	parts.append("TargetX:::" + _pack_field_value(cmd.get("TargetX", 0)))
+	parts.append("TargetY:::" + _pack_field_value(cmd.get("TargetY", 0)))
+	parts.append("FriendlyCode:::" + _pack_field_value(cmd.get("FriendlyCode", "")))
+	parts.append("Warp:::" + _pack_field_value(cmd.get("Warp", 0)))
+	parts.append("Mission:::" + _pack_field_value(cmd.get("Mission", 0)))
+	parts.append("Mission1Target:::" + _pack_field_value(cmd.get("Mission1Target", 0)))
+	parts.append("Mission2Target:::" + _pack_field_value(cmd.get("Mission2Target", 0)))
+	parts.append("PodHullId:::" + _pack_field_value(cmd.get("PodHullId", 0)))
+	parts.append("PodCargo:::" + _pack_field_value(cmd.get("PodCargo", 0)))
+	parts.append("Enemy:::" + _pack_field_value(cmd.get("Enemy", 0)))
+	parts.append("Waypoints:::" + _pack_field_value(cmd.get("Waypoints", "")))
+	parts.append("ReadyStatus:::" + _pack_field_value(cmd.get("ReadyStatus", 0)))
+
+	return "|||".join(parts)
+
+static func _pack_waypoints(value: Variant) -> String:
+	if value is Array:
+		var out: PackedStringArray = PackedStringArray()
+		for it in value as Array:
+			if it is Dictionary:
+				var d: Dictionary = it as Dictionary
+				out.append("%s,%s" % [str(d.get("x", 0)), str(d.get("y", 0))])
+		if out.is_empty():
+			return ""
+		return ":".join(out) + ":"
+	return String(value)
+
 static func _planet_has_relevant_changes(orig_rst: Dictionary, pending_rst: Dictionary, planet_id: int) -> bool:
 	var orig_planet: Dictionary = _find_planet_dict_by_id(orig_rst, planet_id)
 	var mod_planet: Dictionary = _find_planet_dict_by_id(pending_rst, planet_id)
@@ -517,6 +682,18 @@ static func _planet_has_relevant_changes(orig_rst: Dictionary, pending_rst: Dict
 		return true
 
 	if _to_int(orig_planet.get("suppliessold", 0)) != _to_int(mod_planet.get("suppliessold", 0)):
+		return true
+
+	return false
+
+static func _ship_has_relevant_changes(orig_rst: Dictionary, pending_rst: Dictionary, ship_id: int) -> bool:
+	var orig_ship: Dictionary = _find_ship_dict_by_id(orig_rst, ship_id)
+	var mod_ship: Dictionary = _find_ship_dict_by_id(pending_rst, ship_id)
+
+	if orig_ship.is_empty() or mod_ship.is_empty():
+		return false
+
+	if String(orig_ship.get("friendlycode", "")) != String(mod_ship.get("friendlycode", "")):
 		return true
 
 	return false

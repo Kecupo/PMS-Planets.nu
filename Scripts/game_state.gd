@@ -391,6 +391,14 @@ func is_my_planet(p: PlanetData) -> bool:
 		return false
 
 	return oid == my_player_id
+
+func is_my_ship(ship: StarshipData) -> bool:
+	if ship == null:
+		return false
+	if my_player_id <= 0:
+		return false
+	return int(ship.ownerid) == my_player_id
+
 func set_planet_colonist_taxrate(planet_id: int, tax: int) -> void:
 	var v: int = clamp(tax, 0, 100)
 
@@ -598,6 +606,45 @@ func _set_planet_field_in_rst(planet_id: int, key: String, value: Variant) -> vo
 
 	push_error("GameState: planet id not found in rst.planets: " + str(planet_id))
 
+func _set_ship_field_in_rst(ship_id: int, key: String, value: Variant) -> void:
+	if last_turn_json.is_empty():
+		push_error("GameState: last_turn_json empty, cannot patch rst")
+		return
+
+	var rst_v: Variant = last_turn_json.get("rst")
+	if not (rst_v is Dictionary):
+		push_error("GameState: last_turn_json has no rst Dictionary")
+		return
+	var rst: Dictionary = rst_v as Dictionary
+
+	var ships_v: Variant = rst.get("ships")
+	if not (ships_v is Array):
+		push_error("GameState: rst.ships is not an Array")
+		return
+	var arr: Array = ships_v as Array
+
+	for i in range(arr.size()):
+		var it: Variant = arr[i]
+		if not (it is Dictionary):
+			continue
+		var sd: Dictionary = it as Dictionary
+
+		var id_v: Variant = sd.get("id", -1)
+		var sid: int = -1
+		if typeof(id_v) == TYPE_INT:
+			sid = int(id_v)
+		elif typeof(id_v) == TYPE_FLOAT:
+			sid = int(float(id_v))
+
+		if sid == ship_id:
+			sd[key] = value
+			arr[i] = sd
+			rst["ships"] = arr
+			last_turn_json["rst"] = rst
+			return
+
+	push_error("GameState: ship id not found in rst.ships: " + str(ship_id))
+
 func set_planet_friendlycode(planet_id: int, fc: String) -> void:
 	var s: String = fc.strip_edges()
 	if s.length() > 3:
@@ -610,6 +657,24 @@ func set_planet_friendlycode(planet_id: int, fc: String) -> void:
 	for p in planets:
 		if int(p.planet_id) == planet_id:
 			p.friendlycode = s
+			break
+
+	if _batch_mode:
+		_batch_dirty = true
+	else:
+		_save_latest_turn_json()
+		emit_signal("orders_changed")
+
+func set_ship_friendlycode(ship_id: int, fc: String) -> void:
+	var s: String = fc.strip_edges()
+	if s.length() > 3:
+		s = s.substr(0, 3)
+
+	_set_ship_field_in_rst(ship_id, "friendlycode", s)
+
+	for ship: StarshipData in starships:
+		if ship != null and int(ship.ship_id) == ship_id:
+			ship.raw["friendlycode"] = s
 			break
 
 	if _batch_mode:

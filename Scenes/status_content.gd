@@ -381,7 +381,7 @@ func _populate_ships_panel() -> void:
 	_add_kv(orders, "Experience", str(_dict_int(ship.raw, ["experience"], 0)))
 	_add_kv(orders, "Mission", _mission_label(_dict_int(ship.raw, ["mission"], 0), ship.ownerid))
 	_add_kv(orders, "Enemy", _enemy_label(_dict_int(ship.raw, ["enemy"], 0)))
-	_add_kv(orders, "Friendly Code", _dict_string(ship.raw, ["friendlycode", "friendly_code"], ""))
+	_add_ship_fc_editor(orders, ship)
 
 func _populate_starbases_panel() -> void:
 	_clear_children(_starbases_list)
@@ -480,6 +480,77 @@ func _add_kv(parent: GridContainer, key: String, value: String) -> void:
 	value_label.add_theme_color_override("font_color", Color(0.54, 1.0, 0.58, 1.0))
 	parent.add_child(value_label)
 
+func _add_ship_fc_editor(parent: GridContainer, ship: StarshipData) -> void:
+	var key_label: Label = Label.new()
+	key_label.text = "Friendly Code"
+	key_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	key_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	parent.add_child(key_label)
+
+	var edit: LineEdit = LineEdit.new()
+	edit.max_length = 3
+	edit.text = _dict_string(ship.raw, ["friendlycode", "friendly_code"], "")
+	edit.alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	edit.custom_minimum_size = Vector2(58.0, 0.0)
+	edit.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	edit.add_theme_color_override("font_color", Color(0.54, 1.0, 0.58, 1.0))
+	var editable: bool = game_state.is_my_ship(ship)
+	edit.editable = editable
+	edit.focus_mode = Control.FOCUS_ALL if editable else Control.FOCUS_NONE
+	edit.modulate = Color.WHITE if editable else Color(0.6, 0.6, 0.6)
+	var ship_id: int = int(ship.ship_id)
+	edit.text_submitted.connect(func(_text: String) -> void:
+		_commit_ship_fc_edit(ship_id, edit)
+	)
+	edit.focus_exited.connect(func() -> void:
+		_commit_ship_fc_edit(ship_id, edit)
+	)
+	edit.gui_input.connect(func(event: InputEvent) -> void:
+		_on_ship_fc_gui_input(event, ship_id, edit)
+	)
+	parent.add_child(edit)
+
+func _normalize_fc(value: String) -> String:
+	var s: String = value.strip_edges()
+	if s.length() > 3:
+		s = s.substr(0, 3)
+	return s
+
+func _commit_ship_fc_edit(ship_id: int, edit: LineEdit) -> void:
+	var ship: StarshipData = _ship_by_id(ship_id)
+	if ship == null or edit == null:
+		return
+	if not game_state.is_my_ship(ship):
+		edit.text = _dict_string(ship.raw, ["friendlycode", "friendly_code"], "")
+		return
+
+	var fc: String = _normalize_fc(edit.text)
+	edit.text = fc
+	var current_fc: String = _dict_string(ship.raw, ["friendlycode", "friendly_code"], "")
+	if fc == current_fc:
+		return
+	game_state.set_ship_friendlycode(ship_id, fc)
+
+func _on_ship_fc_gui_input(event: InputEvent, ship_id: int, edit: LineEdit) -> void:
+	if not (event is InputEventMouseButton):
+		return
+	var mouse_event: InputEventMouseButton = event as InputEventMouseButton
+	if mouse_event.button_index != MOUSE_BUTTON_LEFT or not mouse_event.pressed:
+		return
+	if edit == null or edit.has_focus():
+		return
+	var ship: StarshipData = _ship_by_id(ship_id)
+	if ship == null or not game_state.is_my_ship(ship):
+		return
+
+	var fc: String = RandAI_Config.random_safe_fc()
+	edit.text = fc
+	game_state.set_ship_friendlycode(ship_id, fc)
+	edit.grab_focus()
+	edit.select_all()
+	edit.accept_event()
+
 func _add_ship_stack_nav(parent: VBoxContainer, stack: Array[StarshipData], current_ship: StarshipData) -> void:
 	var index: int = _ship_stack_index(stack, int(current_ship.ship_id))
 	if index < 0:
@@ -550,6 +621,12 @@ func _planet_by_id(planet_id: int) -> PlanetData:
 	for p: PlanetData in game_state.planets:
 		if int(p.planet_id) == planet_id:
 			return p
+	return null
+
+func _ship_by_id(ship_id: int) -> StarshipData:
+	for ship: StarshipData in game_state.starships:
+		if ship != null and int(ship.ship_id) == ship_id:
+			return ship
 	return null
 
 func _starbase_type_label(p: PlanetData, sb: Dictionary) -> String:

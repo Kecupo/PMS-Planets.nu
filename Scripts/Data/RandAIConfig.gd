@@ -19,7 +19,10 @@ enum TaxMethod {
 # FC Config
 # -------------------------
 const SPECIAL_FCS_CASE_DEFAULT: PackedStringArray = [
-	"NUK", "ATT",
+	"NUK", "ATT", "BUM", "DMP", "EDF",
+	"POP", "TRG", "NTP", "MKT", "MSC", "BTT", "BTF", "BTM", "BDM", "CLN", "LFM",
+	"NAL", "ALD", "ALT", "ALM", "NAD", "NAT", "NAM", "NBR", "HYP",
+	"MD", "MI", "GS",
 	"PB0", "PB1", "PB2", "PB3", "PB4", "PB5", "PB6", "PB7", "PB8", "PB9",
 	"RB0", "RB1", "RB2", "RB3", "RB4", "RB5", "RB6", "RB7", "RB8", "RB9"
 ]
@@ -334,6 +337,28 @@ func is_fc_protected(fc: String) -> bool:
 			return true
 
 	return false
+
+func random_safe_fc(rng: RandomNumberGenerator = null) -> String:
+	var local_rng: RandomNumberGenerator = rng
+	if local_rng == null:
+		local_rng = RandomNumberGenerator.new()
+		local_rng.randomize()
+
+	const LETTERS: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	const ALNUM: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+	for _i in range(200):
+		var fc: String = LETTERS[local_rng.randi_range(0, LETTERS.length() - 1)]
+		fc += ALNUM[local_rng.randi_range(0, ALNUM.length() - 1)]
+		fc += ALNUM[local_rng.randi_range(0, ALNUM.length() - 1)]
+		var fc_u: String = fc.to_upper()
+		if SPECIAL_FCS_CASE_DEFAULT.has(fc_u):
+			continue
+		if is_fc_protected(fc_u):
+			continue
+		return fc
+
+	return "AAA"
 
 # -----------------------------------------------------------------------------
 # Readers
