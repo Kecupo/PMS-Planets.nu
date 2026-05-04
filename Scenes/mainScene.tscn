@@ -728,6 +728,12 @@ custom_minimum_size = Vector2(88, 24)
 layout_mode = 2
 text = "Reports"
 
+[node name="DiplomacyButton" type="Button" parent="UILayer/UIRoot/RootLayout/StatusBar/StatusContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(112, 24)
+layout_mode = 2
+text = "Diplomacy"
+
 [node name="StatusSpacer" type="Control" parent="UILayer/UIRoot/RootLayout/StatusBar/StatusContent"]
 layout_mode = 2
 size_flags_horizontal = 3

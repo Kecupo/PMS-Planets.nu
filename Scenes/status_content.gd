@@ -2,7 +2,9 @@ extends HBoxContainer
 
 const PlanetMathScript = preload("res://Scripts/Services/PlanetMath.gd")
 
+@onready var turn_text_label: Label = $Turn
 @onready var turn_label: Label = %TurnLabel
+@onready var race_text_label: Label = $Race
 @onready var race_label: Label = %RaceLabel
 @onready var planets_button: Button = %PlanetsButton
 @onready var ships_button: Button = %ShipsButton
@@ -10,6 +12,7 @@ const PlanetMathScript = preload("res://Scripts/Services/PlanetMath.gd")
 @onready var vcr_button: Button = %VcrButton
 @onready var messages_button: Button = %MessagesButton
 @onready var reports_button: Button = %ReportsButton
+@onready var diplomacy_button: Button = %DiplomacyButton
 @onready var game_state: Node = get_node("/root/GameState")
 @onready var overlay_root: Control = $"../../OverlayRoot"
 @onready var planet_info_panel: Control = $"../../OverlayRoot/PlanetInfoPanel"
@@ -19,6 +22,7 @@ const GODOT_EXE_FALLBACK: String = "C:/Tools/godot.exe"
 const PANEL_SIZE: Vector2 = Vector2(477.0, 708.0)
 const PANEL_POS: Vector2 = Vector2(8.0, 7.0)
 const PANEL_BODY_FONT_SIZE: int = 13
+const STATUS_INFO_FONT_SIZE: int = 20
 const STATUS_ARROW_MIN_SIZE: Vector2 = Vector2(28.0, 0.0)
 const TORPEDO_NAMES: PackedStringArray = [
 	"None",
@@ -54,10 +58,13 @@ var _messages_panel: PanelContainer = null
 var _messages_list: VBoxContainer = null
 var _reports_panel: PanelContainer = null
 var _reports_list: VBoxContainer = null
+var _diplomacy_panel: PanelContainer = null
+var _diplomacy_list: VBoxContainer = null
 var _status_controls_installed: bool = false
 
 func _ready() -> void:
 	_install_status_controls()
+	_style_status_info()
 	_update_status()
 	planets_button.pressed.connect(_on_planets_button_pressed)
 	ships_button.pressed.connect(_on_ships_button_pressed)
@@ -65,6 +72,7 @@ func _ready() -> void:
 	vcr_button.pressed.connect(_on_vcr_button_pressed)
 	messages_button.pressed.connect(_on_messages_button_pressed)
 	reports_button.pressed.connect(_on_reports_button_pressed)
+	diplomacy_button.pressed.connect(_on_diplomacy_button_pressed)
 
 	if game_state.has_signal("turn_loaded"):
 		game_state.connect("turn_loaded", Callable(self, "_update_status"))
@@ -75,6 +83,18 @@ func _ready() -> void:
 func _update_status() -> void:
 	turn_label.text = str(game_state.get_current_turn())
 	race_label.text = _owner_abbrev(game_state.get_my_race_id())
+	turn_label.add_theme_color_override("font_color", Color(0.52, 0.86, 1.0, 1.0))
+	var race_color: Color = RandAI_Config.get_player_color(game_state.my_player_id, game_state.get_my_race_id())
+	race_color.a = 1.0
+	race_label.add_theme_color_override("font_color", race_color)
+
+func _style_status_info() -> void:
+	for label: Label in [turn_text_label, turn_label, race_text_label, race_label]:
+		label.add_theme_font_size_override("font_size", STATUS_INFO_FONT_SIZE)
+		label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.8))
+		label.add_theme_constant_override("outline_size", 2)
+	turn_text_label.add_theme_color_override("font_color", Color(0.82, 0.9, 0.92, 1.0))
+	race_text_label.add_theme_color_override("font_color", Color(0.82, 0.9, 0.92, 1.0))
 
 func _owner_abbrev(race_id: int) -> String:
 	if game_state.config == null:
@@ -103,6 +123,8 @@ func _install_status_controls() -> void:
 		_add_status_separator_after(messages_button.get_index())
 	if reports_button != null:
 		_add_status_separator_after(reports_button.get_index())
+	if diplomacy_button != null:
+		_add_status_separator_after(diplomacy_button.get_index())
 
 	_add_status_separator_after(turn_label.get_index())
 
@@ -156,6 +178,12 @@ func _on_reports_button_pressed() -> void:
 	_hide_all_info_panels()
 	_populate_reports_panel()
 	_reports_panel.visible = true
+
+func _on_diplomacy_button_pressed() -> void:
+	_ensure_diplomacy_panel()
+	_hide_all_info_panels()
+	_populate_diplomacy_panel()
+	_diplomacy_panel.visible = true
 
 func _select_previous_planet() -> void:
 	_select_planet_relative(-1)
@@ -239,6 +267,8 @@ func _refresh_open_info_panel() -> void:
 		_populate_messages_panel()
 	if _reports_panel != null and _reports_panel.visible:
 		_populate_reports_panel()
+	if _diplomacy_panel != null and _diplomacy_panel.visible:
+		_populate_diplomacy_panel()
 
 func _on_selection_changed(kind: String, selected_id: int) -> void:
 	if kind == "planet" and selected_id >= 0:
@@ -267,6 +297,8 @@ func _hide_aux_info_panels() -> void:
 		_messages_panel.visible = false
 	if _reports_panel != null:
 		_reports_panel.visible = false
+	if _diplomacy_panel != null:
+		_diplomacy_panel.visible = false
 
 func _ensure_ships_panel() -> void:
 	if _ships_panel != null:
@@ -295,6 +327,13 @@ func _ensure_reports_panel() -> void:
 	var parts: Dictionary = _create_info_panel("Turn Reports")
 	_reports_panel = parts["panel"] as PanelContainer
 	_reports_list = parts["list"] as VBoxContainer
+
+func _ensure_diplomacy_panel() -> void:
+	if _diplomacy_panel != null:
+		return
+	var parts: Dictionary = _create_info_panel("Diplomacy")
+	_diplomacy_panel = parts["panel"] as PanelContainer
+	_diplomacy_list = parts["list"] as VBoxContainer
 
 func _create_info_panel(title: String) -> Dictionary:
 	var panel: PanelContainer = PanelContainer.new()
@@ -517,6 +556,145 @@ func _populate_reports_panel() -> void:
 	_add_summary_label(_reports_list, "%d reports for turn %d" % [turn_reports.size(), current_turn])
 	for msg: Dictionary in turn_reports:
 		_add_message_entry(_reports_list, msg, false)
+
+func _populate_diplomacy_panel() -> void:
+	_clear_children(_diplomacy_list)
+
+	var relations: Array[Dictionary] = _relations_from_rst()
+	if relations.is_empty():
+		_add_summary_label(_diplomacy_list, "No diplomacy data")
+		return
+
+	_add_summary_label(_diplomacy_list, "Current relations")
+	for relation: Dictionary in relations:
+		var player_id: int = _dict_int(relation, ["playertoid"], -1)
+		if player_id <= 0 or player_id == int(game_state.my_player_id):
+			continue
+		var player: Dictionary = game_state.get_player_info(player_id)
+		if int(player.get("status", 1)) == 3:
+			continue
+		_add_diplomacy_entry(_diplomacy_list, relation, player)
+
+func _relations_from_rst() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if game_state.last_turn_json.is_empty():
+		return result
+	var rst_v: Variant = game_state.last_turn_json.get("rst")
+	if not (rst_v is Dictionary):
+		return result
+	var rst: Dictionary = rst_v as Dictionary
+	var rel_v: Variant = rst.get("relations", [])
+	if not (rel_v is Array):
+		return result
+	for item: Variant in rel_v as Array:
+		if item is Dictionary:
+			result.append(item as Dictionary)
+	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return _dict_int(a, ["playertoid"], 0) < _dict_int(b, ["playertoid"], 0)
+	)
+	return result
+
+func _add_diplomacy_entry(parent: VBoxContainer, relation: Dictionary, player: Dictionary) -> void:
+	var player_id: int = _dict_int(relation, ["playertoid"], -1)
+	var relation_to: int = _dict_int(relation, ["relationto"], 0)
+	var relation_from: int = _dict_int(relation, ["relationfrom"], 0)
+
+	var title_row: HBoxContainer = HBoxContainer.new()
+	title_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title_row.add_theme_constant_override("separation", 6)
+	parent.add_child(title_row)
+
+	var player_label: Label = Label.new()
+	player_label.text = _message_party_label(player_id, true)
+	player_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	player_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	player_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	player_label.add_theme_color_override("font_color", _message_party_color(player_id, true))
+	title_row.add_child(player_label)
+
+	var state_label: Label = Label.new()
+	state_label.text = _combined_relation_label(relation_to, relation_from)
+	state_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	state_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	state_label.add_theme_color_override("font_color", _relation_color(max(relation_to, relation_from)))
+	title_row.add_child(state_label)
+
+	var details: GridContainer = _add_key_value_grid(parent)
+	_add_colored_kv(details, "We give", _relation_label(relation_to), _relation_color(relation_to))
+	_add_colored_kv(details, "They give", _relation_label(relation_from), _relation_color(relation_from))
+	var conflict_level: int = _dict_int(relation, ["conflictlevel"], 0)
+	if conflict_level > 0:
+		_add_colored_kv(details, "Conflict", str(conflict_level), Color(1.0, 0.48, 0.42, 1.0))
+	_add_separator(parent)
+
+func _add_colored_kv(parent: GridContainer, key: String, value: String, color: Color) -> void:
+	var key_label: Label = Label.new()
+	key_label.text = key
+	key_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	key_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	parent.add_child(key_label)
+
+	var value_label: Label = Label.new()
+	value_label.text = value
+	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	value_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	value_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	value_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	value_label.add_theme_color_override("font_color", color)
+	parent.add_child(value_label)
+
+func _combined_relation_label(relation_to: int, relation_from: int) -> String:
+	if relation_to == relation_from:
+		match relation_to:
+			-1:
+				return "Communication blocked"
+			0:
+				return "None"
+			1:
+				return "Open communication"
+			2:
+				return "Peace agreement"
+			3:
+				return "Intelligence agreement"
+			4:
+				return "Full alliance"
+			_:
+				return "Relation %d" % relation_to
+	return "Asymmetric"
+
+func _relation_label(value: int) -> String:
+	match value:
+		-1:
+			return "Blocked"
+		0:
+			return "None"
+		1:
+			return "Ambassador"
+		2:
+			return "Safe Passage"
+		3:
+			return "Share Intel"
+		4:
+			return "Full Alliance"
+		_:
+			return "Relation %d" % value
+
+func _relation_color(value: int) -> Color:
+	match value:
+		-1:
+			return Color(1.0, 0.34, 0.34, 1.0)
+		0:
+			return Color(0.68, 0.72, 0.74, 1.0)
+		1:
+			return Color(0.86, 0.82, 0.55, 1.0)
+		2:
+			return Color(0.62, 0.9, 0.58, 1.0)
+		3:
+			return Color(0.48, 0.78, 1.0, 1.0)
+		4:
+			return Color(0.72, 0.56, 1.0, 1.0)
+		_:
+			return Color(0.85, 0.9, 0.92, 1.0)
 
 func _filtered_player_messages(current_turn: int) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
