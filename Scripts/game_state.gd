@@ -115,6 +115,7 @@ func _process_loaded_turn(parsed: Dictionary) -> void:
 	starclusters = turn_data_model.starclusters
 	rebuild_my_planets_cache()
 	rebuild_planet_start_state_cache()
+	annotate_minefield_friendly_codes(rst)
 	
 	# Load static game config once (races, advantages, etc.)
 	if config.races_by_id.is_empty():
@@ -593,6 +594,120 @@ func rebuild_planet_start_state_cache() -> void:
 			"supplies": int(p.supplies),
 			"suppliessold": int(p.raw.get("suppliessold", 0))
 		}
+
+func annotate_minefield_friendly_codes(rst: Dictionary) -> void:
+	for mf: MinefieldData in minefields:
+		if mf == null:
+			continue
+		_reset_minefield_fc_annotations(mf)
+		if mf.isweb:
+			continue
+		var nearest_owner_planet: PlanetData = _nearest_planet_owned_by(int(mf.ownerid), Vector2(mf.x, mf.y))
+		if nearest_owner_planet != null:
+			mf.fc_planet_id = int(nearest_owner_planet.planet_id)
+			mf.fc_planet_name = nearest_owner_planet.name
+			mf.resolved_friendlycode = String(nearest_owner_planet.friendlycode)
+
+	_annotate_safe_passage_fc_reports(rst)
+
+func _reset_minefield_fc_annotations(mf: MinefieldData) -> void:
+	mf.fc_planet_id = -1
+	mf.fc_planet_name = ""
+	mf.resolved_friendlycode = ""
+	mf.suspected_passage_fc = ""
+	mf.suspected_passage_ship_id = -1
+	mf.suspected_passage_planet_id = -1
+	mf.suspected_passage_planet_name = ""
+	mf.suspected_passage_from_report = false
+
+func _annotate_safe_passage_fc_reports(rst: Dictionary) -> void:
+	var messages_v: Variant = rst.get("messages", [])
+	if not (messages_v is Array):
+		return
+	for item: Variant in messages_v as Array:
+		if not (item is Dictionary):
+			continue
+		var msg: Dictionary = item as Dictionary
+		if int(float(msg.get("messagetype", 0))) != 19:
+			continue
+		if int(float(msg.get("turn", current_turn))) != current_turn:
+			continue
+		var body: String = String(msg.get("body", ""))
+		if body.find("has granted us safe passage") < 0:
+			continue
+		var minefield_id: int = int(float(msg.get("target", -1)))
+		var mf: MinefieldData = _minefield_by_id(minefield_id)
+		if mf == null or mf.isweb:
+			continue
+		if _relation_from_player(int(mf.ownerid)) >= 2:
+			continue
+		var ship_id: int = _ship_id_from_message_headline(String(msg.get("headline", "")))
+		var ship: StarshipData = _ship_by_id(ship_id)
+		if ship == null:
+			continue
+		var ship_fc: String = String(ship.raw.get("friendlycode", "")).strip_edges()
+		if ship_fc.is_empty():
+			continue
+		mf.suspected_passage_from_report = true
+		mf.suspected_passage_ship_id = ship_id
+		mf.suspected_passage_fc = ship_fc
+		mf.suspected_passage_planet_id = mf.fc_planet_id
+		mf.suspected_passage_planet_name = mf.fc_planet_name
+
+func _minefield_by_id(minefield_id: int) -> MinefieldData:
+	for mf: MinefieldData in minefields:
+		if mf != null and int(mf.minefield_id) == minefield_id:
+			return mf
+	return null
+
+func _ship_by_id(ship_id: int) -> StarshipData:
+	if ship_id <= 0:
+		return null
+	for ship: StarshipData in starships:
+		if ship != null and int(ship.ship_id) == ship_id:
+			return ship
+	return null
+
+func _ship_id_from_message_headline(headline: String) -> int:
+	var re: RegEx = RegEx.new()
+	if re.compile("ID#(\\d+)") != OK:
+		return -1
+	var m: RegExMatch = re.search(headline)
+	if m == null:
+		return -1
+	return int(m.get_string(1))
+
+func _nearest_planet_owned_by(owner_id: int, pos: Vector2) -> PlanetData:
+	if owner_id <= 0:
+		return null
+	var best: PlanetData = null
+	var best_dist2: float = INF
+	for p: PlanetData in planets:
+		if p == null or int(p.ownerid) != owner_id:
+			continue
+		var d2: float = Vector2(p.x, p.y).distance_squared_to(pos)
+		if d2 < best_dist2:
+			best_dist2 = d2
+			best = p
+	return best
+
+func _relation_from_player(player_id: int) -> int:
+	if player_id <= 0 or last_turn_json.is_empty():
+		return 0
+	var rst_v: Variant = last_turn_json.get("rst")
+	if not (rst_v is Dictionary):
+		return 0
+	var rst: Dictionary = rst_v as Dictionary
+	var relations_v: Variant = rst.get("relations", [])
+	if not (relations_v is Array):
+		return 0
+	for item: Variant in relations_v as Array:
+		if not (item is Dictionary):
+			continue
+		var relation: Dictionary = item as Dictionary
+		if int(float(relation.get("playertoid", -1))) == player_id:
+			return int(float(relation.get("relationfrom", 0)))
+	return 0
 
 func get_planet_start_state(planet_id: int) -> Dictionary:
 	return planet_start_state_by_id.get(planet_id, {})

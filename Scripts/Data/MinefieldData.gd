@@ -11,6 +11,14 @@ var infoturn: int = 0
 var ishidden: bool = false
 var isweb: bool = false
 var friendlycode: String = "???"
+var fc_planet_id: int = -1
+var fc_planet_name: String = ""
+var resolved_friendlycode: String = ""
+var suspected_passage_fc: String = ""
+var suspected_passage_ship_id: int = -1
+var suspected_passage_planet_id: int = -1
+var suspected_passage_planet_name: String = ""
+var suspected_passage_from_report: bool = false
 
 func apply_dict(d: Dictionary) -> void:
 	minefield_id = int(float(d.get("id", minefield_id)))

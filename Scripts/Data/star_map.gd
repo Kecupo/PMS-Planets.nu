@@ -37,7 +37,7 @@ const STARCLUSTER_RADIATION_COLOR: Color = Color(0.82, 0.84, 0.88, 0.08)
 const STARCLUSTER_OUTLINE_COLOR: Color = Color(0.80, 0.82, 0.86, 0.55)
 var hover_layer: CanvasLayer = null
 var hover_panel: PanelContainer = null
-var hover_label: Label = null
+var hover_label: RichTextLabel = null
 var _last_hover_mouse_pos: Vector2 = Vector2(INF, INF)
 var _last_hover_camera_pos: Vector2 = Vector2(INF, INF)
 var _last_hover_camera_zoom: Vector2 = Vector2(INF, INF)
@@ -83,11 +83,15 @@ func _center_camera_on_selection(kind: String) -> void:
 func _process(_delta: float) -> void:
 	var mouse_pos: Vector2 = get_viewport().get_mouse_position()
 	var camera: Camera2D = $Camera2D
+	var blink_active: bool = _has_blinking_minefields()
+	if blink_active:
+		queue_redraw()
 
 	var zoom_changed: bool = camera.zoom != _last_hover_camera_zoom
 	if mouse_pos == _last_hover_mouse_pos \
 	and camera.position == _last_hover_camera_pos \
-	and not zoom_changed:
+	and not zoom_changed \
+	and not blink_active:
 		return
 
 	_last_hover_mouse_pos = mouse_pos
@@ -282,10 +286,13 @@ func _create_hover_overlay() -> void:
 	hover_panel.add_theme_stylebox_override("panel", style)
 	hover_layer.add_child(hover_panel)
 
-	hover_label = Label.new()
+	hover_label = RichTextLabel.new()
 	hover_label.name = "MapHoverInfoLabel"
 	hover_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hover_label.custom_minimum_size = Vector2(HOVER_PANEL_WIDTH - 20.0, 0.0)
+	hover_label.bbcode_enabled = true
+	hover_label.fit_content = true
+	hover_label.scroll_active = false
 	hover_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hover_label.add_theme_color_override("font_color", Color(0.90, 0.96, 0.98, 1.0))
 	hover_panel.add_child(hover_label)
@@ -459,6 +466,29 @@ func _append_minefield_hover(lines: PackedStringArray, world_pos: Vector2) -> vo
 				_player_owner_label(mf.ownerid)
 			]
 		)
+		if not mf.isweb:
+			if mf.suspected_passage_from_report:
+				lines.append(_red_hover_line("Safe-passage FC: %s (Ship #%d)" % [mf.suspected_passage_fc, mf.suspected_passage_ship_id]))
+				lines.append(_red_hover_line("FC planet: %s" % _minefield_fc_planet_label(mf)))
+			elif int(mf.ownerid) == int(game_state.my_player_id):
+				var fc: String = mf.resolved_friendlycode if not mf.resolved_friendlycode.is_empty() else mf.friendlycode
+				lines.append("FC: %s (%s)" % [fc, _minefield_fc_planet_label(mf)])
+
+func _minefield_fc_planet_label(mf: MinefieldData) -> String:
+	if mf == null:
+		return "unknown"
+	if mf.fc_planet_id > 0:
+		var pname: String = mf.fc_planet_name
+		if pname.is_empty():
+			pname = "Planet"
+		return "%s #%d" % [pname, mf.fc_planet_id]
+	return "unknown"
+
+func _red_hover_line(text: String) -> String:
+	return "[color=#ff5a5a]" + _bbcode_escape(text) + "[/color]"
+
+func _bbcode_escape(text: String) -> String:
+	return text.replace("[", "\\[").replace("]", "\\]")
 
 func _append_starcluster_hover(lines: PackedStringArray, map_pos: Vector2) -> void:
 	for star: StarClusterData in game_state.starclusters:
@@ -644,6 +674,12 @@ func _ship_target_to_world(ship: StarshipData) -> Vector2:
 func _minefield_color(mf: MinefieldData) -> Color:
 	var race_id: int = game_state.get_race_id_of_player(mf.ownerid)
 	return RandAI_Config.get_player_color(mf.ownerid, race_id)
+
+func _has_blinking_minefields() -> bool:
+	for mf: MinefieldData in game_state.minefields:
+		if mf != null and mf.suspected_passage_from_report:
+			return true
+	return false
 	
 func _draw_minefields() -> void:
 	for mf: MinefieldData in game_state.minefields:
@@ -667,6 +703,16 @@ func _draw_minefields() -> void:
 			_draw_web_mine_hatching(center, mf.radius, color)
 
 		draw_circle(center, mf.radius, color)
+		if mf.suspected_passage_from_report:
+			_draw_suspected_minefield_marker(center, mf.radius)
+
+func _draw_suspected_minefield_marker(center: Vector2, radius: float) -> void:
+	var phase: float = float(Time.get_ticks_msec()) / 900.0
+	var pulse: float = 0.35 + 0.35 * (sin(phase) + 1.0) * 0.5
+	var fill: Color = Color(1.0, 0.08, 0.08, 0.05 + pulse * 0.10)
+	var outline: Color = Color(1.0, 0.12, 0.08, 0.40 + pulse * 0.45)
+	draw_circle(center, radius, fill)
+	draw_arc(center, radius, 0.0, TAU, 96, outline, 2.5 / maxf($Camera2D.zoom.x, 0.001), true)
 
 func _draw_starships() -> void:
 	if game_state.starships.is_empty():
