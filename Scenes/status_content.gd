@@ -566,6 +566,7 @@ func _populate_diplomacy_panel() -> void:
 		return
 
 	_add_summary_label(_diplomacy_list, "Current relations")
+	_add_wrapped_label(_diplomacy_list, _diplomacy_limit_summary(), false)
 	for relation: Dictionary in relations:
 		var player_id: int = _dict_int(relation, ["playertoid"], -1)
 		if player_id <= 0 or player_id == int(game_state.my_player_id):
@@ -621,14 +622,14 @@ func _add_diplomacy_entry(parent: VBoxContainer, relation: Dictionary, player: D
 	title_row.add_child(state_label)
 
 	var details: GridContainer = _add_key_value_grid(parent)
-	_add_relation_editor(details, relation_id, relation_to)
+	_add_relation_editor(details, relation_id, player_id, relation_to)
 	_add_colored_kv(details, "They give", _relation_label(relation_from), _relation_color(relation_from))
 	var conflict_level: int = _dict_int(relation, ["conflictlevel"], 0)
 	if conflict_level > 0:
 		_add_colored_kv(details, "Conflict", str(conflict_level), Color(1.0, 0.48, 0.42, 1.0))
 	_add_separator(parent)
 
-func _add_relation_editor(parent: GridContainer, relation_id: int, current_value: int) -> void:
+func _add_relation_editor(parent: GridContainer, relation_id: int, player_id: int, current_value: int) -> void:
 	var key_label: Label = Label.new()
 	key_label.text = "We give"
 	key_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -642,16 +643,108 @@ func _add_relation_editor(parent: GridContainer, relation_id: int, current_value
 		option.add_item(_relation_label(value), value)
 		var index: int = option.get_item_count() - 1
 		option.set_item_metadata(index, value)
+		var allowed: bool = _can_set_relation_level(player_id, current_value, value)
+		option.set_item_disabled(index, not allowed)
 		if value == current_value:
 			option.select(index)
 	option.item_selected.connect(func(index: int) -> void:
 		var selected_value: int = int(option.get_item_metadata(index))
 		if selected_value == current_value:
 			return
+		if not _can_set_relation_level(player_id, current_value, selected_value):
+			_populate_diplomacy_panel()
+			return
 		if game_state.set_relation_to(relation_id, selected_value):
 			_populate_diplomacy_panel()
 	)
 	parent.add_child(option)
+
+func _diplomacy_limit_summary() -> String:
+	var limits: Dictionary = _diplomacy_limits()
+	var counts: Dictionary = _relation_counts_excluding(-1)
+	return "Limits: Safe Passage %d/%d, Share Intel %d/%d, Alliances %d/%d" % [
+		int(counts.get("safe", 0)),
+		int(limits.get("safe", 0)),
+		int(counts.get("intel", 0)),
+		int(limits.get("intel", 0)),
+		int(counts.get("ally", 0)),
+		int(limits.get("ally", 0))
+	]
+
+func _can_set_relation_level(player_id: int, current_value: int, new_value: int) -> bool:
+	if new_value == current_value:
+		return true
+	if new_value < -1 or new_value > 4:
+		return false
+
+	var game_info: Dictionary = _game_info_from_rst()
+	if _dict_int(game_info, ["gametype"], 0) == 3:
+		if new_value == 4:
+			return false
+		if current_value == 4:
+			var player: Dictionary = game_state.get_player_info(player_id)
+			if int(player.get("status", 1)) == 1:
+				return false
+
+	if new_value < 2:
+		return true
+
+	var limits: Dictionary = _diplomacy_limits()
+	var counts: Dictionary = _relation_counts_excluding(player_id)
+	if new_value == 4 and int(counts.get("ally", 0)) >= int(limits.get("ally", 0)):
+		return false
+	if new_value >= 3 and int(counts.get("intel", 0)) >= int(limits.get("intel", 0)):
+		return false
+	if new_value >= 2 and int(counts.get("safe", 0)) >= int(limits.get("safe", 0)):
+		return false
+	return true
+
+func _relation_counts_excluding(excluded_player_id: int) -> Dictionary:
+	var counts: Dictionary = {"safe": 0, "intel": 0, "ally": 0}
+	for relation: Dictionary in _relations_from_rst():
+		var player_id: int = _dict_int(relation, ["playertoid"], -1)
+		if player_id <= 0 or player_id == int(game_state.my_player_id) or player_id == excluded_player_id:
+			continue
+		var relation_to: int = _dict_int(relation, ["relationto"], 0)
+		if relation_to >= 4:
+			counts["ally"] = int(counts["ally"]) + 1
+		if relation_to >= 3:
+			counts["intel"] = int(counts["intel"]) + 1
+		if relation_to >= 2:
+			counts["safe"] = int(counts["safe"]) + 1
+	return counts
+
+func _diplomacy_limits() -> Dictionary:
+	var settings: Dictionary = _settings_from_rst()
+	return {
+		"safe": _dict_int(settings, ["maxsafepassage"], 99),
+		"intel": _dict_int(settings, ["maxshareintel"], 99),
+		"ally": _dict_int(settings, ["maxallies"], 99)
+	}
+
+func _settings_from_rst() -> Dictionary:
+	if game_state.last_turn_json.is_empty():
+		return {}
+	var rst_v: Variant = game_state.last_turn_json.get("rst")
+	if not (rst_v is Dictionary):
+		return {}
+	var rst: Dictionary = rst_v as Dictionary
+	var settings_v: Variant = rst.get("settings", {})
+	if settings_v is Dictionary:
+		return settings_v as Dictionary
+	return {}
+
+func _game_info_from_rst() -> Dictionary:
+	if game_state.last_turn_json.is_empty():
+		return {}
+	var rst_v: Variant = game_state.last_turn_json.get("rst")
+	if not (rst_v is Dictionary):
+		return {}
+	var rst: Dictionary = rst_v as Dictionary
+	var game_v: Variant = rst.get("game", {})
+	if game_v is Dictionary:
+		return game_v as Dictionary
+	return {}
 
 func _add_colored_kv(parent: GridContainer, key: String, value: String, color: Color) -> void:
 	var key_label: Label = Label.new()
