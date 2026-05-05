@@ -523,11 +523,42 @@ func _populate_starbases_panel() -> void:
 
 	_add_section_title(_starbases_list, "Orders")
 	var orders: GridContainer = _add_key_value_grid(_starbases_list)
-	_add_kv(orders, "Mission", _starbase_mission_label(_dict_int(sb, ["mission"], 0)))
+	if p != null and game_state.is_my_planet(p):
+		_add_starbase_mission_editor(orders, planet_id, _dict_int(sb, ["mission"], 0))
+	else:
+		_add_kv(orders, "Mission", _starbase_mission_label(_dict_int(sb, ["mission"], 0)))
 	if p != null:
 		_add_kv(orders, "Friendly Code", p.friendlycode)
 	_add_kv(orders, "Repair Ship", _starbase_ship_order_target(sb, 1))
 	_add_kv(orders, "Recycle Ship", _starbase_ship_order_target(sb, 2))
+
+func _add_starbase_mission_editor(parent: GridContainer, planet_id: int, current_mission: int) -> void:
+	var key_label: Label = Label.new()
+	key_label.text = "Mission"
+	key_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	key_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	parent.add_child(key_label)
+
+	var option: OptionButton = OptionButton.new()
+	option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	option.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	var mission_ids: Array[int] = _available_starbase_mission_ids(current_mission)
+	for mission_id: int in mission_ids:
+		option.add_item(_starbase_mission_label(mission_id), mission_id)
+		var index: int = option.get_item_count() - 1
+		option.set_item_metadata(index, mission_id)
+		if not _can_select_starbase_mission(mission_id):
+			option.set_item_disabled(index, true)
+		if mission_id == current_mission:
+			option.select(index)
+	option.item_selected.connect(func(index: int) -> void:
+		var selected_mission: int = int(option.get_item_metadata(index))
+		if selected_mission == current_mission:
+			return
+		if game_state.set_starbase_mission(planet_id, selected_mission):
+			_populate_starbases_panel()
+	)
+	parent.add_child(option)
 
 func _populate_messages_panel() -> void:
 	_clear_children(_messages_list)
@@ -732,6 +763,18 @@ func _settings_from_rst() -> Dictionary:
 	var settings_v: Variant = rst.get("settings", {})
 	if settings_v is Dictionary:
 		return settings_v as Dictionary
+	return {}
+
+func _player_from_rst() -> Dictionary:
+	if game_state.last_turn_json.is_empty():
+		return {}
+	var rst_v: Variant = game_state.last_turn_json.get("rst")
+	if not (rst_v is Dictionary):
+		return {}
+	var rst: Dictionary = rst_v as Dictionary
+	var player_v: Variant = rst.get("player", {})
+	if player_v is Dictionary:
+		return player_v as Dictionary
 	return {}
 
 func _game_info_from_rst() -> Dictionary:
@@ -1302,13 +1345,79 @@ func _starbase_mission_label(mission_id: int) -> String:
 		6:
 			return "Force a Surrender"
 		7:
-			return "Send Fighters"
+			return "Send Megacredits"
 		8:
-			return "Receive Fighters"
+			return "Receive Megacredits"
 		9:
+			return "Lay Mines"
+		10:
+			return "Lay Web Mines"
+		11:
 			return "Sweep Mines"
+		12:
+			return "Send Fighters"
+		13:
+			return "Receive Fighters"
 		_:
 			return "Mission %d" % mission_id
+
+func _available_starbase_mission_ids(current_mission: int) -> Array[int]:
+	var ids: Array[int] = [0, 1, 2, 3, 4, 5, 6]
+	if _can_select_starbase_mission(7):
+		ids.append(7)
+		ids.append(8)
+	if _can_select_starbase_mission(9):
+		ids.append(9)
+	if _can_select_starbase_mission(10):
+		ids.append(10)
+	if _can_select_starbase_mission(11):
+		ids.append(11)
+	if _can_select_starbase_mission(12):
+		ids.append(12)
+		ids.append(13)
+	if current_mission > 0 and not ids.has(current_mission):
+		ids.append(current_mission)
+	return ids
+
+func _can_select_starbase_mission(mission_id: int) -> bool:
+	match mission_id:
+		0, 1, 2, 3, 4, 5, 6:
+			return true
+		7, 8:
+			return _is_player_advantage_active(38)
+		9:
+			return _is_player_advantage_active(39)
+		10:
+			return game_state.get_my_race_id() == 7 and _is_player_advantage_active(39)
+		11:
+			return _is_player_advantage_active(40) or _is_player_advantage_active(41)
+		12, 13:
+			return _can_starbase_fighter_transfer()
+		_:
+			return false
+
+func _can_starbase_fighter_transfer() -> bool:
+	if game_state.get_my_race_id() != 8:
+		return false
+	var settings: Dictionary = _settings_from_rst()
+	if not _dict_bool(settings, ["campaignmode"], false) and not _dict_bool(settings, ["presetadvantages"], false):
+		return false
+	if not _dict_bool(settings, ["starbasefightertransfer"], false):
+		return false
+	return _is_player_advantage_active(57)
+
+func _is_player_advantage_active(advantage_id: int) -> bool:
+	var settings: Dictionary = _settings_from_rst()
+	if not _dict_bool(settings, ["campaignmode"], false) and not _dict_bool(settings, ["presetadvantages"], false):
+		return false
+	var player: Dictionary = _player_from_rst()
+	var raw: String = _dict_string(player, ["activeadvantages"], "")
+	if raw.strip_edges().is_empty():
+		return false
+	for part: String in raw.split(",", false):
+		if part.strip_edges().is_valid_int() and part.strip_edges().to_int() == advantage_id:
+			return true
+	return false
 
 func _starbase_ship_order_target(sb: Dictionary, expected_shipmission: int) -> String:
 	var target_id: int = _dict_int(sb, ["targetshipid", "target_ship_id"], 0)
@@ -1471,6 +1580,24 @@ func _dict_string(d: Dictionary, keys: Array[String], fallback: String = "") -> 
 	for key: String in keys:
 		if d.has(key):
 			return String(d.get(key, fallback))
+	return fallback
+
+func _dict_bool(d: Dictionary, keys: Array[String], fallback: bool = false) -> bool:
+	for key: String in keys:
+		if not d.has(key):
+			continue
+		var v: Variant = d.get(key)
+		if typeof(v) == TYPE_BOOL:
+			return bool(v)
+		if typeof(v) == TYPE_INT:
+			return int(v) != 0
+		if typeof(v) == TYPE_FLOAT:
+			return not is_zero_approx(float(v))
+		var s: String = String(v).strip_edges().to_lower()
+		if s == "true" or s == "yes" or s == "1":
+			return true
+		if s == "false" or s == "no" or s == "0":
+			return false
 	return fallback
 
 func _on_vcr_button_pressed() -> void:

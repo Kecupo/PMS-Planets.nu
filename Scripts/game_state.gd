@@ -803,6 +803,38 @@ func _set_ship_field_in_rst(ship_id: int, key: String, value: Variant) -> void:
 
 	push_error("GameState: ship id not found in rst.ships: " + str(ship_id))
 
+func _set_starbase_field_in_rst(planet_id: int, key: String, value: Variant) -> void:
+	if last_turn_json.is_empty():
+		push_error("GameState: last_turn_json empty, cannot patch rst")
+		return
+
+	var rst_v: Variant = last_turn_json.get("rst")
+	if not (rst_v is Dictionary):
+		push_error("GameState: last_turn_json has no rst Dictionary")
+		return
+	var rst: Dictionary = rst_v as Dictionary
+
+	var starbases_v: Variant = rst.get("starbases")
+	if not (starbases_v is Array):
+		push_error("GameState: rst.starbases is not an Array")
+		return
+	var arr: Array = starbases_v as Array
+
+	for i: int in range(arr.size()):
+		var it: Variant = arr[i]
+		if not (it is Dictionary):
+			continue
+		var sb: Dictionary = it as Dictionary
+		var pid: int = int(float(sb.get("planetid", -1)))
+		if pid == planet_id:
+			sb[key] = value
+			arr[i] = sb
+			rst["starbases"] = arr
+			last_turn_json["rst"] = rst
+			return
+
+	push_error("GameState: starbase planet id not found in rst.starbases: " + str(planet_id))
+
 func set_planet_friendlycode(planet_id: int, fc: String) -> void:
 	var s: String = fc.strip_edges()
 	if s.length() > 3:
@@ -879,6 +911,30 @@ func set_relation_to(relation_id: int, relation_to: int) -> bool:
 		return true
 
 	return false
+
+func set_starbase_mission(planet_id: int, mission_id: int) -> bool:
+	if planet_id <= 0 or mission_id < 0:
+		return false
+	if not starbases_by_planet_id.has(planet_id):
+		return false
+
+	var current_v: Variant = starbases_by_planet_id[planet_id]
+	if not (current_v is Dictionary):
+		return false
+	var sb: Dictionary = current_v as Dictionary
+	if int(float(sb.get("mission", 0))) == mission_id:
+		return false
+
+	sb["mission"] = mission_id
+	starbases_by_planet_id[planet_id] = sb
+	_set_starbase_field_in_rst(planet_id, "mission", mission_id)
+
+	if _batch_mode:
+		_batch_dirty = true
+	else:
+		_save_latest_turn_json()
+		emit_signal("orders_changed")
+	return true
 
 func begin_batch_changes() -> void:
 	_batch_mode = true

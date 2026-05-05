@@ -338,6 +338,28 @@ func _save_turn_with_savekey_and_merge(fresh_wrapper: Dictionary) -> void:
 		command_count += 1
 
 	# -------------------------
+	# add changed starbases
+	# -------------------------
+	for key: Variant in GameState.starbases_by_planet_id.keys():
+		var planet_id: int = int(key)
+		var p: PlanetData = GameState.my_planets_by_id.get(planet_id, null)
+		if p == null:
+			continue
+		var sb: Dictionary = GameState.get_starbase_for_planet(planet_id)
+		if sb.is_empty():
+			continue
+		var starbase_id: int = _to_int(sb.get("id", 0))
+		if starbase_id <= 0:
+			continue
+		if not _starbase_has_relevant_changes(fresh_rst, _pending_save_rst, starbase_id):
+			continue
+		var packed_starbase: String = _pack_starbase_command(fresh_rst, _pending_save_rst, starbase_id)
+		if packed_starbase.is_empty():
+			continue
+		fields["Starbase" + str(starbase_id)] = packed_starbase
+		command_count += 1
+
+	# -------------------------
 	# add changed relations
 	# -------------------------
 	if _relations_have_relevant_changes(fresh_rst, _pending_save_rst):
@@ -422,6 +444,20 @@ static func _find_ship_dict_by_id(rst: Dictionary, ship_id: int) -> Dictionary:
 
 		if sid == ship_id:
 			return sd
+
+	return {}
+
+static func _find_starbase_dict_by_id(rst: Dictionary, starbase_id: int) -> Dictionary:
+	var starbases_v: Variant = rst.get("starbases")
+	if not (starbases_v is Array):
+		return {}
+
+	for it: Variant in starbases_v as Array:
+		if not (it is Dictionary):
+			continue
+		var sb: Dictionary = it as Dictionary
+		if _to_int(sb.get("id", -1)) == starbase_id:
+			return sb
 
 	return {}
 
@@ -561,6 +597,40 @@ static func _build_ship_save_command(orig_rst: Dictionary, pending_rst: Dictiona
 	cmd["ReadyStatus"] = _to_int(mod_ship.get("readystatus", 0))
 
 	return cmd
+
+static func _build_starbase_save_command(orig_rst: Dictionary, pending_rst: Dictionary, starbase_id: int) -> Dictionary:
+	var orig_starbase: Dictionary = _find_starbase_dict_by_id(orig_rst, starbase_id)
+	var mod_starbase: Dictionary = _find_starbase_dict_by_id(pending_rst, starbase_id)
+	if orig_starbase.is_empty() or mod_starbase.is_empty():
+		return {}
+
+	var cmd: Dictionary = {}
+	cmd["Id"] = starbase_id
+	cmd["Fighters"] = _to_int(mod_starbase.get("fighters", 0))
+	cmd["Defense"] = _to_int(mod_starbase.get("defense", 0))
+	cmd["BuiltFighters"] = _to_int(mod_starbase.get("builtfighters", 0))
+	cmd["BuiltDefense"] = _to_int(mod_starbase.get("builtdefense", 0))
+	cmd["HullTechLevel"] = _to_int(mod_starbase.get("hulltechlevel", 0))
+	cmd["EngineTechLevel"] = _to_int(mod_starbase.get("enginetechlevel", 0))
+	cmd["BeamTechLevel"] = _to_int(mod_starbase.get("beamtechlevel", 0))
+	cmd["TorpTechLevel"] = _to_int(mod_starbase.get("torptechlevel", 0))
+	cmd["HullTechUp"] = _to_int(mod_starbase.get("hulltechup", 0))
+	cmd["EngineTechUp"] = _to_int(mod_starbase.get("enginetechup", 0))
+	cmd["BeamTechUp"] = _to_int(mod_starbase.get("beamtechup", 0))
+	cmd["TorpTechUp"] = _to_int(mod_starbase.get("torptechup", 0))
+	cmd["Mission"] = _to_int(mod_starbase.get("mission", 0))
+	cmd["Mission1Target"] = _to_int(mod_starbase.get("mission1target", 0))
+	cmd["ShipMission"] = _to_int(mod_starbase.get("shipmission", 0))
+	cmd["TargetShipId"] = _to_int(mod_starbase.get("targetshipid", 0))
+	cmd["BuildHullId"] = _to_int(mod_starbase.get("buildhullid", 0))
+	cmd["BuildEngineId"] = _to_int(mod_starbase.get("buildengineid", 0))
+	cmd["BuildBeamId"] = _to_int(mod_starbase.get("buildbeamid", 0))
+	cmd["BuildTorpedoId"] = _to_int(mod_starbase.get("buildtorpedoid", 0))
+	cmd["BuildBeamCount"] = _to_int(mod_starbase.get("buildbeamcount", 0))
+	cmd["BuildTorpCount"] = _to_int(mod_starbase.get("buildtorpcount", 0))
+	cmd["IsBuilding"] = _to_bool_string(mod_starbase.get("isbuilding", false))
+	cmd["ReadyStatus"] = _to_int(mod_starbase.get("readystatus", 0))
+	return cmd
 	
 static func _to_int(v: Variant) -> int:
 	if typeof(v) == TYPE_INT:
@@ -665,6 +735,39 @@ static func _pack_ship_command(orig_rst: Dictionary, pending_rst: Dictionary, sh
 
 	return "|||".join(parts)
 
+static func _pack_starbase_command(orig_rst: Dictionary, pending_rst: Dictionary, starbase_id: int) -> String:
+	var cmd: Dictionary = _build_starbase_save_command(orig_rst, pending_rst, starbase_id)
+	if cmd.is_empty():
+		return ""
+
+	var parts: PackedStringArray = PackedStringArray()
+	parts.append("Id:::" + _pack_field_value(cmd.get("Id", 0)))
+	parts.append("Fighters:::" + _pack_field_value(cmd.get("Fighters", 0)))
+	parts.append("Defense:::" + _pack_field_value(cmd.get("Defense", 0)))
+	parts.append("BuiltFighters:::" + _pack_field_value(cmd.get("BuiltFighters", 0)))
+	parts.append("BuiltDefense:::" + _pack_field_value(cmd.get("BuiltDefense", 0)))
+	parts.append("HullTechLevel:::" + _pack_field_value(cmd.get("HullTechLevel", 0)))
+	parts.append("EngineTechLevel:::" + _pack_field_value(cmd.get("EngineTechLevel", 0)))
+	parts.append("BeamTechLevel:::" + _pack_field_value(cmd.get("BeamTechLevel", 0)))
+	parts.append("TorpTechLevel:::" + _pack_field_value(cmd.get("TorpTechLevel", 0)))
+	parts.append("HullTechUp:::" + _pack_field_value(cmd.get("HullTechUp", 0)))
+	parts.append("EngineTechUp:::" + _pack_field_value(cmd.get("EngineTechUp", 0)))
+	parts.append("BeamTechUp:::" + _pack_field_value(cmd.get("BeamTechUp", 0)))
+	parts.append("TorpTechUp:::" + _pack_field_value(cmd.get("TorpTechUp", 0)))
+	parts.append("Mission:::" + _pack_field_value(cmd.get("Mission", 0)))
+	parts.append("Mission1Target:::" + _pack_field_value(cmd.get("Mission1Target", 0)))
+	parts.append("ShipMission:::" + _pack_field_value(cmd.get("ShipMission", 0)))
+	parts.append("TargetShipId:::" + _pack_field_value(cmd.get("TargetShipId", 0)))
+	parts.append("BuildHullId:::" + _pack_field_value(cmd.get("BuildHullId", 0)))
+	parts.append("BuildEngineId:::" + _pack_field_value(cmd.get("BuildEngineId", 0)))
+	parts.append("BuildBeamId:::" + _pack_field_value(cmd.get("BuildBeamId", 0)))
+	parts.append("BuildTorpedoId:::" + _pack_field_value(cmd.get("BuildTorpedoId", 0)))
+	parts.append("BuildBeamCount:::" + _pack_field_value(cmd.get("BuildBeamCount", 0)))
+	parts.append("BuildTorpCount:::" + _pack_field_value(cmd.get("BuildTorpCount", 0)))
+	parts.append("IsBuilding:::" + _pack_field_value(cmd.get("IsBuilding", "false")))
+	parts.append("ReadyStatus:::" + _pack_field_value(cmd.get("ReadyStatus", 0)))
+	return "|||".join(parts)
+
 static func _pack_relation_command(relation: Dictionary) -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	parts.append("Id:::" + _pack_field_value(_to_int(relation.get("id", 0))))
@@ -739,6 +842,45 @@ static func _ship_has_relevant_changes(orig_rst: Dictionary, pending_rst: Dictio
 	if String(orig_ship.get("friendlycode", "")) != String(mod_ship.get("friendlycode", "")):
 		return true
 
+	return false
+
+static func _starbase_has_relevant_changes(orig_rst: Dictionary, pending_rst: Dictionary, starbase_id: int) -> bool:
+	var orig_starbase: Dictionary = _find_starbase_dict_by_id(orig_rst, starbase_id)
+	var mod_starbase: Dictionary = _find_starbase_dict_by_id(pending_rst, starbase_id)
+	if orig_starbase.is_empty() or mod_starbase.is_empty():
+		return false
+
+	var keys: PackedStringArray = PackedStringArray([
+		"mission",
+		"mission1target",
+		"shipmission",
+		"targetshipid",
+		"fighters",
+		"defense",
+		"builtfighters",
+		"builtdefense",
+		"hulltechlevel",
+		"enginetechlevel",
+		"beamtechlevel",
+		"torptechlevel",
+		"hulltechup",
+		"enginetechup",
+		"beamtechup",
+		"torptechup",
+		"buildhullid",
+		"buildengineid",
+		"buildbeamid",
+		"buildtorpedoid",
+		"buildbeamcount",
+		"buildtorpcount",
+		"readystatus"
+	])
+	for key: String in keys:
+		if _to_int(orig_starbase.get(key, 0)) != _to_int(mod_starbase.get(key, 0)):
+			return true
+
+	if bool(orig_starbase.get("isbuilding", false)) != bool(mod_starbase.get("isbuilding", false)):
+		return true
 	return false
 
 static func _relations_have_relevant_changes(orig_rst: Dictionary, pending_rst: Dictionary) -> bool:
