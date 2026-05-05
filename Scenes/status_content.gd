@@ -529,8 +529,12 @@ func _populate_starbases_panel() -> void:
 		_add_kv(orders, "Mission", _starbase_mission_label(_dict_int(sb, ["mission"], 0)))
 	if p != null:
 		_add_kv(orders, "Friendly Code", p.friendlycode)
-	_add_kv(orders, "Repair Ship", _starbase_ship_order_target(sb, 1))
-	_add_kv(orders, "Recycle Ship", _starbase_ship_order_target(sb, 2))
+	if p != null and game_state.is_my_planet(p):
+		_add_starbase_ship_order_editor(orders, planet_id, p, sb, 1, "Repair Ship")
+		_add_starbase_ship_order_editor(orders, planet_id, p, sb, 2, "Recycle Ship")
+	else:
+		_add_kv(orders, "Repair Ship", _starbase_ship_order_target(sb, 1))
+		_add_kv(orders, "Recycle Ship", _starbase_ship_order_target(sb, 2))
 
 func _add_starbase_mission_editor(parent: GridContainer, planet_id: int, current_mission: int) -> void:
 	var key_label: Label = Label.new()
@@ -556,6 +560,49 @@ func _add_starbase_mission_editor(parent: GridContainer, planet_id: int, current
 		if selected_mission == current_mission:
 			return
 		if game_state.set_starbase_mission(planet_id, selected_mission):
+			_populate_starbases_panel()
+	)
+	parent.add_child(option)
+
+func _add_starbase_ship_order_editor(parent: GridContainer, planet_id: int, p: PlanetData, sb: Dictionary, order_id: int, label_text: String) -> void:
+	var key_label: Label = Label.new()
+	key_label.text = label_text
+	key_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	key_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	parent.add_child(key_label)
+
+	var option: OptionButton = OptionButton.new()
+	option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	option.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	option.add_item("none", 0)
+	option.set_item_metadata(0, 0)
+
+	var current_shipmission: int = _dict_int(sb, ["shipmission", "ship_mission"], 0)
+	var current_target_id: int = _dict_int(sb, ["targetshipid", "target_ship_id"], 0)
+	var selected_index: int = 0
+	var local_ships: Array[StarshipData] = _own_ships_at_position(p.x, p.y)
+	for ship: StarshipData in local_ships:
+		var ship_id: int = int(ship.ship_id)
+		option.add_item(_starbase_ship_target_label(ship), ship_id)
+		var index: int = option.get_item_count() - 1
+		option.set_item_metadata(index, ship_id)
+		if current_shipmission == order_id and current_target_id == ship_id:
+			selected_index = index
+
+	if current_shipmission == order_id and current_target_id > 0 and selected_index == 0:
+		option.add_item("#%d (not at base)" % current_target_id, current_target_id)
+		var index: int = option.get_item_count() - 1
+		option.set_item_metadata(index, current_target_id)
+		option.set_item_disabled(index, true)
+		selected_index = index
+
+	option.select(selected_index)
+	option.item_selected.connect(func(index: int) -> void:
+		var selected_ship_id: int = int(option.get_item_metadata(index))
+		var next_shipmission: int = order_id if selected_ship_id > 0 else 0
+		if selected_ship_id <= 0 and current_shipmission != order_id:
+			return
+		if game_state.set_starbase_ship_order(planet_id, next_shipmission, selected_ship_id):
 			_populate_starbases_panel()
 	)
 	parent.add_child(option)
@@ -1266,6 +1313,13 @@ func _ships_at_position(x: float, y: float) -> Array[StarshipData]:
 	)
 	return result
 
+func _own_ships_at_position(x: float, y: float) -> Array[StarshipData]:
+	var result: Array[StarshipData] = []
+	for ship: StarshipData in _ships_at_position(x, y):
+		if game_state.is_my_ship(ship):
+			result.append(ship)
+	return result
+
 func _starbase_type_label(p: PlanetData, sb: Dictionary) -> String:
 	if _is_mining_station(p, sb):
 		return "Mining Station"
@@ -1424,7 +1478,16 @@ func _starbase_ship_order_target(sb: Dictionary, expected_shipmission: int) -> S
 	var shipmission: int = _dict_int(sb, ["shipmission", "ship_mission"], 0)
 	if target_id <= 0 or shipmission != expected_shipmission:
 		return "none"
-	return "#%d" % target_id
+	var ship: StarshipData = _ship_by_id(target_id)
+	if ship == null:
+		return "#%d" % target_id
+	return _starbase_ship_target_label(ship)
+
+func _starbase_ship_target_label(ship: StarshipData) -> String:
+	var display_name: String = ship.name.strip_edges()
+	if display_name.is_empty():
+		display_name = ship.display_hull_name()
+	return "#%d  %s" % [int(ship.ship_id), display_name]
 
 func _hull_info(hull_id: int) -> Dictionary:
 	if game_state.last_turn_json.is_empty():

@@ -936,6 +936,39 @@ func set_starbase_mission(planet_id: int, mission_id: int) -> bool:
 		emit_signal("orders_changed")
 	return true
 
+func set_starbase_ship_order(planet_id: int, shipmission: int, target_ship_id: int) -> bool:
+	if planet_id <= 0:
+		return false
+	if shipmission != 0 and shipmission != 1 and shipmission != 2:
+		return false
+	if shipmission == 0 or target_ship_id <= 0:
+		shipmission = 0
+		target_ship_id = 0
+	if not starbases_by_planet_id.has(planet_id):
+		return false
+
+	var current_v: Variant = starbases_by_planet_id[planet_id]
+	if not (current_v is Dictionary):
+		return false
+	var sb: Dictionary = current_v as Dictionary
+	var current_shipmission: int = int(float(sb.get("shipmission", 0)))
+	var current_target: int = int(float(sb.get("targetshipid", 0)))
+	if current_shipmission == shipmission and current_target == target_ship_id:
+		return false
+
+	sb["shipmission"] = shipmission
+	sb["targetshipid"] = target_ship_id
+	starbases_by_planet_id[planet_id] = sb
+	_set_starbase_field_in_rst(planet_id, "shipmission", shipmission)
+	_set_starbase_field_in_rst(planet_id, "targetshipid", target_ship_id)
+
+	if _batch_mode:
+		_batch_dirty = true
+	else:
+		_save_latest_turn_json()
+		emit_signal("orders_changed")
+	return true
+
 func begin_batch_changes() -> void:
 	_batch_mode = true
 	_batch_dirty = false
