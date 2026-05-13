@@ -841,6 +841,8 @@ static func _ship_has_relevant_changes(orig_rst: Dictionary, pending_rst: Dictio
 
 	if String(orig_ship.get("friendlycode", "")) != String(mod_ship.get("friendlycode", "")):
 		return true
+	if _to_int(orig_ship.get("enemy", 0)) != _to_int(mod_ship.get("enemy", 0)):
+		return true
 
 	return false
 

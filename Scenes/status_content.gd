@@ -452,6 +452,7 @@ func _populate_ships_panel() -> void:
 	])
 
 	_add_section_title(_ships_list, "Orders")
+	_add_ship_fc_box(_ships_list, ship)
 	var orders: GridContainer = _add_key_value_grid(_ships_list)
 	_add_kv(orders, "Position", "%.0f / %.0f" % [ship.x, ship.y])
 	_add_kv(orders, "Target", "%.0f / %.0f" % [ship.targetx, ship.targety] if ship.has_target() else "-")
@@ -460,8 +461,10 @@ func _populate_ships_panel() -> void:
 	_add_kv(orders, "Distance", "%.1f ly" % _ship_travel_distance(ship))
 	_add_kv(orders, "Experience", str(_dict_int(ship.raw, ["experience"], 0)))
 	_add_kv(orders, "Mission", _mission_label(_dict_int(ship.raw, ["mission"], 0), ship.ownerid))
-	_add_kv(orders, "Enemy", _enemy_label(_dict_int(ship.raw, ["enemy"], 0)))
-	_add_ship_fc_editor(orders, ship)
+	if game_state.is_my_ship(ship):
+		_add_ship_enemy_editor(orders, ship)
+	else:
+		_add_kv(orders, "Enemy", _enemy_label(_dict_int(ship.raw, ["enemy"], 0)))
 
 func _populate_starbases_panel() -> void:
 	_clear_children(_starbases_list)
@@ -1090,10 +1093,92 @@ func _add_ship_fc_editor(parent: GridContainer, ship: StarshipData) -> void:
 	key_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
 	parent.add_child(key_label)
 
+	parent.add_child(_create_ship_fc_edit(ship, HORIZONTAL_ALIGNMENT_CENTER))
+
+func _add_ship_fc_box(parent: VBoxContainer, ship: StarshipData) -> void:
+	var row: HBoxContainer = HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_theme_constant_override("separation", 8)
+	parent.add_child(row)
+
+	var label: Label = Label.new()
+	label.text = "FC"
+	label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	label.add_theme_color_override("font_color", Color(0.72, 0.86, 0.9, 1.0))
+	row.add_child(label)
+
+	var box: PanelContainer = PanelContainer.new()
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = Color(0.03, 0.035, 0.04, 0.95)
+	style.border_color = Color(0.36, 0.73, 0.82, 0.9)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(3)
+	style.content_margin_left = 8
+	style.content_margin_right = 8
+	style.content_margin_top = 3
+	style.content_margin_bottom = 3
+	box.add_theme_stylebox_override("panel", style)
+	row.add_child(box)
+
+	var edit: LineEdit = _create_ship_fc_edit(ship, HORIZONTAL_ALIGNMENT_CENTER)
+	edit.custom_minimum_size = Vector2(82.0, 0.0)
+	edit.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE + 4)
+	box.add_child(edit)
+
+func _add_ship_enemy_editor(parent: GridContainer, ship: StarshipData) -> void:
+	var key_label: Label = Label.new()
+	key_label.text = "Primary Enemy"
+	key_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	key_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	parent.add_child(key_label)
+
+	var option: OptionButton = OptionButton.new()
+	option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	option.alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	option.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	option.add_item("None", 0)
+	option.set_item_metadata(0, 0)
+
+	var current_enemy: int = _dict_int(ship.raw, ["enemy"], 0)
+	var selected_index: int = 0
+	for player: Dictionary in game_state.get_players():
+		var player_id: int = _dict_int(player, ["id"], -1)
+		if player_id <= 0 or player_id == int(game_state.my_player_id):
+			continue
+		var label: String = _player_owner_label(player_id)
+		if _dict_int(player, ["status"], 1) == 3:
+			label += " (dead)"
+		option.add_item(label, player_id)
+		var index: int = option.get_item_count() - 1
+		option.set_item_metadata(index, player_id)
+		if current_enemy == player_id:
+			selected_index = index
+
+	if current_enemy > 0 and selected_index == 0:
+		option.add_item(_enemy_label(current_enemy), current_enemy)
+		var index: int = option.get_item_count() - 1
+		option.set_item_metadata(index, current_enemy)
+		selected_index = index
+
+	option.select(selected_index)
+	var ship_id: int = int(ship.ship_id)
+	option.item_selected.connect(func(index: int) -> void:
+		var enemy_id: int = int(option.get_item_metadata(index))
+		if enemy_id == current_enemy:
+			return
+		if game_state.set_ship_enemy(ship_id, enemy_id):
+			_populate_ships_panel()
+	)
+	parent.add_child(option)
+
+func _create_ship_fc_edit(ship: StarshipData, alignment: HorizontalAlignment) -> LineEdit:
 	var edit: LineEdit = LineEdit.new()
 	edit.max_length = 3
 	edit.text = _dict_string(ship.raw, ["friendlycode", "friendly_code"], "")
-	edit.alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	edit.placeholder_text = "FC"
+	edit.tooltip_text = "Friendly Code"
+	edit.alignment = alignment
 	edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	edit.custom_minimum_size = Vector2(58.0, 0.0)
 	edit.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
@@ -1115,7 +1200,7 @@ func _add_ship_fc_editor(parent: GridContainer, ship: StarshipData) -> void:
 	edit.gui_input.connect(func(event: InputEvent) -> void:
 		_on_ship_fc_gui_input(event, ship_id, edit)
 	)
-	parent.add_child(edit)
+	return edit
 
 func _normalize_fc(value: String) -> String:
 	var s: String = value.strip_edges()
@@ -1166,8 +1251,8 @@ func _random_safe_ship_fc(ship: StarshipData) -> String:
 		var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 		rng.randomize()
 		var first_char: String = "X" if rng.randi_range(0, 1) == 0 else "x"
-		return RandAI_Config.random_safe_fc(rng, first_char)
-	return RandAI_Config.random_safe_fc()
+		return RandAI_Config.random_safe_ship_fc(rng, first_char)
+	return RandAI_Config.random_safe_ship_fc()
 
 func _add_location_nav(parent: VBoxContainer, current_kind: String, x: float, y: float, current_ship_id: int = -1) -> void:
 	var p: PlanetData = _planet_at_position(x, y)

@@ -873,6 +873,34 @@ func set_ship_friendlycode(ship_id: int, fc: String) -> void:
 		_save_latest_turn_json()
 		emit_signal("orders_changed")
 
+func set_ship_enemy(ship_id: int, enemy_id: int) -> bool:
+	if ship_id <= 0 or enemy_id < 0:
+		return false
+
+	var current_enemy: int = -1
+	var found: bool = false
+	for ship: StarshipData in starships:
+		if ship != null and int(ship.ship_id) == ship_id:
+			current_enemy = int(float(ship.raw.get("enemy", 0)))
+			found = true
+			break
+	if not found or current_enemy == enemy_id:
+		return false
+
+	_set_ship_field_in_rst(ship_id, "enemy", enemy_id)
+
+	for ship: StarshipData in starships:
+		if ship != null and int(ship.ship_id) == ship_id:
+			ship.raw["enemy"] = enemy_id
+			break
+
+	if _batch_mode:
+		_batch_dirty = true
+	else:
+		_save_latest_turn_json()
+		emit_signal("orders_changed")
+	return true
+
 func set_relation_to(relation_id: int, relation_to: int) -> bool:
 	if relation_to < -1 or relation_to > 4:
 		return false

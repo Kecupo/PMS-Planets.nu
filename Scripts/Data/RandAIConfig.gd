@@ -36,6 +36,12 @@ const SPECIAL_FCS_CASE_DEFAULT: PackedStringArray = [
 	"PB0", "PB1", "PB2", "PB3", "PB4", "PB5", "PB6", "PB7", "PB8", "PB9",
 	"RB0", "RB1", "RB2", "RB3", "RB4", "RB5", "RB6", "RB7", "RB8", "RB9"
 ]
+const SHIP_SPECIAL_FCS_DEFAULT: PackedStringArray = [
+	"HYP", "LFM", "MKT", "NTP", "CLN", "MSC",
+	"BTT", "BTF", "BTM", "BDM",
+	"NAL", "ALD", "ALT", "ALM", "NAD", "NAT", "NAM", "NBR",
+	"GS", "MD", "MI"
+]
 
 var permute_special_fcs_case: bool = false
 var fc_never_change_raw: String = "MF"
@@ -414,6 +420,42 @@ func random_safe_fc(rng: RandomNumberGenerator = null, first_char: String = "") 
 		return fc
 
 	return (forced_first if not forced_first.is_empty() else "A") + "AA"
+
+func random_safe_ship_fc(rng: RandomNumberGenerator = null, first_char: String = "") -> String:
+	var local_rng: RandomNumberGenerator = rng
+	if local_rng == null:
+		local_rng = RandomNumberGenerator.new()
+		local_rng.randomize()
+
+	const LETTERS: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	const ALNUM: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	var forced_first: String = first_char.strip_edges()
+	if forced_first.length() > 0:
+		forced_first = forced_first.substr(0, 1)
+		if LETTERS.find(forced_first.to_upper()) < 0:
+			forced_first = ""
+
+	for _i in range(300):
+		var fc: String = forced_first if not forced_first.is_empty() else LETTERS[local_rng.randi_range(0, LETTERS.length() - 1)]
+		fc += ALNUM[local_rng.randi_range(0, ALNUM.length() - 1)]
+		fc += ALNUM[local_rng.randi_range(0, ALNUM.length() - 1)]
+		if not is_ship_fc_reserved(fc):
+			return fc
+
+	return (forced_first if not forced_first.is_empty() else "A") + "AA"
+
+func is_ship_fc_reserved(fc: String) -> bool:
+	var fc_u: String = fc.strip_edges().to_upper()
+	if fc_u.is_empty():
+		return false
+	if is_fc_protected(fc_u):
+		return true
+	if SPECIAL_FCS_CASE_DEFAULT.has(fc_u) or SHIP_SPECIAL_FCS_DEFAULT.has(fc_u):
+		return true
+	for prefix: String in ["GS", "MD", "MI", "PB", "RB"]:
+		if fc_u.begins_with(prefix):
+			return true
+	return false
 
 # -----------------------------------------------------------------------------
 # Readers
