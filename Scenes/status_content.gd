@@ -452,19 +452,20 @@ func _populate_ships_panel() -> void:
 	])
 
 	_add_section_title(_ships_list, "Orders")
+	var orders_top: GridContainer = _add_key_value_grid(_ships_list)
+	_add_kv(orders_top, "Position", "%.0f / %.0f" % [ship.x, ship.y])
+	_add_kv(orders_top, "Target", "%.0f / %.0f" % [ship.targetx, ship.targety] if ship.has_target() else "-")
+	_add_kv(orders_top, "Warp", str(int(ship.warp)))
 	_add_ship_fc_box(_ships_list, ship)
 	var orders: GridContainer = _add_key_value_grid(_ships_list)
-	_add_kv(orders, "Position", "%.0f / %.0f" % [ship.x, ship.y])
-	_add_kv(orders, "Target", "%.0f / %.0f" % [ship.targetx, ship.targety] if ship.has_target() else "-")
-	_add_kv(orders, "Warp", str(int(ship.warp)))
 	_add_kv(orders, "Heading", str(int(ship.heading)) if ship.heading >= 0.0 else "-")
 	_add_kv(orders, "Distance", "%.1f ly" % _ship_travel_distance(ship))
-	_add_kv(orders, "Experience", str(_dict_int(ship.raw, ["experience"], 0)))
 	_add_kv(orders, "Mission", _mission_label(_dict_int(ship.raw, ["mission"], 0), ship.ownerid))
 	if game_state.is_my_ship(ship):
 		_add_ship_enemy_editor(orders, ship)
 	else:
 		_add_kv(orders, "Enemy", _enemy_label(_dict_int(ship.raw, ["enemy"], 0)))
+	_add_kv(orders, "Experience", str(_dict_int(ship.raw, ["experience"], 0)))
 
 func _populate_starbases_panel() -> void:
 	_clear_children(_starbases_list)
@@ -1096,17 +1097,10 @@ func _add_ship_fc_editor(parent: GridContainer, ship: StarshipData) -> void:
 	parent.add_child(_create_ship_fc_edit(ship, HORIZONTAL_ALIGNMENT_CENTER))
 
 func _add_ship_fc_box(parent: VBoxContainer, ship: StarshipData) -> void:
-	var row: HBoxContainer = HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_theme_constant_override("separation", 8)
-	parent.add_child(row)
-
-	var label: Label = Label.new()
-	label.text = "FC"
-	label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
-	label.add_theme_color_override("font_color", Color(0.72, 0.86, 0.9, 1.0))
-	row.add_child(label)
+	var center: CenterContainer = CenterContainer.new()
+	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	center.custom_minimum_size = Vector2(0.0, 34.0)
+	parent.add_child(center)
 
 	var box: PanelContainer = PanelContainer.new()
 	var style: StyleBoxFlat = StyleBoxFlat.new()
@@ -1119,7 +1113,7 @@ func _add_ship_fc_box(parent: VBoxContainer, ship: StarshipData) -> void:
 	style.content_margin_top = 3
 	style.content_margin_bottom = 3
 	box.add_theme_stylebox_override("panel", style)
-	row.add_child(box)
+	center.add_child(box)
 
 	var edit: LineEdit = _create_ship_fc_edit(ship, HORIZONTAL_ALIGNMENT_CENTER)
 	edit.custom_minimum_size = Vector2(82.0, 0.0)
@@ -1598,7 +1592,6 @@ func _ship_cargo_used(raw: Dictionary) -> int:
 		+ _dict_int(raw, ["molybdenum"], 0) \
 		+ _dict_int(raw, ["clans"], 0) \
 		+ _dict_int(raw, ["supplies"], 0) \
-		+ _dict_int(raw, ["megacredits"], 0) \
 		+ _dict_int(raw, ["ammo"], 0)
 
 func _ship_stack_index(stack: Array[StarshipData], ship_id: int) -> int:
