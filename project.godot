@@ -30,18 +30,9 @@ window/size/viewport_height=800
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
-[dotnet]
-
-project/assembly_name="Tutorial"
-
 [global_group]
 
 login_dialog=""
-
-[gui]
-
-theme/custom="Dark"
-theme/custom_font="uid://dk37wsk7dvbbe"
 
 [rendering]
 

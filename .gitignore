@@ -14,7 +14,9 @@ export_credentials.cfg
 .mono/
 data_*/
 mono_crash.*.json
+*.csproj
+*.sln
 
-# User specific key
+# Personal Data
 api_key.json
-api_key.dat
+*.json
