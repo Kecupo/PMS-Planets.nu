@@ -931,22 +931,26 @@ func set_ship_enemy(ship_id: int, enemy_id: int) -> bool:
 		emit_signal("orders_changed")
 	return true
 
-func set_ship_mission(ship_id: int, mission_id: int) -> bool:
+func set_ship_mission(ship_id: int, mission_id: int, mission1target: int = 0, mission2target: int = 0) -> bool:
 	if ship_id <= 0 or mission_id < 0:
 		return false
 
 	var found: bool = false
 	var current_mission: int = -1
+	var current_target: int = -1
+	var current_target2: int = -1
 	for ship: StarshipData in starships:
 		if ship != null and int(ship.ship_id) == ship_id:
 			current_mission = int(float(ship.raw.get("mission", 0)))
+			current_target = int(float(ship.raw.get("mission1target", 0)))
+			current_target2 = int(float(ship.raw.get("mission2target", 0)))
 			found = true
 			break
-	if not found or current_mission == mission_id:
+	if not found:
+		return false
+	if current_mission == mission_id and current_target == mission1target and current_target2 == mission2target:
 		return false
 
-	var mission1target: int = 0
-	var mission2target: int = 0
 	_set_ship_field_in_rst(ship_id, "mission", mission_id)
 	_set_ship_field_in_rst(ship_id, "mission1target", mission1target)
 	_set_ship_field_in_rst(ship_id, "mission2target", mission2target)
@@ -956,6 +960,34 @@ func set_ship_mission(ship_id: int, mission_id: int) -> bool:
 			ship.raw["mission"] = mission_id
 			ship.raw["mission1target"] = mission1target
 			ship.raw["mission2target"] = mission2target
+			break
+
+	if _batch_mode:
+		_batch_dirty = true
+	else:
+		_save_latest_turn_json()
+		emit_signal("orders_changed")
+	return true
+
+func set_ship_mission_target(ship_id: int, mission1target: int) -> bool:
+	if ship_id <= 0 or mission1target < 0:
+		return false
+
+	var found: bool = false
+	var current_target: int = -1
+	for ship: StarshipData in starships:
+		if ship != null and int(ship.ship_id) == ship_id:
+			current_target = int(float(ship.raw.get("mission1target", 0)))
+			found = true
+			break
+	if not found or current_target == mission1target:
+		return false
+
+	_set_ship_field_in_rst(ship_id, "mission1target", mission1target)
+
+	for ship: StarshipData in starships:
+		if ship != null and int(ship.ship_id) == ship_id:
+			ship.raw["mission1target"] = mission1target
 			break
 
 	if _batch_mode:

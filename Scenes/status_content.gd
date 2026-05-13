@@ -1243,39 +1243,32 @@ func _create_ship_fc_panel(ship: StarshipData) -> PanelContainer:
 	return box
 
 func _add_ship_orders_layout(parent: VBoxContainer, ship: StarshipData) -> void:
-	var columns: HBoxContainer = HBoxContainer.new()
-	columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	columns.add_theme_constant_override("separation", 20)
-	parent.add_child(columns)
-
-	var movement: GridContainer = GridContainer.new()
-	movement.columns = 2
-	movement.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	movement.add_theme_constant_override("h_separation", 10)
-	movement.add_theme_constant_override("v_separation", 4)
-	columns.add_child(movement)
-	_add_kv(movement, "Position", _ship_position_label(ship.x, ship.y))
-	_add_kv(movement, "Target", _ship_position_label(ship.targetx, ship.targety) if ship.has_target() else "-")
-	_add_kv(movement, "Next Turn", _ship_next_turn_label(ship))
-	_add_kv(movement, "Distance", "%.1f ly" % _ship_travel_distance(ship))
-
 	var orders: GridContainer = GridContainer.new()
-	orders.columns = 2
+	orders.columns = 4
 	orders.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	orders.add_theme_constant_override("h_separation", 10)
+	orders.add_theme_constant_override("h_separation", 6)
 	orders.add_theme_constant_override("v_separation", 4)
-	columns.add_child(orders)
+	parent.add_child(orders)
+
+	_add_kv(orders, "Position", _ship_position_label(ship.x, ship.y))
 	_add_kv(orders, "Warp", str(int(ship.warp)))
+	_add_kv(orders, "Target", _ship_position_label(ship.targetx, ship.targety) if ship.has_target() else "-")
 	_add_kv(orders, "Heading", str(int(ship.heading)) if ship.heading >= 0.0 else "-")
+	_add_kv(orders, "Next Turn", _ship_next_turn_label(ship))
 	if game_state.is_my_ship(ship):
 		_add_ship_mission_editor(orders, ship, _hull_info(ship.hullid))
 	else:
 		_add_kv(orders, "Mission", _mission_label(_dict_int(ship.raw, ["mission"], 0), ship.ownerid))
+	_add_kv(orders, "Distance", "%.1f ly" % _ship_travel_distance(ship))
+	if game_state.is_my_ship(ship) and _ship_mission_uses_target(_dict_int(ship.raw, ["mission"], 0)):
+		_add_ship_mission_target_editor(orders, ship)
+	else:
+		_add_empty_kv_pair(orders)
+	_add_kv(orders, "Experience", str(_dict_int(ship.raw, ["experience"], 0)))
 	if game_state.is_my_ship(ship):
 		_add_ship_enemy_editor(orders, ship)
 	else:
 		_add_kv(orders, "Enemy", _enemy_label(_dict_int(ship.raw, ["enemy"], 0)))
-	_add_kv(orders, "Experience", str(_dict_int(ship.raw, ["experience"], 0)))
 
 func _add_ship_mission_editor(parent: GridContainer, ship: StarshipData, hull: Dictionary) -> void:
 	var key_label: Label = Label.new()
@@ -1311,10 +1304,83 @@ func _add_ship_mission_editor(parent: GridContainer, ship: StarshipData, hull: D
 		var mission_id: int = int(option.get_item_metadata(index))
 		if mission_id == current_mission:
 			return
-		if game_state.set_ship_mission(ship_id, mission_id):
+		var target_id: int = _default_ship_mission_target_id(ship, mission_id)
+		if game_state.set_ship_mission(ship_id, mission_id, target_id):
 			_populate_ships_panel()
 	)
 	parent.add_child(option)
+
+func _add_ship_mission_target_editor(parent: GridContainer, ship: StarshipData) -> void:
+	var mission_id: int = _dict_int(ship.raw, ["mission"], 0)
+	if not _ship_mission_uses_target(mission_id):
+		return
+
+	var key_label: Label = Label.new()
+	key_label.text = "Target Ship"
+	key_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	key_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	parent.add_child(key_label)
+
+	var candidates: Array[StarshipData] = _ship_mission_target_candidates(ship, mission_id)
+	var current_target: int = _dict_int(ship.raw, ["mission1target"], 0)
+	var option: OptionButton = OptionButton.new()
+	option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	option.alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	option.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	option.add_item("None", 0)
+	option.set_item_metadata(0, 0)
+
+	var selected_index: int = 0
+	for target: StarshipData in candidates:
+		var target_id: int = int(target.ship_id)
+		option.add_item(_ship_target_option_label(target), target_id)
+		var index: int = option.get_item_count() - 1
+		option.set_item_metadata(index, target_id)
+		if current_target == target_id:
+			selected_index = index
+
+	if current_target > 0 and selected_index == 0:
+		var target_ship: StarshipData = _ship_by_id(current_target)
+		option.add_item(_ship_target_option_label(target_ship) if target_ship != null else "#%d" % current_target, current_target)
+		var index: int = option.get_item_count() - 1
+		option.set_item_metadata(index, current_target)
+		option.set_item_disabled(index, true)
+		selected_index = index
+
+	option.select(selected_index)
+	var ship_id: int = int(ship.ship_id)
+	option.item_selected.connect(func(index: int) -> void:
+		var target_id: int = int(option.get_item_metadata(index))
+		if target_id == current_target:
+			return
+		if game_state.set_ship_mission_target(ship_id, target_id):
+			_populate_ships_panel()
+	)
+	parent.add_child(option)
+
+func _ship_mission_uses_target(mission_id: int) -> bool:
+	return mission_id == 6 or mission_id == 7 or mission_id == 20
+
+func _default_ship_mission_target_id(ship: StarshipData, mission_id: int) -> int:
+	var candidates: Array[StarshipData] = _ship_mission_target_candidates(ship, mission_id)
+	return int(candidates[0].ship_id) if candidates.size() == 1 else 0
+
+func _ship_mission_target_candidates(ship: StarshipData, mission_id: int) -> Array[StarshipData]:
+	var candidates: Array[StarshipData] = []
+	var source: Array[StarshipData] = []
+	if mission_id == 6:
+		source = _ships_at_position(ship.x, ship.y)
+	elif mission_id == 7 or mission_id == 20:
+		var target_x: float = ship.targetx if ship.has_target() else ship.x
+		var target_y: float = ship.targety if ship.has_target() else ship.y
+		source = _ships_at_position(target_x, target_y)
+	for target: StarshipData in source:
+		if target != null and int(target.ship_id) != int(ship.ship_id):
+			candidates.append(target)
+	return candidates
+
+func _ship_target_option_label(ship: StarshipData) -> String:
+	return "#%d" % int(ship.ship_id)
 
 func _add_ship_enemy_editor(parent: GridContainer, ship: StarshipData) -> void:
 	var key_label: Label = Label.new()
