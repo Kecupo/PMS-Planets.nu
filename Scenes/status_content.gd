@@ -410,8 +410,7 @@ func _populate_ships_panel() -> void:
 
 	_add_summary_label(_ships_list, "#%d  %s%s" % [ship.ship_id, ship.display_hull_name(), hidden_text])
 	_add_wrapped_label(_ships_list, _player_owner_label(ship.ownerid), false).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	if not ship.name.strip_edges().is_empty() and ship.name != ship.display_hull_name():
-		_add_wrapped_label(_ships_list, ship.name, false).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_add_ship_name_editor(_ships_list, ship)
 	_add_location_nav(_ships_list, "ship", ship.x, ship.y, int(ship.ship_id))
 
 	_add_section_title(_ships_list, "Weapons")
@@ -439,24 +438,13 @@ func _populate_ships_panel() -> void:
 	_add_kv(weapons, "Mass", "%d kt" % _dict_int(ship.raw, ["mass"], _dict_int(hull, ["mass"], 0)))
 
 	_add_section_title(_ships_list, "Cargo (%d / %s)" % [cargo_used, str(cargo_capacity) if cargo_capacity > 0 else "?"])
-	var cargo: GridContainer = _add_key_value_grid(_ships_list)
-	_add_kv(cargo, "Duranium", "%d kt" % _dict_int(ship.raw, ["duranium"], 0))
-	_add_kv(cargo, "Tritanium", "%d kt" % _dict_int(ship.raw, ["tritanium"], 0))
-	_add_kv(cargo, "Molybdenum", "%d kt" % _dict_int(ship.raw, ["molybdenum"], 0))
-	_add_kv(cargo, "Colonists", "%d clans" % _dict_int(ship.raw, ["clans"], 0))
-	_add_kv(cargo, "Supplies", "%d kt" % _dict_int(ship.raw, ["supplies"], 0))
-	_add_kv(cargo, "Megacredits", "%d" % _dict_int(ship.raw, ["megacredits"], 0))
-	_add_kv(cargo, "Neutronium", "%d / %s kt" % [
-		_dict_int(ship.raw, ["neutronium", "fuel"], 0),
-		str(fuel_capacity) if fuel_capacity > 0 else "?"
-	])
+	_add_ship_cargo_layout(_ships_list, ship, fuel_capacity)
 
-	_add_section_title(_ships_list, "Orders")
+	_add_ship_orders_title(_ships_list, ship)
 	var orders_top: GridContainer = _add_key_value_grid(_ships_list)
 	_add_kv(orders_top, "Position", "%.0f / %.0f" % [ship.x, ship.y])
 	_add_kv(orders_top, "Target", "%.0f / %.0f" % [ship.targetx, ship.targety] if ship.has_target() else "-")
 	_add_kv(orders_top, "Warp", str(int(ship.warp)))
-	_add_ship_fc_box(_ships_list, ship)
 	var orders: GridContainer = _add_key_value_grid(_ships_list)
 	_add_kv(orders, "Heading", str(int(ship.heading)) if ship.heading >= 0.0 else "-")
 	_add_kv(orders, "Distance", "%.1f ly" % _ship_travel_distance(ship))
@@ -1087,6 +1075,98 @@ func _add_kv(parent: GridContainer, key: String, value: String) -> void:
 	value_label.add_theme_color_override("font_color", Color(0.54, 1.0, 0.58, 1.0))
 	parent.add_child(value_label)
 
+func _add_center_kv(parent: GridContainer, key: String, value: String) -> void:
+	var key_label: Label = Label.new()
+	key_label.text = key
+	key_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	key_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	key_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	parent.add_child(key_label)
+
+	var value_label: Label = Label.new()
+	value_label.text = value if not value.is_empty() else "-"
+	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	value_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	value_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	value_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	value_label.add_theme_color_override("font_color", Color(0.54, 1.0, 0.58, 1.0))
+	parent.add_child(value_label)
+
+func _add_ship_name_editor(parent: VBoxContainer, ship: StarshipData) -> void:
+	var ship_name: String = ship.name.strip_edges()
+	if not game_state.is_my_ship(ship):
+		if not ship_name.is_empty() and ship_name != ship.display_hull_name():
+			_add_wrapped_label(parent, ship_name, false).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		return
+
+	var center: CenterContainer = CenterContainer.new()
+	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(center)
+
+	var edit: LineEdit = LineEdit.new()
+	edit.text = ship_name
+	edit.placeholder_text = "Ship name"
+	edit.tooltip_text = "Ship name"
+	edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	edit.custom_minimum_size = Vector2(260.0, 0.0)
+	edit.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	edit.add_theme_color_override("font_color", Color(0.78, 0.94, 0.96, 1.0))
+	var ship_id: int = int(ship.ship_id)
+	edit.text_submitted.connect(func(_text: String) -> void:
+		_commit_ship_name_edit(ship_id, edit)
+	)
+	edit.focus_exited.connect(func() -> void:
+		_commit_ship_name_edit(ship_id, edit)
+	)
+	center.add_child(edit)
+
+func _commit_ship_name_edit(ship_id: int, edit: LineEdit) -> void:
+	var ship: StarshipData = _ship_by_id(ship_id)
+	if ship == null or edit == null:
+		return
+	if not game_state.is_my_ship(ship):
+		edit.text = ship.name
+		return
+	var name: String = edit.text.strip_edges()
+	edit.text = name
+	if name == ship.name:
+		return
+	if game_state.set_ship_name(ship_id, name):
+		_populate_ships_panel()
+
+func _add_ship_cargo_layout(parent: VBoxContainer, ship: StarshipData, fuel_capacity: int) -> void:
+	var columns: HBoxContainer = HBoxContainer.new()
+	columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	columns.add_theme_constant_override("separation", 20)
+	parent.add_child(columns)
+
+	var minerals: GridContainer = GridContainer.new()
+	minerals.columns = 2
+	minerals.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	minerals.add_theme_constant_override("h_separation", 10)
+	minerals.add_theme_constant_override("v_separation", 4)
+	columns.add_child(minerals)
+	_add_kv(minerals, "Duranium", "%d kt" % _dict_int(ship.raw, ["duranium"], 0))
+	_add_kv(minerals, "Tritanium", "%d kt" % _dict_int(ship.raw, ["tritanium"], 0))
+	_add_kv(minerals, "Molybdenum", "%d kt" % _dict_int(ship.raw, ["molybdenum"], 0))
+
+	var supplies_people: GridContainer = GridContainer.new()
+	supplies_people.columns = 2
+	supplies_people.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	supplies_people.add_theme_constant_override("h_separation", 10)
+	supplies_people.add_theme_constant_override("v_separation", 4)
+	columns.add_child(supplies_people)
+	_add_kv(supplies_people, "Colonists", "%d clans" % _dict_int(ship.raw, ["clans"], 0))
+	_add_kv(supplies_people, "Supplies", "%d kt" % _dict_int(ship.raw, ["supplies"], 0))
+	_add_kv(supplies_people, "Megacredits", "%d" % _dict_int(ship.raw, ["megacredits"], 0))
+
+	var fuel: GridContainer = _add_key_value_grid(parent)
+	_add_center_kv(fuel, "Neutronium", "%d / %s kt" % [
+		_dict_int(ship.raw, ["neutronium", "fuel"], 0),
+		str(fuel_capacity) if fuel_capacity > 0 else "?"
+	])
+
 func _add_ship_fc_editor(parent: GridContainer, ship: StarshipData) -> void:
 	var key_label: Label = Label.new()
 	key_label.text = "Friendly Code"
@@ -1119,6 +1199,29 @@ func _add_ship_fc_box(parent: VBoxContainer, ship: StarshipData) -> void:
 	edit.custom_minimum_size = Vector2(82.0, 0.0)
 	edit.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE + 4)
 	box.add_child(edit)
+
+func _add_ship_orders_title(parent: VBoxContainer, ship: StarshipData) -> void:
+	_add_separator(parent)
+	var row: HBoxContainer = HBoxContainer.new()
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_theme_constant_override("separation", 8)
+	parent.add_child(row)
+
+	var spacer: Control = Control.new()
+	spacer.custom_minimum_size = Vector2(82.0, 0.0)
+	row.add_child(spacer)
+
+	var title: Label = Label.new()
+	title.text = "Orders"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.add_theme_color_override("font_color", Color(0.04, 0.55, 0.96, 1.0))
+	row.add_child(title)
+
+	var edit: LineEdit = _create_ship_fc_edit(ship, HORIZONTAL_ALIGNMENT_CENTER)
+	edit.custom_minimum_size = Vector2(82.0, 0.0)
+	edit.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE + 4)
+	row.add_child(edit)
 
 func _add_ship_enemy_editor(parent: GridContainer, ship: StarshipData) -> void:
 	var key_label: Label = Label.new()
