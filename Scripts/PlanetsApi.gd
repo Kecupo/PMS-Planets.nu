@@ -845,6 +845,12 @@ static func _ship_has_relevant_changes(orig_rst: Dictionary, pending_rst: Dictio
 		return true
 	if _to_int(orig_ship.get("enemy", 0)) != _to_int(mod_ship.get("enemy", 0)):
 		return true
+	if _to_int(orig_ship.get("mission", 0)) != _to_int(mod_ship.get("mission", 0)):
+		return true
+	if _to_int(orig_ship.get("mission1target", 0)) != _to_int(mod_ship.get("mission1target", 0)):
+		return true
+	if _to_int(orig_ship.get("mission2target", 0)) != _to_int(mod_ship.get("mission2target", 0)):
+		return true
 
 	return false
 

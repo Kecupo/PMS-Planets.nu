@@ -414,46 +414,17 @@ func _populate_ships_panel() -> void:
 	_add_location_nav(_ships_list, "ship", ship.x, ship.y, int(ship.ship_id))
 
 	_add_section_title(_ships_list, "Weapons")
-	var weapons: GridContainer = _add_key_value_grid(_ships_list)
 	var beam_count: int = _dict_int(ship.raw, ["beams"], 0)
 	var torp_tubes: int = _dict_int(ship.raw, ["torps"], 0)
 	var fighter_bays: int = _dict_int(ship.raw, ["bays"], 0)
 	var ammo: int = _dict_int(ship.raw, ["ammo"], 0)
-	_add_kv(weapons, "Engine", _engine_name(_dict_int(ship.raw, ["engineid"], 0)))
-	if beam_count > 0:
-		_add_kv(weapons, "Beams", _weapon_count_name(beam_count, _beam_name(_dict_int(ship.raw, ["beamid"], 0))))
-	if torp_tubes > 0:
-		_add_kv(weapons, "Launchers", _weapon_count_name(torp_tubes, _torpedo_name(_dict_int(ship.raw, ["torpedoid"], 0))))
-		_add_kv(weapons, "Torpedoes", str(ammo))
-	if fighter_bays > 0:
-		_add_kv(weapons, "Fighter Bays", str(fighter_bays))
-		_add_kv(weapons, "Fighters", str(ammo))
-	if beam_count <= 0 and torp_tubes <= 0 and fighter_bays <= 0:
-		_add_kv(weapons, "Weapons", "none")
-	_add_kv(weapons, "Damage", "%d%%" % _dict_int(ship.raw, ["damage"], 0))
-	_add_kv(weapons, "Crew", "%d / %d" % [
-		_dict_int(ship.raw, ["crew"], 0),
-		_dict_int(hull, ["crew"], 0)
-	])
-	_add_kv(weapons, "Mass", "%d kt" % _dict_int(ship.raw, ["mass"], _dict_int(hull, ["mass"], 0)))
+	_add_ship_weapons_layout(_ships_list, ship, hull, beam_count, torp_tubes, fighter_bays, ammo)
 
 	_add_section_title(_ships_list, "Cargo (%d / %s)" % [cargo_used, str(cargo_capacity) if cargo_capacity > 0 else "?"])
 	_add_ship_cargo_layout(_ships_list, ship, fuel_capacity)
 
 	_add_ship_orders_title(_ships_list, ship)
-	var orders_top: GridContainer = _add_key_value_grid(_ships_list)
-	_add_kv(orders_top, "Position", "%.0f / %.0f" % [ship.x, ship.y])
-	_add_kv(orders_top, "Target", "%.0f / %.0f" % [ship.targetx, ship.targety] if ship.has_target() else "-")
-	_add_kv(orders_top, "Warp", str(int(ship.warp)))
-	var orders: GridContainer = _add_key_value_grid(_ships_list)
-	_add_kv(orders, "Heading", str(int(ship.heading)) if ship.heading >= 0.0 else "-")
-	_add_kv(orders, "Distance", "%.1f ly" % _ship_travel_distance(ship))
-	_add_kv(orders, "Mission", _mission_label(_dict_int(ship.raw, ["mission"], 0), ship.ownerid))
-	if game_state.is_my_ship(ship):
-		_add_ship_enemy_editor(orders, ship)
-	else:
-		_add_kv(orders, "Enemy", _enemy_label(_dict_int(ship.raw, ["enemy"], 0)))
-	_add_kv(orders, "Experience", str(_dict_int(ship.raw, ["experience"], 0)))
+	_add_ship_orders_layout(_ships_list, ship)
 
 func _populate_starbases_panel() -> void:
 	_clear_children(_starbases_list)
@@ -1167,6 +1138,38 @@ func _add_ship_cargo_layout(parent: VBoxContainer, ship: StarshipData, fuel_capa
 		str(fuel_capacity) if fuel_capacity > 0 else "?"
 	])
 
+func _add_ship_weapons_layout(parent: VBoxContainer, ship: StarshipData, hull: Dictionary, beam_count: int, torp_tubes: int, fighter_bays: int, ammo: int) -> void:
+	var grid: GridContainer = GridContainer.new()
+	grid.columns = 4
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 4)
+	parent.add_child(grid)
+
+	_add_kv(grid, "Crew", "%d / %d" % [
+		_dict_int(ship.raw, ["crew"], 0),
+		_dict_int(hull, ["crew"], 0)
+	])
+	_add_kv(grid, "Mass", "%d kt" % _dict_int(ship.raw, ["mass"], _dict_int(hull, ["mass"], 0)))
+	_add_kv(grid, "Engine", _engine_name(_dict_int(ship.raw, ["engineid"], 0)))
+	_add_kv(grid, "Damage", "%d%%" % _dict_int(ship.raw, ["damage"], 0))
+	if beam_count > 0:
+		_add_kv(grid, "Beams", _weapon_count_name(beam_count, _beam_name(_dict_int(ship.raw, ["beamid"], 0))))
+		_add_empty_kv_pair(grid)
+	if fighter_bays > 0:
+		_add_kv(grid, "Fighter Bays", str(fighter_bays))
+		_add_kv(grid, "Fighters", str(ammo))
+	if torp_tubes > 0:
+		_add_kv(grid, "Launchers", _weapon_count_name(torp_tubes, _torpedo_name(_dict_int(ship.raw, ["torpedoid"], 0))))
+		_add_kv(grid, "Torpedoes", str(ammo))
+	if beam_count <= 0 and torp_tubes <= 0 and fighter_bays <= 0:
+		_add_kv(grid, "Weapons", "none")
+		_add_empty_kv_pair(grid)
+
+func _add_empty_kv_pair(parent: GridContainer) -> void:
+	parent.add_child(Control.new())
+	parent.add_child(Control.new())
+
 func _add_ship_fc_editor(parent: GridContainer, ship: StarshipData) -> void:
 	var key_label: Label = Label.new()
 	key_label.text = "Friendly Code"
@@ -1218,10 +1221,100 @@ func _add_ship_orders_title(parent: VBoxContainer, ship: StarshipData) -> void:
 	title.add_theme_color_override("font_color", Color(0.04, 0.55, 0.96, 1.0))
 	row.add_child(title)
 
+	row.add_child(_create_ship_fc_panel(ship))
+
+func _create_ship_fc_panel(ship: StarshipData) -> PanelContainer:
+	var box: PanelContainer = PanelContainer.new()
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = Color(0.03, 0.035, 0.04, 0.95)
+	style.border_color = Color(0.36, 0.73, 0.82, 0.9)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(3)
+	style.content_margin_left = 8
+	style.content_margin_right = 8
+	style.content_margin_top = 3
+	style.content_margin_bottom = 3
+	box.add_theme_stylebox_override("panel", style)
+
 	var edit: LineEdit = _create_ship_fc_edit(ship, HORIZONTAL_ALIGNMENT_CENTER)
 	edit.custom_minimum_size = Vector2(82.0, 0.0)
 	edit.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE + 4)
-	row.add_child(edit)
+	box.add_child(edit)
+	return box
+
+func _add_ship_orders_layout(parent: VBoxContainer, ship: StarshipData) -> void:
+	var columns: HBoxContainer = HBoxContainer.new()
+	columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	columns.add_theme_constant_override("separation", 20)
+	parent.add_child(columns)
+
+	var movement: GridContainer = GridContainer.new()
+	movement.columns = 2
+	movement.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	movement.add_theme_constant_override("h_separation", 10)
+	movement.add_theme_constant_override("v_separation", 4)
+	columns.add_child(movement)
+	_add_kv(movement, "Position", _ship_position_label(ship.x, ship.y))
+	_add_kv(movement, "Target", _ship_position_label(ship.targetx, ship.targety) if ship.has_target() else "-")
+	_add_kv(movement, "Next Turn", _ship_next_turn_label(ship))
+	_add_kv(movement, "Distance", "%.1f ly" % _ship_travel_distance(ship))
+
+	var orders: GridContainer = GridContainer.new()
+	orders.columns = 2
+	orders.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	orders.add_theme_constant_override("h_separation", 10)
+	orders.add_theme_constant_override("v_separation", 4)
+	columns.add_child(orders)
+	_add_kv(orders, "Warp", str(int(ship.warp)))
+	_add_kv(orders, "Heading", str(int(ship.heading)) if ship.heading >= 0.0 else "-")
+	if game_state.is_my_ship(ship):
+		_add_ship_mission_editor(orders, ship, _hull_info(ship.hullid))
+	else:
+		_add_kv(orders, "Mission", _mission_label(_dict_int(ship.raw, ["mission"], 0), ship.ownerid))
+	if game_state.is_my_ship(ship):
+		_add_ship_enemy_editor(orders, ship)
+	else:
+		_add_kv(orders, "Enemy", _enemy_label(_dict_int(ship.raw, ["enemy"], 0)))
+	_add_kv(orders, "Experience", str(_dict_int(ship.raw, ["experience"], 0)))
+
+func _add_ship_mission_editor(parent: GridContainer, ship: StarshipData, hull: Dictionary) -> void:
+	var key_label: Label = Label.new()
+	key_label.text = "Mission"
+	key_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	key_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	parent.add_child(key_label)
+
+	var option: OptionButton = OptionButton.new()
+	option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	option.alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	option.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+
+	var current_mission: int = _dict_int(ship.raw, ["mission"], 0)
+	var selected_index: int = 0
+	var mission_ids: Array[int] = _available_ship_mission_ids(ship, hull)
+	for mission_id: int in mission_ids:
+		option.add_item(_mission_label(mission_id, ship.ownerid), mission_id)
+		var index: int = option.get_item_count() - 1
+		option.set_item_metadata(index, mission_id)
+		if mission_id == current_mission:
+			selected_index = index
+	if current_mission > 0 and not mission_ids.has(current_mission):
+		option.add_item(_mission_label(current_mission, ship.ownerid), current_mission)
+		var index: int = option.get_item_count() - 1
+		option.set_item_metadata(index, current_mission)
+		option.set_item_disabled(index, true)
+		selected_index = index
+
+	option.select(selected_index)
+	var ship_id: int = int(ship.ship_id)
+	option.item_selected.connect(func(index: int) -> void:
+		var mission_id: int = int(option.get_item_metadata(index))
+		if mission_id == current_mission:
+			return
+		if game_state.set_ship_mission(ship_id, mission_id):
+			_populate_ships_panel()
+	)
+	parent.add_child(option)
 
 func _add_ship_enemy_editor(parent: GridContainer, ship: StarshipData) -> void:
 	var key_label: Label = Label.new()
@@ -1243,7 +1336,7 @@ func _add_ship_enemy_editor(parent: GridContainer, ship: StarshipData) -> void:
 		var player_id: int = _dict_int(player, ["id"], -1)
 		if player_id <= 0 or player_id == int(game_state.my_player_id):
 			continue
-		var label: String = _player_owner_label(player_id)
+		var label: String = _compact_player_label(player_id)
 		if _dict_int(player, ["status"], 1) == 3:
 			label += " (dead)"
 		option.add_item(label, player_id)
@@ -1253,7 +1346,7 @@ func _add_ship_enemy_editor(parent: GridContainer, ship: StarshipData) -> void:
 			selected_index = index
 
 	if current_enemy > 0 and selected_index == 0:
-		option.add_item(_enemy_label(current_enemy), current_enemy)
+		option.add_item(_compact_player_label(current_enemy), current_enemy)
 		var index: int = option.get_item_count() - 1
 		option.set_item_metadata(index, current_enemy)
 		selected_index = index
@@ -1463,6 +1556,13 @@ func _player_owner_label(player_id: int) -> String:
 		return "Player %d" % player_id
 	return "%s / Player %d" % [game_state.config.get_owner_abbrev(race_id), player_id]
 
+func _compact_player_label(player_id: int) -> String:
+	if player_id <= 0:
+		return "None"
+	var race_id: int = game_state.get_race_id_of_player(player_id)
+	var race_label: String = game_state.config.get_owner_abbrev(race_id) if race_id > 0 else "Player"
+	return "%d-%s" % [player_id, race_label]
+
 func _planet_by_id(planet_id: int) -> PlanetData:
 	for p: PlanetData in game_state.planets:
 		if int(p.planet_id) == planet_id:
@@ -1615,6 +1715,180 @@ func _available_starbase_mission_ids(current_mission: int) -> Array[int]:
 		ids.append(current_mission)
 	return ids
 
+func _available_ship_mission_ids(ship: StarshipData, hull: Dictionary) -> Array[int]:
+	var ids: Array[int] = []
+	var race_id: int = game_state.get_race_id_of_player(int(ship.ownerid))
+	var settings: Dictionary = _settings_from_rst()
+	var is_academy: bool = _dict_bool(settings, ["isacademy"], false)
+	var beams: int = _dict_int(ship.raw, ["beams"], 0)
+	var torps: int = _dict_int(ship.raw, ["torps"], 0)
+	var bays: int = _dict_int(ship.raw, ["bays"], 0)
+	var hull_id: int = int(ship.hullid)
+	var can_cloak: bool = _dict_bool(hull, ["cancloak"], false)
+
+	ids.append(0)
+	if _game_uses_minefields():
+		ids.append(1)
+	if torps > 0 and (is_academy or race_id != 12) and _game_uses_minefields():
+		ids.append(2)
+	if not is_academy:
+		ids.append(3)
+	ids.append(4)
+	if not is_academy:
+		ids.append(5)
+		if _ships_at_position(ship.x, ship.y).size() > 1 and _dict_int(hull, ["engines"], 0) > 1:
+			ids.append(6)
+	if _dict_int(hull, ["engines"], 0) > 0:
+		ids.append(7)
+
+	if not is_academy:
+		var special_id: int = _special_race_mission_id(ship, hull, race_id)
+		if special_id > 0:
+			ids.append(special_id)
+		if race_id == 12 and hull_id == 115 and _is_player_advantage_active_client(86):
+			ids.append(29)
+
+	if can_cloak and (hull_id != 1087 or not _dict_bool(ship.raw, ["iscloaked"], false)):
+		ids.append(9)
+
+	if not is_academy:
+		if _dict_int(hull, ["mass"], 0) < 60 and _is_player_advantage_active_client(73):
+			ids.append(27)
+		if _is_player_advantage_active_client(71):
+			ids.append(26)
+		if hull_id == 1090 or (hull_id == 90 and _dict_bool(settings, ["sageclassfrigatecanrepair"], false)):
+			ids.append(15)
+		if hull_id == 70 and _is_player_advantage_active_client(44):
+			ids.append(16)
+		if (hull_id == 70 or (hull_id == 72 and _dict_bool(settings, ["hrossfightertransfer"], false))) and _is_player_advantage_active_client(57) and _game_uses_ammo():
+			ids.append(18)
+			ids.append(19)
+		if hull_id == 111:
+			ids.append(17)
+		if hull_id == 123:
+			ids.append(33)
+		if hull_id == 30 and _dict_bool(settings, ["fighterfactoryshipset"], false) and _ship_is_over_own_planet(ship):
+			ids.append(34)
+		if can_cloak and _is_player_advantage_active_client(63) and (not _dict_bool(settings, ["racehullsonlycloakandintercept"], false) or _is_race_hull(ship, race_id)):
+			ids.append(20)
+		if hull_id == 113 and _game_uses_minefields():
+			ids.append(21)
+			ids.append(22)
+		if _dict_int(settings, ["maxwormholes"], 0) > 0:
+			ids.append(23)
+		if _dict_array(ship.raw, ["artifacts"]).size() > 0:
+			ids.append(25)
+		var p: PlanetData = _planet_at_position(ship.x, ship.y)
+		if p != null and _dict_array(p.raw, ["artifacts"]).size() > 0:
+			ids.append(24)
+		if _game_uses_fuel():
+			ids.append(10)
+		ids.append(11)
+		ids.append(12)
+		ids.append(13)
+		if _game_uses_supplies():
+			ids.append(14)
+
+	var unique: Array[int] = []
+	for id: int in ids:
+		if not unique.has(id):
+			unique.append(id)
+	return unique
+
+func _special_race_mission_id(ship: StarshipData, hull: Dictionary, race_id: int) -> int:
+	match race_id:
+		1:
+			return 8
+		2:
+			if _dict_int(ship.raw, ["beams"], 0) > 0 and (not _dict_bool(_settings_from_rst(), ["racehullsonlyhiss"], false) or _is_race_hull(ship, race_id)):
+				return 8
+		3:
+			return 8
+		4, 5:
+			if _dict_int(ship.raw, ["beams"], 0) > 0:
+				return 8
+		6:
+			return 8
+		7:
+			if _dict_int(ship.raw, ["torps"], 0) > 0 and _game_uses_minefields():
+				return 8
+		8:
+			return 8
+		9, 11:
+			if _dict_int(ship.raw, ["bays"], 0) > 0 and _game_uses_ammo():
+				return 8
+		10:
+			return 8
+		12:
+			if int(ship.hullid) == 115:
+				return 8
+	return -1
+
+func _game_uses_ammo() -> bool:
+	return not _dict_bool(_settings_from_rst(), ["unlimitedammo"], false)
+
+func _game_uses_minefields() -> bool:
+	return not _dict_bool(_settings_from_rst(), ["nominefields"], false)
+
+func _game_uses_supplies() -> bool:
+	return not _dict_bool(_settings_from_rst(), ["nosupplies"], false)
+
+func _game_uses_fuel() -> bool:
+	return not _dict_bool(_settings_from_rst(), ["unlimitedfuel"], false)
+
+func _ship_is_over_own_planet(ship: StarshipData) -> bool:
+	var p: PlanetData = _planet_at_position(ship.x, ship.y)
+	return p != null and game_state.is_my_planet(p)
+
+func _is_race_hull(ship: StarshipData, race_id: int) -> bool:
+	var race: Dictionary = _race_info_from_rst(race_id)
+	var hulls: PackedStringArray = _dict_string(race, ["hulls", "basehulls"], "").split(",", false)
+	for item: String in hulls:
+		if item.strip_edges().is_valid_int() and item.strip_edges().to_int() == int(ship.hullid):
+			return true
+	return false
+
+func _is_player_advantage_active_client(advantage_id: int) -> bool:
+	var settings: Dictionary = _settings_from_rst()
+	var race_id: int = game_state.get_my_race_id()
+	if not _dict_bool(settings, ["campaignmode"], false) and not _dict_bool(settings, ["presetadvantages"], false):
+		if advantage_id == 57:
+			return race_id == 8 and _dict_bool(settings, ["starbasefightertransfer"], false)
+		if advantage_id == 62:
+			return race_id == 3 and _dict_bool(settings, ["superspyadvanced"], false)
+		if advantage_id == 63:
+			return race_id == 3 and _dict_bool(settings, ["cloakandintercept"], false)
+
+	var raw: String = _dict_string(_player_from_rst(), ["activeadvantages"], "")
+	if raw.strip_edges().is_empty():
+		raw = _dict_string(_race_info_from_rst(race_id), ["baseadvantages"], "")
+	for part: String in raw.split(",", false):
+		if part.strip_edges().is_valid_int() and part.strip_edges().to_int() == advantage_id:
+			return true
+	return false
+
+func _race_info_from_rst(race_id: int) -> Dictionary:
+	if game_state.last_turn_json.is_empty():
+		return {}
+	var rst_v: Variant = game_state.last_turn_json.get("rst")
+	if not (rst_v is Dictionary):
+		return {}
+	var races_v: Variant = (rst_v as Dictionary).get("races", [])
+	if not (races_v is Array):
+		return {}
+	for item: Variant in races_v as Array:
+		if item is Dictionary and _dict_int(item as Dictionary, ["id"], -1) == race_id:
+			return item as Dictionary
+	return {}
+
+func _dict_array(d: Dictionary, keys: Array[String]) -> Array:
+	for key: String in keys:
+		if d.has(key):
+			var v: Variant = d.get(key)
+			if v is Array:
+				return v as Array
+	return []
+
 func _can_select_starbase_mission(mission_id: int) -> bool:
 	match mission_id:
 		0, 1, 2, 3, 4, 5, 6:
@@ -1716,6 +1990,40 @@ func _ship_travel_distance(ship: StarshipData) -> float:
 		return max_distance
 	return 0.0
 
+func _ship_next_turn_label(ship: StarshipData) -> String:
+	var distance: float = _ship_travel_distance(ship)
+	if distance <= 0.0:
+		return _ship_position_label(ship.x, ship.y)
+
+	var origin_world: Vector2 = _ship_game_to_world(Vector2(ship.x, ship.y))
+	var dir: Vector2 = Vector2.ZERO
+	if ship.has_target():
+		var target_world: Vector2 = _ship_game_to_world(Vector2(ship.targetx, ship.targety))
+		var to_target: Vector2 = target_world - origin_world
+		var target_distance: float = to_target.length()
+		if target_distance <= 0.0:
+			return _ship_position_label(ship.x, ship.y)
+		dir = to_target / target_distance
+	elif ship.heading >= 0.0:
+		var heading_rad: float = deg_to_rad(ship.heading - 90.0)
+		dir = Vector2(cos(heading_rad), sin(heading_rad)).normalized()
+
+	if dir == Vector2.ZERO:
+		return "-"
+
+	var next_world: Vector2 = origin_world + dir * distance
+	var next_game: Vector2 = _ship_world_to_game(next_world)
+	return _ship_position_label(next_game.x, next_game.y)
+
+func _ship_position_label(x: float, y: float) -> String:
+	return "%.0f / %.0f" % [x, y]
+
+func _ship_game_to_world(pos: Vector2) -> Vector2:
+	return Vector2(pos.x, game_state.map_max_y + game_state.map_min_y - pos.y)
+
+func _ship_world_to_game(pos: Vector2) -> Vector2:
+	return Vector2(pos.x, game_state.map_max_y + game_state.map_min_y - pos.y)
+
 func _weapon_count_name(count: int, wname: String) -> String:
 	if count <= 0:
 		return "none"
@@ -1768,6 +2076,42 @@ func _mission_label(mission_id: int, owner_id: int = 0) -> String:
 			return "Beam Up Molybdenum"
 		14:
 			return "Beam Up Supplies"
+		15:
+			return "Repair Ship"
+		16:
+			return "Destroy Planet"
+		17:
+			return "Tantrum"
+		18:
+			return "Send Fighters"
+		19:
+			return "Receive Fighters"
+		20:
+			return "Cloak and Intercept"
+		21:
+			return "Push Minefield"
+		22:
+			return "Pull Minefield"
+		23:
+			return "Enter Wormhole"
+		24:
+			return "Load Artifact"
+		25:
+			return "Transfer Artifact"
+		26:
+			return "Build Robots"
+		27:
+			return "Hide in Warp Well"
+		28:
+			return "Lay Hidden Mines"
+		29:
+			return "Call"
+		30:
+			return "Stack Ships"
+		33:
+			return "Interdict"
+		34:
+			return "Build Fighters"
 		_:
 			return "Mission %d" % mission_id
 

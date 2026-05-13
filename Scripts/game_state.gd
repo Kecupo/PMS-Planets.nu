@@ -931,6 +931,40 @@ func set_ship_enemy(ship_id: int, enemy_id: int) -> bool:
 		emit_signal("orders_changed")
 	return true
 
+func set_ship_mission(ship_id: int, mission_id: int) -> bool:
+	if ship_id <= 0 or mission_id < 0:
+		return false
+
+	var found: bool = false
+	var current_mission: int = -1
+	for ship: StarshipData in starships:
+		if ship != null and int(ship.ship_id) == ship_id:
+			current_mission = int(float(ship.raw.get("mission", 0)))
+			found = true
+			break
+	if not found or current_mission == mission_id:
+		return false
+
+	var mission1target: int = 0
+	var mission2target: int = 0
+	_set_ship_field_in_rst(ship_id, "mission", mission_id)
+	_set_ship_field_in_rst(ship_id, "mission1target", mission1target)
+	_set_ship_field_in_rst(ship_id, "mission2target", mission2target)
+
+	for ship: StarshipData in starships:
+		if ship != null and int(ship.ship_id) == ship_id:
+			ship.raw["mission"] = mission_id
+			ship.raw["mission1target"] = mission1target
+			ship.raw["mission2target"] = mission2target
+			break
+
+	if _batch_mode:
+		_batch_dirty = true
+	else:
+		_save_latest_turn_json()
+		emit_signal("orders_changed")
+	return true
+
 func set_relation_to(relation_id: int, relation_to: int) -> bool:
 	if relation_to < -1 or relation_to > 4:
 		return false
