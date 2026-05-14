@@ -99,7 +99,7 @@ func download_turn(game_id: int, player_id, forsave: bool = false) -> void:
 		api_key = GameState.api_key
 	
 	if api_key.is_empty():
-		_handle_error("No API key – login required")
+		_handle_error("No API key - login required", RequestType.LOAD_TURN)
 		return
 
 	var url: String = (
@@ -179,7 +179,7 @@ func _on_request_completed(_result: int, response_code: int,_headers: PackedStri
 func list_games() -> void:
 	var un: String = GameState.username
 	if un.is_empty():
-		_handle_error("No username stored – login required")
+		_handle_error("No username stored - login required", RequestType.LIST_GAMES)
 		return
 	list_games_for_username(un) 
 	
@@ -195,18 +195,18 @@ func list_games_for_username(username: String) -> void:
 
 func save_turn(wrapper: Dictionary, game_id: int, player_id: int) -> void:
 	if api_key.is_empty():
-		_handle_error("No API key")
+		_handle_error("No API key", RequestType.SAVE_TURN)
 		return
 	if game_id <= 0:
-		_handle_error("Invalid game_id")
+		_handle_error("Invalid game_id", RequestType.SAVE_TURN)
 		return
 	if not wrapper.has("rst"):
-		_handle_error("Wrapper has no rst")
+		_handle_error("Wrapper has no rst", RequestType.SAVE_TURN)
 		return
 
 	var rst_v: Variant = wrapper["rst"]
 	if not (rst_v is Dictionary):
-		_handle_error("Wrapper rst is not a Dictionary")
+		_handle_error("Wrapper rst is not a Dictionary", RequestType.SAVE_TURN)
 		return
 	_pending_save_game_id = game_id
 	_pending_save_player_id = player_id

@@ -34,6 +34,64 @@ static func load_json(path: String) -> Dictionary:
 		push_error("Config JSON is not a Dictionary: " + path)
 		return {}
 	return parsed_v as Dictionary
+
+static func list_local_games() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if not DirAccess.dir_exists_absolute(ROOT_GAMES):
+		return result
+
+	var dir: DirAccess = DirAccess.open(ROOT_GAMES)
+	if dir == null:
+		return result
+
+	dir.list_dir_begin()
+	var entry_name: String = dir.get_next()
+	while not entry_name.is_empty():
+		if dir.current_is_dir() and not entry_name.begins_with(".") and entry_name.is_valid_int():
+			var game_id: int = int(entry_name)
+			var wrapper: Dictionary = load_json(latest_turn_path(game_id))
+			if not wrapper.is_empty():
+				result.append(_local_game_entry(game_id, wrapper))
+		entry_name = dir.get_next()
+	dir.list_dir_end()
+
+	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return int(a.get("id", 0)) < int(b.get("id", 0))
+	)
+	return result
+
+static func _local_game_entry(game_id: int, wrapper: Dictionary) -> Dictionary:
+	var rst: Dictionary = _child_dict(wrapper, "rst")
+	var game: Dictionary = _child_dict(rst, "game")
+	var player: Dictionary = _child_dict(rst, "player")
+	var name: String = String(game.get("name", "")).strip_edges()
+	if name.is_empty():
+		name = String(game.get("description", "")).strip_edges()
+	if name.is_empty():
+		name = "Game %d" % game_id
+
+	return {
+		"id": game_id,
+		"name": name,
+		"turn": _dict_int(game, "turn", 0),
+		"playerid": _dict_int(player, "id", 0),
+		"raceid": _dict_int(player, "raceid", 0),
+		"local": true
+	}
+
+static func _child_dict(parent: Dictionary, key: String) -> Dictionary:
+	var value: Variant = parent.get(key, {})
+	if value is Dictionary:
+		return value as Dictionary
+	return {}
+
+static func _dict_int(parent: Dictionary, key: String, fallback: int) -> int:
+	var value: Variant = parent.get(key, fallback)
+	if typeof(value) == TYPE_INT or typeof(value) == TYPE_FLOAT:
+		return int(value)
+	if typeof(value) == TYPE_STRING and String(value).is_valid_int():
+		return int(String(value))
+	return fallback
 	
 static func rand_ai_config_path(game_id: int) -> String:
 	var p: String = "%s/%d" % [ROOT_GAMES, game_id]
