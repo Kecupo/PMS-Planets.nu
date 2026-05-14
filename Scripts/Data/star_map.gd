@@ -779,7 +779,7 @@ func _rebuild_mine_sweep_preview() -> void:
 
 	var sweepers: Array[StarshipData] = []
 	for ship: StarshipData in game_state.starships:
-		if _ship_can_preview_mine_sweep(ship):
+		if _ship_can_preview_mine_sweep(ship) or _ship_can_preview_mine_scoop(ship):
 			sweepers.append(ship)
 	sweepers.sort_custom(func(a: StarshipData, b: StarshipData) -> bool:
 		return int(a.ship_id) < int(b.ship_id)
@@ -789,34 +789,26 @@ func _rebuild_mine_sweep_preview() -> void:
 		var sweep_pos: Vector2 = _ship_mine_sweep_position(ship)
 		var sweep_units: float = _ship_beam_sweep_units(ship)
 		var fighter_units: float = _ship_fighter_sweep_units(ship)
-		if sweep_units <= 0.0 and fighter_units <= 0.0:
-			continue
 
-		for i: int in range(working_fields.size()):
-			var field: Dictionary = working_fields[i]
-			if not _minefield_is_sweep_target(field, ship):
-				continue
-			var dist: int = int(floor(sweep_pos.distance_to(Vector2(float(field["x"]), float(field["y"])))))
-			var radius: float = float(field["radius"])
-			var isweb: bool = bool(field["isweb"])
-			var removed: float = 0.0
-			if sweep_units > 0.0 and float(dist) <= radius + (0.0 if isweb else 5.0):
-				removed += sweep_units * (3.0 if isweb else 4.0)
-			if fighter_units > 0.0 and not isweb and float(dist) <= radius + 100.0:
-				removed += fighter_units
-			if removed <= 0.0:
-				continue
+		if sweep_units > 0.0 or fighter_units > 0.0:
+			for i: int in range(working_fields.size()):
+				var field: Dictionary = working_fields[i]
+				if not _minefield_is_sweep_target(field, ship):
+					continue
+				var dist: int = int(floor(sweep_pos.distance_to(Vector2(float(field["x"]), float(field["y"])))))
+				var radius: float = float(field["radius"])
+				var isweb: bool = bool(field["isweb"])
+				var removed: float = 0.0
+				if sweep_units > 0.0 and float(dist) <= radius + (0.0 if isweb else 5.0):
+					removed += sweep_units * (3.0 if isweb else 4.0)
+				if fighter_units > 0.0 and not isweb and float(dist) <= radius + 100.0:
+					removed += fighter_units
+				if removed <= 0.0:
+					continue
+				working_fields[i] = _apply_minefield_unit_loss(field, removed, ship)
 
-			var next_units: float = maxf(0.0, float(field["units"]) - removed)
-			if is_equal_approx(next_units, float(field["units"])):
-				continue
-			field["units"] = next_units
-			field["radius"] = _minefield_radius_from_units(next_units)
-			field["swept"] = true
-			var sweepers_for_field: PackedInt32Array = field["sweepers"]
-			sweepers_for_field.append(int(ship.ship_id))
-			field["sweepers"] = sweepers_for_field
-			working_fields[i] = field
+		if _ship_can_preview_mine_scoop(ship):
+			_apply_ship_mine_scoop(working_fields, ship, sweep_pos)
 
 	for field: Dictionary in working_fields:
 		if not bool(field.get("swept", false)):
@@ -843,6 +835,101 @@ func _ship_can_preview_mine_sweep(ship: StarshipData) -> bool:
 	if _dict_float(ship.raw, ["neutronium"], 0.0) <= 0.0:
 		return false
 	return _ship_beam_sweep_units(ship) > 0.0 or _ship_fighter_sweep_units(ship) > 0.0
+
+func _ship_can_preview_mine_scoop(ship: StarshipData) -> bool:
+	if ship == null or ship.ishidden:
+		return false
+	if not game_state.is_my_ship(ship):
+		return false
+	if _dict_int(ship.raw, ["mission"], 0) != 1:
+		return false
+	if _dict_float(ship.raw, ["neutronium"], 0.0) <= 0.0:
+		return false
+	if _dict_int(ship.raw, ["torps"], 0) <= 0:
+		return false
+	if _mine_scoop_units_per_torp(ship) <= 0.0:
+		return false
+	return String(ship.raw.get("friendlycode", "")).strip_edges().to_lower() == "msc"
+
+func _apply_minefield_unit_loss(field: Dictionary, removed: float, ship: StarshipData) -> Dictionary:
+	var next_units: float = maxf(0.0, float(field["units"]) - removed)
+	if is_equal_approx(next_units, float(field["units"])):
+		return field
+	field["units"] = next_units
+	field["radius"] = _minefield_radius_from_units(next_units)
+	field["swept"] = true
+	var sweepers_for_field: PackedInt32Array = field["sweepers"]
+	sweepers_for_field.append(int(ship.ship_id))
+	field["sweepers"] = sweepers_for_field
+	return field
+
+func _apply_ship_mine_scoop(working_fields: Array[Dictionary], ship: StarshipData, scoop_pos: Vector2) -> void:
+	var open_cargo: int = _ship_open_cargo(ship)
+	if open_cargo <= 0:
+		return
+
+	var units_per_torp: float = _mine_scoop_units_per_torp(ship)
+	if units_per_torp <= 0.0:
+		return
+
+	while open_cargo > 0:
+		var field_index: int = _nearest_scoopable_minefield_index(working_fields, ship, scoop_pos)
+		if field_index < 0:
+			return
+
+		var field: Dictionary = working_fields[field_index]
+		var max_units: float = float(open_cargo) * units_per_torp
+		var removed: float = minf(float(field["units"]), max_units)
+		if removed <= 0.0:
+			return
+
+		working_fields[field_index] = _apply_minefield_unit_loss(field, removed, ship)
+		var torps_loaded: int = int(floor(removed / units_per_torp))
+		if torps_loaded <= 0 and is_equal_approx(float(working_fields[field_index]["units"]), 0.0):
+			continue
+		if torps_loaded <= 0:
+			return
+		open_cargo -= torps_loaded
+
+func _nearest_scoopable_minefield_index(working_fields: Array[Dictionary], ship: StarshipData, scoop_pos: Vector2) -> int:
+	var best_index: int = -1
+	var best_dist: float = INF
+	for i: int in range(working_fields.size()):
+		var field: Dictionary = working_fields[i]
+		if int(field.get("ownerid", -1)) != int(ship.ownerid):
+			continue
+		if float(field.get("units", 0.0)) <= 0.0 or float(field.get("radius", 0.0)) <= 0.0:
+			continue
+		var dist: float = floor(scoop_pos.distance_to(Vector2(float(field["x"]), float(field["y"]))))
+		if dist > float(field["radius"]):
+			continue
+		if dist < best_dist:
+			best_dist = dist
+			best_index = i
+	return best_index
+
+func _ship_open_cargo(ship: StarshipData) -> int:
+	var capacity: int = int(_hull_cargo(ship.hullid))
+	if capacity <= 0:
+		return 0
+	return max(0, capacity - _ship_cargo_used(ship.raw))
+
+func _ship_cargo_used(raw: Dictionary) -> int:
+	return _dict_int(raw, ["duranium"], 0) \
+		+ _dict_int(raw, ["tritanium"], 0) \
+		+ _dict_int(raw, ["molybdenum"], 0) \
+		+ _dict_int(raw, ["clans"], 0) \
+		+ _dict_int(raw, ["supplies"], 0) \
+		+ _dict_int(raw, ["ammo"], 0)
+
+func _mine_scoop_units_per_torp(ship: StarshipData) -> float:
+	var torpedo_id: int = _dict_int(ship.raw, ["torpedoid"], 0)
+	if torpedo_id <= 0:
+		return 0.0
+	var units: float = float(torpedo_id * torpedo_id)
+	if game_state.get_race_id_of_player(ship.ownerid) == 9:
+		units *= 4.0
+	return units
 
 func _ship_beam_sweep_units(ship: StarshipData) -> float:
 	var beams: int = _dict_int(ship.raw, ["beams"], 0)
