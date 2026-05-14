@@ -24,6 +24,9 @@ const SHIP_MODE_DOT: int = 0
 const SHIP_MODE_SUMMARY: int = 1
 const SHIP_MODE_COMPACT: int = 2
 const SHIP_MODE_FULL: int = 3
+const MINE_SWEEP_ANIM_START_HOLD_SECONDS: float = 2.2
+const MINE_SWEEP_ANIM_SHRINK_SECONDS: float = 4.8
+const MINE_SWEEP_ANIM_END_HOLD_SECONDS: float = 2.8
 const Minefield_Data = preload("res://Scripts/Data/MinefieldData.gd")
 const Starship_Data = preload("res://Scripts/Data/StarshipData.gd")
 const IonStorm_Data = preload("res://Scripts/Data/IonStormData.gd")
@@ -42,6 +45,7 @@ var _last_hover_mouse_pos: Vector2 = Vector2(INF, INF)
 var _last_hover_camera_pos: Vector2 = Vector2(INF, INF)
 var _last_hover_camera_zoom: Vector2 = Vector2(INF, INF)
 var _ship_label_screen_rects: Array[Rect2] = []
+var _mine_sweep_preview_by_id: Dictionary = {}
 
 func _ready() -> void:
 	set_process_input(true)
@@ -49,6 +53,7 @@ func _ready() -> void:
 	GameState.turn_loaded.connect(_on_turn_loaded)
 	GameState.selection_changed.connect(_on_selection_changed)
 	GameState.orders_changed.connect(func() -> void:
+		_rebuild_mine_sweep_preview()
 		queue_redraw()
 )
 func _on_turn_loaded() -> void:
@@ -57,6 +62,7 @@ func _on_turn_loaded() -> void:
 		(game_state.map_min_y + game_state.map_max_y) * 0.5
 	)
 	$Camera2D.position = center   # lokal, weil Camera2D Kind der StarMap ist
+	_rebuild_mine_sweep_preview()
 	queue_redraw()
 
 func _on_selection_changed(kind: String, _selected_id: int) -> void:
@@ -84,14 +90,16 @@ func _process(_delta: float) -> void:
 	var mouse_pos: Vector2 = get_viewport().get_mouse_position()
 	var camera: Camera2D = $Camera2D
 	var blink_active: bool = _has_blinking_minefields()
-	if blink_active:
+	var sweep_preview_active: bool = not _mine_sweep_preview_by_id.is_empty()
+	if blink_active or sweep_preview_active:
 		queue_redraw()
 
 	var zoom_changed: bool = camera.zoom != _last_hover_camera_zoom
 	if mouse_pos == _last_hover_mouse_pos \
 	and camera.position == _last_hover_camera_pos \
 	and not zoom_changed \
-	and not blink_active:
+	and not blink_active \
+	and not sweep_preview_active:
 		return
 
 	_last_hover_mouse_pos = mouse_pos
@@ -703,8 +711,40 @@ func _draw_minefields() -> void:
 			_draw_web_mine_hatching(center, mf.radius, color)
 
 		draw_circle(center, mf.radius, color)
+		if _mine_sweep_preview_by_id.has(int(mf.minefield_id)):
+			_draw_mine_sweep_preview(mf, center, color)
 		if mf.suspected_passage_from_report:
 			_draw_suspected_minefield_marker(center, mf.radius)
+
+func _draw_mine_sweep_preview(mf: MinefieldData, center: Vector2, base_color: Color) -> void:
+	var preview_v: Variant = _mine_sweep_preview_by_id.get(int(mf.minefield_id))
+	if not (preview_v is Dictionary):
+		return
+	var preview: Dictionary = preview_v as Dictionary
+	var start_radius: float = float(preview.get("start_radius", mf.radius))
+	var end_radius: float = float(preview.get("end_radius", mf.radius))
+	if start_radius <= 0.0 or end_radius >= start_radius:
+		return
+
+	var cycle: float = MINE_SWEEP_ANIM_START_HOLD_SECONDS + MINE_SWEEP_ANIM_SHRINK_SECONDS + MINE_SWEEP_ANIM_END_HOLD_SECONDS
+	var t: float = fmod(float(Time.get_ticks_msec()) / 1000.0, cycle)
+	var shrink_t: float = clampf((t - MINE_SWEEP_ANIM_START_HOLD_SECONDS) / MINE_SWEEP_ANIM_SHRINK_SECONDS, 0.0, 1.0)
+	var eased: float = 1.0 - pow(1.0 - shrink_t, 3.0)
+	var current_radius: float = lerpf(start_radius, end_radius, eased)
+
+	var zoom: float = maxf($Camera2D.zoom.x, 0.001)
+	var outer: Color = base_color
+	outer.a = 0.82
+	var inner_fill: Color = base_color
+	inner_fill.a = 0.34
+	var inner_line: Color = base_color
+	inner_line.a = 0.95
+	var cleared: Color = Color(0.0, 0.0, 0.0, 0.10)
+
+	draw_circle(center, start_radius, cleared)
+	draw_arc(center, start_radius, 0.0, TAU, 128, outer, 2.2 / zoom, true)
+	draw_circle(center, current_radius, inner_fill)
+	draw_arc(center, current_radius, 0.0, TAU, 128, inner_line, 1.8 / zoom, true)
 
 func _draw_suspected_minefield_marker(center: Vector2, radius: float) -> void:
 	var phase: float = float(Time.get_ticks_msec()) / 900.0
@@ -713,6 +753,180 @@ func _draw_suspected_minefield_marker(center: Vector2, radius: float) -> void:
 	var outline: Color = Color(1.0, 0.12, 0.08, 0.40 + pulse * 0.45)
 	draw_circle(center, radius, fill)
 	draw_arc(center, radius, 0.0, TAU, 96, outline, 2.5 / maxf($Camera2D.zoom.x, 0.001), true)
+
+func _rebuild_mine_sweep_preview() -> void:
+	_mine_sweep_preview_by_id.clear()
+	if game_state.starships.is_empty() or game_state.minefields.is_empty():
+		return
+
+	var working_fields: Array[Dictionary] = []
+	for mf: MinefieldData in game_state.minefields:
+		if mf == null or mf.ishidden or mf.units <= 0.0 or mf.radius <= 0.0:
+			continue
+		working_fields.append({
+			"id": int(mf.minefield_id),
+			"ownerid": int(mf.ownerid),
+			"x": mf.x,
+			"y": mf.y,
+			"units": mf.units,
+			"radius": mf.radius,
+			"start_units": mf.units,
+			"start_radius": mf.radius,
+			"isweb": mf.isweb,
+			"swept": false,
+			"sweepers": PackedInt32Array()
+		})
+
+	var sweepers: Array[StarshipData] = []
+	for ship: StarshipData in game_state.starships:
+		if _ship_can_preview_mine_sweep(ship):
+			sweepers.append(ship)
+	sweepers.sort_custom(func(a: StarshipData, b: StarshipData) -> bool:
+		return int(a.ship_id) < int(b.ship_id)
+	)
+
+	for ship: StarshipData in sweepers:
+		var sweep_pos: Vector2 = _ship_mine_sweep_position(ship)
+		var sweep_units: float = _ship_beam_sweep_units(ship)
+		var fighter_units: float = _ship_fighter_sweep_units(ship)
+		if sweep_units <= 0.0 and fighter_units <= 0.0:
+			continue
+
+		for i: int in range(working_fields.size()):
+			var field: Dictionary = working_fields[i]
+			if not _minefield_is_sweep_target(field, ship):
+				continue
+			var dist: int = int(floor(sweep_pos.distance_to(Vector2(float(field["x"]), float(field["y"])))))
+			var radius: float = float(field["radius"])
+			var isweb: bool = bool(field["isweb"])
+			var removed: float = 0.0
+			if sweep_units > 0.0 and float(dist) <= radius + (0.0 if isweb else 5.0):
+				removed += sweep_units * (3.0 if isweb else 4.0)
+			if fighter_units > 0.0 and not isweb and float(dist) <= radius + 100.0:
+				removed += fighter_units
+			if removed <= 0.0:
+				continue
+
+			var next_units: float = maxf(0.0, float(field["units"]) - removed)
+			if is_equal_approx(next_units, float(field["units"])):
+				continue
+			field["units"] = next_units
+			field["radius"] = _minefield_radius_from_units(next_units)
+			field["swept"] = true
+			var sweepers_for_field: PackedInt32Array = field["sweepers"]
+			sweepers_for_field.append(int(ship.ship_id))
+			field["sweepers"] = sweepers_for_field
+			working_fields[i] = field
+
+	for field: Dictionary in working_fields:
+		if not bool(field.get("swept", false)):
+			continue
+		var start_radius: float = float(field.get("start_radius", 0.0))
+		var end_radius: float = float(field.get("radius", start_radius))
+		if end_radius >= start_radius:
+			continue
+		_mine_sweep_preview_by_id[int(field["id"])] = {
+			"start_units": float(field["start_units"]),
+			"end_units": float(field["units"]),
+			"start_radius": start_radius,
+			"end_radius": end_radius,
+			"sweepers": field["sweepers"]
+		}
+
+func _ship_can_preview_mine_sweep(ship: StarshipData) -> bool:
+	if ship == null or ship.ishidden:
+		return false
+	if not game_state.is_my_ship(ship):
+		return false
+	if _dict_int(ship.raw, ["mission"], 0) != 1:
+		return false
+	if _dict_float(ship.raw, ["neutronium"], 0.0) <= 0.0:
+		return false
+	return _ship_beam_sweep_units(ship) > 0.0 or _ship_fighter_sweep_units(ship) > 0.0
+
+func _ship_beam_sweep_units(ship: StarshipData) -> float:
+	var beams: int = _dict_int(ship.raw, ["beams"], 0)
+	if beams <= 0:
+		return 0.0
+	var beam_id: int = _dict_int(ship.raw, ["beamid"], 0)
+	if game_state.get_race_id_of_player(ship.ownerid) == 12:
+		var hull_cargo: float = _hull_cargo(ship.hullid)
+		if hull_cargo > 0.0:
+			beam_id = int(floor((_dict_float(ship.raw, ["clans"], 0.0) / hull_cargo) * 9.0)) + 1
+	beam_id = clampi(beam_id, 0, 10)
+	return float(beams * beam_id * beam_id)
+
+func _ship_fighter_sweep_units(ship: StarshipData) -> float:
+	if game_state.get_race_id_of_player(ship.ownerid) != 11:
+		return 0.0
+	if _dict_int(ship.raw, ["bays"], 0) <= 0:
+		return 0.0
+	return float(_dict_int(ship.raw, ["ammo"], 0) * 20)
+
+func _ship_mine_sweep_position(ship: StarshipData) -> Vector2:
+	if _ship_has_at_command_ship(ship) and ship.has_target():
+		return Vector2(ship.targetx, ship.targety)
+	return Vector2(ship.x, ship.y)
+
+func _ship_has_at_command_ship(ship: StarshipData) -> bool:
+	for other: StarshipData in game_state.starships:
+		if other == null or other.ishidden:
+			continue
+		if int(other.ownerid) != int(ship.ownerid):
+			continue
+		if int(other.hullid) != 1089:
+			continue
+		if is_equal_approx(other.x, ship.x) and is_equal_approx(other.y, ship.y):
+			return true
+	return false
+
+func _minefield_is_sweep_target(field: Dictionary, ship: StarshipData) -> bool:
+	var owner_id: int = int(field.get("ownerid", -1))
+	if owner_id <= 0 or owner_id == int(ship.ownerid):
+		return false
+	return _relation_to_player(owner_id) < 2
+
+func _relation_to_player(player_id: int) -> int:
+	if player_id <= 0 or game_state.last_turn_json.is_empty():
+		return 0
+	var rst_v: Variant = game_state.last_turn_json.get("rst")
+	if not (rst_v is Dictionary):
+		return 0
+	var rst: Dictionary = rst_v as Dictionary
+	var relations_v: Variant = rst.get("relations", [])
+	if not (relations_v is Array):
+		return 0
+	for item: Variant in relations_v as Array:
+		if not (item is Dictionary):
+			continue
+		var relation: Dictionary = item as Dictionary
+		if _dict_int(relation, ["playertoid"], -1) == player_id:
+			return _dict_int(relation, ["relationto"], 0)
+	return 0
+
+func _minefield_radius_from_units(units: float) -> float:
+	var radius: float = minf(150.0, floor(sqrt(maxf(0.0, units))))
+	if _dict_bool(_settings_from_rst(), ["isacademy"], false):
+		radius = minf(4.0, floor(radius / 30.0))
+	return radius
+
+func _hull_cargo(hull_id: int) -> float:
+	if game_state.last_turn_json.is_empty():
+		return 0.0
+	var rst_v: Variant = game_state.last_turn_json.get("rst")
+	if not (rst_v is Dictionary):
+		return 0.0
+	var rst: Dictionary = rst_v as Dictionary
+	var hulls_v: Variant = rst.get("hulls", [])
+	if not (hulls_v is Array):
+		return 0.0
+	for hull_v: Variant in hulls_v as Array:
+		if not (hull_v is Dictionary):
+			continue
+		var hull: Dictionary = hull_v as Dictionary
+		if _dict_int(hull, ["id"], -1) == hull_id:
+			return _dict_float(hull, ["cargo"], 0.0)
+	return 0.0
 
 func _draw_starships() -> void:
 	if game_state.starships.is_empty():
@@ -1772,3 +1986,57 @@ func _draw_clipped_line_to_circle(
 
 		last_inside = inside
 		last_point = point
+
+func _settings_from_rst() -> Dictionary:
+	if game_state.last_turn_json.is_empty():
+		return {}
+	var rst_v: Variant = game_state.last_turn_json.get("rst")
+	if not (rst_v is Dictionary):
+		return {}
+	var rst: Dictionary = rst_v as Dictionary
+	var settings_v: Variant = rst.get("settings", {})
+	if settings_v is Dictionary:
+		return settings_v as Dictionary
+	return {}
+
+func _dict_int(d: Dictionary, keys: Array[String], fallback: int = 0) -> int:
+	for key: String in keys:
+		if not d.has(key):
+			continue
+		var value: Variant = d.get(key)
+		if typeof(value) == TYPE_INT or typeof(value) == TYPE_FLOAT:
+			return int(value)
+		var text: String = String(value)
+		if text.is_valid_int():
+			return int(text)
+		if text.is_valid_float():
+			return int(float(text))
+	return fallback
+
+func _dict_float(d: Dictionary, keys: Array[String], fallback: float = 0.0) -> float:
+	for key: String in keys:
+		if not d.has(key):
+			continue
+		var value: Variant = d.get(key)
+		if typeof(value) == TYPE_INT or typeof(value) == TYPE_FLOAT:
+			return float(value)
+		var text: String = String(value)
+		if text.is_valid_float():
+			return float(text)
+	return fallback
+
+func _dict_bool(d: Dictionary, keys: Array[String], fallback: bool = false) -> bool:
+	for key: String in keys:
+		if not d.has(key):
+			continue
+		var value: Variant = d.get(key)
+		if typeof(value) == TYPE_BOOL:
+			return bool(value)
+		if typeof(value) == TYPE_INT or typeof(value) == TYPE_FLOAT:
+			return int(value) != 0
+		var text: String = String(value).to_lower()
+		if text == "true" or text == "1":
+			return true
+		if text == "false" or text == "0":
+			return false
+	return fallback
