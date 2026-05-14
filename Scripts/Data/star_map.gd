@@ -24,9 +24,9 @@ const SHIP_MODE_DOT: int = 0
 const SHIP_MODE_SUMMARY: int = 1
 const SHIP_MODE_COMPACT: int = 2
 const SHIP_MODE_FULL: int = 3
-const MINE_SWEEP_ANIM_START_HOLD_SECONDS: float = 2.2
-const MINE_SWEEP_ANIM_SHRINK_SECONDS: float = 4.8
-const MINE_SWEEP_ANIM_END_HOLD_SECONDS: float = 2.8
+const MINE_SWEEP_ANIM_START_HOLD_SECONDS: float = 0.6
+const MINE_SWEEP_ANIM_SHRINK_SECONDS: float = 5.2
+const MINE_SWEEP_ANIM_END_HOLD_SECONDS: float = 0.8
 const Minefield_Data = preload("res://Scripts/Data/MinefieldData.gd")
 const Starship_Data = preload("res://Scripts/Data/StarshipData.gd")
 const IonStorm_Data = preload("res://Scripts/Data/IonStormData.gd")
@@ -680,8 +680,11 @@ func _ship_target_to_world(ship: StarshipData) -> Vector2:
 	)
 
 func _minefield_color(mf: MinefieldData) -> Color:
-	var race_id: int = game_state.get_race_id_of_player(mf.ownerid)
-	return RandAI_Config.get_player_color(mf.ownerid, race_id)
+	return _minefield_color_for_owner(mf.ownerid)
+
+func _minefield_color_for_owner(owner_id: int) -> Color:
+	var race_id: int = game_state.get_race_id_of_player(owner_id)
+	return RandAI_Config.get_player_color(owner_id, race_id)
 
 func _has_blinking_minefields() -> bool:
 	for mf: MinefieldData in game_state.minefields:
@@ -715,36 +718,65 @@ func _draw_minefields() -> void:
 			_draw_mine_sweep_preview(mf, center, color)
 		if mf.suspected_passage_from_report:
 			_draw_suspected_minefield_marker(center, mf.radius)
+	_draw_new_minefield_previews()
 
 func _draw_mine_sweep_preview(mf: MinefieldData, center: Vector2, base_color: Color) -> void:
 	var preview_v: Variant = _mine_sweep_preview_by_id.get(int(mf.minefield_id))
+	_draw_minefield_preview_entry(preview_v, center, base_color)
+
+func _draw_new_minefield_previews() -> void:
+	for preview_v: Variant in _mine_sweep_preview_by_id.values():
+		if not (preview_v is Dictionary):
+			continue
+		var preview: Dictionary = preview_v as Dictionary
+		if not bool(preview.get("new_field", false)):
+			continue
+		var center: Vector2 = Vector2(float(preview.get("x", 0.0)), game_state.map_max_y + game_state.map_min_y - float(preview.get("y", 0.0)))
+		var owner_id: int = int(preview.get("ownerid", -1))
+		var color: Color = _minefield_color_for_owner(owner_id)
+		color.a = 0.24
+		_draw_minefield_preview_entry(preview, center, color)
+
+func _draw_minefield_preview_entry(preview_v: Variant, center: Vector2, base_color: Color) -> void:
 	if not (preview_v is Dictionary):
 		return
 	var preview: Dictionary = preview_v as Dictionary
-	var start_radius: float = float(preview.get("start_radius", mf.radius))
-	var end_radius: float = float(preview.get("end_radius", mf.radius))
-	if start_radius <= 0.0 or end_radius >= start_radius:
+	var start_radius: float = float(preview.get("start_radius", 0.0))
+	var end_radius: float = float(preview.get("end_radius", start_radius))
+	var start_units: float = float(preview.get("start_units", 0.0))
+	var end_units: float = float(preview.get("end_units", start_units))
+	var is_swept: bool = bool(preview.get("swept", false))
+	if start_radius <= 0.0 and end_radius <= 0.0:
 		return
+	if is_equal_approx(start_radius, end_radius):
+		if is_equal_approx(start_units, end_units):
+			return
+		if is_swept and end_units < start_units:
+			end_radius = maxf(0.0, start_radius - _screen_px_to_world(8.0))
 
 	var cycle: float = MINE_SWEEP_ANIM_START_HOLD_SECONDS + MINE_SWEEP_ANIM_SHRINK_SECONDS + MINE_SWEEP_ANIM_END_HOLD_SECONDS
 	var t: float = fmod(float(Time.get_ticks_msec()) / 1000.0, cycle)
-	var shrink_t: float = clampf((t - MINE_SWEEP_ANIM_START_HOLD_SECONDS) / MINE_SWEEP_ANIM_SHRINK_SECONDS, 0.0, 1.0)
-	var eased: float = 1.0 - pow(1.0 - shrink_t, 3.0)
+	var change_t: float = clampf((t - MINE_SWEEP_ANIM_START_HOLD_SECONDS) / MINE_SWEEP_ANIM_SHRINK_SECONDS, 0.0, 1.0)
+	var eased: float = change_t * change_t * (3.0 - 2.0 * change_t)
 	var current_radius: float = lerpf(start_radius, end_radius, eased)
 
 	var zoom: float = maxf($Camera2D.zoom.x, 0.001)
 	var outer: Color = base_color
 	outer.a = 0.82
 	var inner_fill: Color = base_color
-	inner_fill.a = 0.34
+	inner_fill.a = 0.38
 	var inner_line: Color = base_color
 	inner_line.a = 0.95
-	var cleared: Color = Color(0.0, 0.0, 0.0, 0.10)
+	var cleared: Color = Color(0.0, 0.0, 0.0, 0.34)
+	var is_growth: bool = end_radius > start_radius
 
-	draw_circle(center, start_radius, cleared)
-	draw_arc(center, start_radius, 0.0, TAU, 128, outer, 2.2 / zoom, true)
-	draw_circle(center, current_radius, inner_fill)
-	draw_arc(center, current_radius, 0.0, TAU, 128, inner_line, 1.8 / zoom, true)
+	var outer_radius: float = maxf(start_radius, end_radius)
+	if not is_growth and start_radius > 0.0:
+		draw_circle(center, outer_radius, cleared)
+	draw_arc(center, outer_radius, 0.0, TAU, 128, outer, 2.2 / zoom, true)
+	if current_radius > 0.1:
+		draw_circle(center, current_radius, inner_fill)
+		draw_arc(center, current_radius, 0.0, TAU, 128, inner_line, 1.8 / zoom, true)
 
 func _draw_suspected_minefield_marker(center: Vector2, radius: float) -> void:
 	var phase: float = float(Time.get_ticks_msec()) / 900.0
@@ -756,7 +788,7 @@ func _draw_suspected_minefield_marker(center: Vector2, radius: float) -> void:
 
 func _rebuild_mine_sweep_preview() -> void:
 	_mine_sweep_preview_by_id.clear()
-	if game_state.starships.is_empty() or game_state.minefields.is_empty():
+	if game_state.starships.is_empty():
 		return
 
 	var working_fields: Array[Dictionary] = []
@@ -773,20 +805,32 @@ func _rebuild_mine_sweep_preview() -> void:
 			"start_units": mf.units,
 			"start_radius": mf.radius,
 			"isweb": mf.isweb,
+			"new_field": false,
+			"laid": false,
 			"swept": false,
 			"sweepers": PackedInt32Array()
 		})
 
+	var lay_ships: Array[StarshipData] = []
 	var sweepers: Array[StarshipData] = []
 	for ship: StarshipData in game_state.starships:
+		if _ship_can_preview_lay_mines(ship):
+			lay_ships.append(ship)
 		if _ship_can_preview_mine_sweep(ship) or _ship_can_preview_mine_scoop(ship):
 			sweepers.append(ship)
+	lay_ships.sort_custom(func(a: StarshipData, b: StarshipData) -> bool:
+		return int(a.ship_id) < int(b.ship_id)
+	)
 	sweepers.sort_custom(func(a: StarshipData, b: StarshipData) -> bool:
 		return int(a.ship_id) < int(b.ship_id)
 	)
 
+	var next_preview_id: Array[int] = [-1]
+	for ship: StarshipData in lay_ships:
+		_apply_ship_lay_mines(working_fields, ship, _ship_mine_action_position(ship), next_preview_id)
+
 	for ship: StarshipData in sweepers:
-		var sweep_pos: Vector2 = _ship_mine_sweep_position(ship)
+		var sweep_pos: Vector2 = _ship_mine_action_position(ship)
 		var sweep_units: float = _ship_beam_sweep_units(ship)
 		var fighter_units: float = _ship_fighter_sweep_units(ship)
 
@@ -811,19 +855,169 @@ func _rebuild_mine_sweep_preview() -> void:
 			_apply_ship_mine_scoop(working_fields, ship, sweep_pos)
 
 	for field: Dictionary in working_fields:
-		if not bool(field.get("swept", false)):
+		if not bool(field.get("swept", false)) and not bool(field.get("laid", false)):
 			continue
 		var start_radius: float = float(field.get("start_radius", 0.0))
+		var start_units: float = float(field.get("start_units", 0.0))
+		if bool(field.get("swept", false)):
+			start_radius = float(field.get("sweep_start_radius", start_radius))
+			start_units = float(field.get("sweep_start_units", start_units))
 		var end_radius: float = float(field.get("radius", start_radius))
-		if end_radius >= start_radius:
+		var end_units: float = float(field["units"])
+		if is_equal_approx(end_radius, start_radius) and is_equal_approx(end_units, start_units):
 			continue
 		_mine_sweep_preview_by_id[int(field["id"])] = {
-			"start_units": float(field["start_units"]),
-			"end_units": float(field["units"]),
+			"x": float(field["x"]),
+			"y": float(field["y"]),
+			"ownerid": int(field["ownerid"]),
+			"start_units": start_units,
+			"end_units": end_units,
 			"start_radius": start_radius,
 			"end_radius": end_radius,
+			"new_field": bool(field.get("new_field", false)),
+			"laid": bool(field.get("laid", false)),
+			"swept": bool(field.get("swept", false)),
 			"sweepers": field["sweepers"]
 		}
+
+func _ship_can_preview_lay_mines(ship: StarshipData) -> bool:
+	if ship == null or ship.ishidden:
+		return false
+	if not game_state.is_my_ship(ship):
+		return false
+	if _dict_float(ship.raw, ["neutronium"], 0.0) <= 0.0:
+		return false
+	if _dict_int(ship.raw, ["ammo"], 0) <= 0:
+		return false
+	if _dict_int(ship.raw, ["torps"], 0) <= 0:
+		return false
+	var mission_id: int = _dict_int(ship.raw, ["mission"], 0)
+	var race_id: int = game_state.get_race_id_of_player(ship.ownerid)
+	return mission_id == 2 or (mission_id == 8 and race_id == 7) or (mission_id == 28 and race_id == 5)
+
+func _apply_ship_lay_mines(
+	working_fields: Array[Dictionary],
+	ship: StarshipData,
+	lay_pos: Vector2,
+	next_preview_id: Array[int]
+) -> void:
+	var units: float = _ship_mine_lay_units(ship)
+	if units <= 0.0:
+		return
+
+	var is_web: bool = _dict_int(ship.raw, ["mission"], 0) == 8
+	var field_owner_id: int = _mine_lay_owner_id(ship)
+	var field_index: int = _nearest_lay_target_minefield_index(working_fields, field_owner_id, is_web, lay_pos)
+	if field_index < 0:
+		var field_id: int = next_preview_id[0]
+		next_preview_id[0] = field_id - 1
+		working_fields.append({
+			"id": field_id,
+			"ownerid": field_owner_id,
+			"x": lay_pos.x,
+			"y": lay_pos.y,
+			"units": 0.0,
+			"radius": 0.0,
+			"start_units": 0.0,
+			"start_radius": 0.0,
+			"isweb": is_web,
+			"new_field": true,
+			"laid": false,
+			"swept": false,
+			"sweepers": PackedInt32Array()
+		})
+		field_index = working_fields.size() - 1
+
+	var field: Dictionary = working_fields[field_index]
+	var max_units: float = _minefield_max_units()
+	var next_units: float = minf(max_units, float(field["units"]) + units)
+	if is_equal_approx(next_units, float(field["units"])):
+		return
+	field["units"] = next_units
+	field["radius"] = _minefield_radius_from_units(next_units)
+	field["laid"] = true
+	working_fields[field_index] = field
+
+func _nearest_lay_target_minefield_index(
+	working_fields: Array[Dictionary],
+	owner_id: int,
+	is_web: bool,
+	lay_pos: Vector2
+) -> int:
+	var best_index: int = -1
+	var best_dist: float = INF
+	for i: int in range(working_fields.size()):
+		var field: Dictionary = working_fields[i]
+		if int(field.get("ownerid", -1)) != owner_id:
+			continue
+		if bool(field.get("isweb", false)) != is_web:
+			continue
+		var dist: float = lay_pos.distance_to(Vector2(float(field["x"]), float(field["y"])))
+		if dist < best_dist:
+			best_dist = dist
+			best_index = i
+	if best_index >= 0 and best_dist <= float(working_fields[best_index].get("radius", 0.0)):
+		return best_index
+	return -1
+
+func _ship_mine_lay_units(ship: StarshipData) -> float:
+	var torps: int = _ship_mine_lay_torps(ship)
+	if torps <= 0:
+		return 0.0
+	var torpedo_id: int = _dict_int(ship.raw, ["torpedoid"], 0)
+	if torpedo_id <= 0:
+		return 0.0
+	var units: float = float(torps * torpedo_id * torpedo_id)
+	if game_state.get_race_id_of_player(ship.ownerid) == 9:
+		units *= 4.0
+	if _dict_int(ship.raw, ["mission"], 0) == 28 and game_state.get_race_id_of_player(ship.ownerid) == 5:
+		units = ceil(units / 2.0)
+	return units
+
+func _ship_mine_lay_torps(ship: StarshipData) -> int:
+	var torps: int = _dict_int(ship.raw, ["ammo"], 0)
+	var fc: String = String(ship.raw.get("friendlycode", "")).strip_edges().to_lower()
+	if not fc.begins_with("md"):
+		return torps
+	if fc == "mdh":
+		return int(floor(float(torps) / 2.0))
+	if fc == "mdq":
+		return int(floor(float(torps) / 4.0))
+	var md_val: String = fc.replace("md", "")
+	if md_val.is_valid_int():
+		var amount: int = int(md_val)
+		if amount == 0:
+			amount = 10
+		amount *= 10
+		return min(torps, amount)
+	return torps
+
+func _mine_lay_owner_id(ship: StarshipData) -> int:
+	var owner_id: int = int(ship.ownerid)
+	var fc: String = String(ship.raw.get("friendlycode", "")).strip_edges().to_lower()
+	if not fc.begins_with("mi"):
+		return owner_id
+	var value: int = _base36_to_int(fc.replace("mi", ""))
+	if value <= 0 or value > _game_slots():
+		return owner_id
+	return value
+
+func _base36_to_int(text: String) -> int:
+	var result: int = 0
+	var clean: String = text.strip_edges().to_lower()
+	if clean.is_empty():
+		return 0
+	for i: int in range(clean.length()):
+		var code: int = clean.unicode_at(i)
+		var digit: int = -1
+		if code >= 48 and code <= 57:
+			digit = code - 48
+		elif code >= 97 and code <= 122:
+			digit = code - 87
+		if digit < 0 or digit >= 36:
+			return 0
+		result = result * 36 + digit
+	return result
 
 func _ship_can_preview_mine_sweep(ship: StarshipData) -> bool:
 	if ship == null or ship.ishidden:
@@ -852,6 +1046,9 @@ func _ship_can_preview_mine_scoop(ship: StarshipData) -> bool:
 	return String(ship.raw.get("friendlycode", "")).strip_edges().to_lower() == "msc"
 
 func _apply_minefield_unit_loss(field: Dictionary, removed: float, ship: StarshipData) -> Dictionary:
+	if not bool(field.get("swept", false)):
+		field["sweep_start_units"] = float(field["units"])
+		field["sweep_start_radius"] = float(field["radius"])
 	var next_units: float = maxf(0.0, float(field["units"]) - removed)
 	if is_equal_approx(next_units, float(field["units"])):
 		return field
@@ -950,7 +1147,7 @@ func _ship_fighter_sweep_units(ship: StarshipData) -> float:
 		return 0.0
 	return float(_dict_int(ship.raw, ["ammo"], 0) * 20)
 
-func _ship_mine_sweep_position(ship: StarshipData) -> Vector2:
+func _ship_mine_action_position(ship: StarshipData) -> Vector2:
 	if _ship_has_at_command_ship(ship) and ship.has_target():
 		return Vector2(ship.targetx, ship.targety)
 	return Vector2(ship.x, ship.y)
@@ -996,6 +1193,62 @@ func _minefield_radius_from_units(units: float) -> float:
 	if _dict_bool(_settings_from_rst(), ["isacademy"], false):
 		radius = minf(4.0, floor(radius / 30.0))
 	return radius
+
+func _minefield_max_units() -> float:
+	if _is_player_advantage_active(72):
+		return INF
+	if _is_player_advantage_active(48):
+		return 22500.0
+	return 10000.0
+
+func _is_player_advantage_active(advantage_id: int) -> bool:
+	var player: Dictionary = _player_from_rst()
+	var raw: String = _dict_string(player, ["activeadvantages"], "")
+	if raw.strip_edges().is_empty():
+		raw = _dict_string(_race_info_from_rst(game_state.get_my_race_id()), ["baseadvantages"], "")
+	for part: String in raw.split(",", false):
+		var text: String = part.strip_edges()
+		if text.is_valid_int() and int(text) == advantage_id:
+			return true
+	return false
+
+func _player_from_rst() -> Dictionary:
+	if game_state.last_turn_json.is_empty():
+		return {}
+	var rst_v: Variant = game_state.last_turn_json.get("rst")
+	if not (rst_v is Dictionary):
+		return {}
+	var rst: Dictionary = rst_v as Dictionary
+	var player_v: Variant = rst.get("player", {})
+	if player_v is Dictionary:
+		return player_v as Dictionary
+	return {}
+
+func _race_info_from_rst(race_id: int) -> Dictionary:
+	if game_state.last_turn_json.is_empty():
+		return {}
+	var rst_v: Variant = game_state.last_turn_json.get("rst")
+	if not (rst_v is Dictionary):
+		return {}
+	var races_v: Variant = (rst_v as Dictionary).get("races", [])
+	if not (races_v is Array):
+		return {}
+	for item: Variant in races_v as Array:
+		if item is Dictionary and _dict_int(item as Dictionary, ["id"], -1) == race_id:
+			return item as Dictionary
+	return {}
+
+func _game_slots() -> int:
+	if game_state.last_turn_json.is_empty():
+		return 11
+	var rst_v: Variant = game_state.last_turn_json.get("rst")
+	if not (rst_v is Dictionary):
+		return 11
+	var rst: Dictionary = rst_v as Dictionary
+	var game_v: Variant = rst.get("game", {})
+	if game_v is Dictionary:
+		return _dict_int(game_v as Dictionary, ["slots"], 11)
+	return 11
 
 func _hull_cargo(hull_id: int) -> float:
 	if game_state.last_turn_json.is_empty():
@@ -2110,6 +2363,12 @@ func _dict_float(d: Dictionary, keys: Array[String], fallback: float = 0.0) -> f
 		var text: String = String(value)
 		if text.is_valid_float():
 			return float(text)
+	return fallback
+
+func _dict_string(d: Dictionary, keys: Array[String], fallback: String = "") -> String:
+	for key: String in keys:
+		if d.has(key):
+			return String(d.get(key, fallback))
 	return fallback
 
 func _dict_bool(d: Dictionary, keys: Array[String], fallback: bool = false) -> bool:
