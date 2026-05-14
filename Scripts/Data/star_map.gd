@@ -90,7 +90,7 @@ func _process(_delta: float) -> void:
 	var mouse_pos: Vector2 = get_viewport().get_mouse_position()
 	var camera: Camera2D = $Camera2D
 	var blink_active: bool = _has_blinking_minefields()
-	var sweep_preview_active: bool = not _mine_sweep_preview_by_id.is_empty()
+	var sweep_preview_active: bool = _has_animated_minefield_preview()
 	if blink_active or sweep_preview_active:
 		queue_redraw()
 
@@ -691,6 +691,15 @@ func _has_blinking_minefields() -> bool:
 		if mf != null and mf.suspected_passage_from_report:
 			return true
 	return false
+
+func _has_animated_minefield_preview() -> bool:
+	for preview_v: Variant in _mine_sweep_preview_by_id.values():
+		if not (preview_v is Dictionary):
+			continue
+		var preview: Dictionary = preview_v as Dictionary
+		if bool(preview.get("laid", false)) or bool(preview.get("swept", false)):
+			return true
+	return false
 	
 func _draw_minefields() -> void:
 	for mf: MinefieldData in game_state.minefields:
@@ -746,10 +755,22 @@ func _draw_minefield_preview_entry(preview_v: Variant, center: Vector2, base_col
 	var start_units: float = float(preview.get("start_units", 0.0))
 	var end_units: float = float(preview.get("end_units", start_units))
 	var is_swept: bool = bool(preview.get("swept", false))
+	var is_laid: bool = bool(preview.get("laid", false))
+	var is_decayed: bool = bool(preview.get("decayed", false))
+	var has_animated_action: bool = is_swept or is_laid
+	if not has_animated_action:
+		if is_decayed:
+			_draw_minefield_decay_preview_entry(preview, center, base_color)
+		return
+
 	if start_radius <= 0.0 and end_radius <= 0.0:
+		if is_decayed:
+			_draw_minefield_decay_preview_entry(preview, center, base_color)
 		return
 	if is_equal_approx(start_radius, end_radius):
 		if is_equal_approx(start_units, end_units):
+			if is_decayed:
+				_draw_minefield_decay_preview_entry(preview, center, base_color)
 			return
 		if is_swept and end_units < start_units:
 			end_radius = maxf(0.0, start_radius - _screen_px_to_world(8.0))
@@ -777,6 +798,39 @@ func _draw_minefield_preview_entry(preview_v: Variant, center: Vector2, base_col
 	if current_radius > 0.1:
 		draw_circle(center, current_radius, inner_fill)
 		draw_arc(center, current_radius, 0.0, TAU, 128, inner_line, 1.8 / zoom, true)
+	if is_decayed:
+		_draw_minefield_decay_preview_entry(preview, center, base_color)
+
+func _draw_minefield_decay_preview_entry(preview: Dictionary, center: Vector2, base_color: Color) -> void:
+	var start_radius: float = float(preview.get("decay_start_radius", preview.get("end_radius", 0.0)))
+	var end_radius: float = float(preview.get("decay_end_radius", start_radius))
+	if start_radius <= 0.0:
+		return
+	if is_equal_approx(start_radius, end_radius):
+		var start_units: float = float(preview.get("decay_start_units", 0.0))
+		var end_units: float = float(preview.get("decay_end_units", start_units))
+		if is_equal_approx(start_units, end_units):
+			return
+		end_radius = maxf(0.0, start_radius - _screen_px_to_world(4.0))
+
+	var zoom: float = maxf($Camera2D.zoom.x, 0.001)
+	var faded_fill: Color = base_color
+	faded_fill.a = 0.11
+	var remaining_fill: Color = base_color
+	remaining_fill.a = 0.27
+	var old_outline: Color = base_color
+	old_outline.a = 0.50
+	var new_outline: Color = base_color
+	new_outline.a = 0.95
+	var cleared: Color = Color(0.0, 0.0, 0.0, 0.18)
+
+	draw_circle(center, start_radius, cleared)
+	draw_circle(center, start_radius, faded_fill)
+	if end_radius > 0.1:
+		draw_circle(center, end_radius, remaining_fill)
+	draw_arc(center, start_radius, 0.0, TAU, 128, old_outline, 1.1 / zoom, true)
+	if end_radius > 0.1:
+		draw_arc(center, end_radius, 0.0, TAU, 128, new_outline, 1.7 / zoom, true)
 
 func _draw_suspected_minefield_marker(center: Vector2, radius: float) -> void:
 	var phase: float = float(Time.get_ticks_msec()) / 900.0
@@ -788,7 +842,7 @@ func _draw_suspected_minefield_marker(center: Vector2, radius: float) -> void:
 
 func _rebuild_mine_sweep_preview() -> void:
 	_mine_sweep_preview_by_id.clear()
-	if game_state.starships.is_empty():
+	if game_state.minefields.is_empty():
 		return
 
 	var working_fields: Array[Dictionary] = []
@@ -808,6 +862,7 @@ func _rebuild_mine_sweep_preview() -> void:
 			"new_field": false,
 			"laid": false,
 			"swept": false,
+			"decayed": false,
 			"sweepers": PackedInt32Array()
 		})
 
@@ -854,17 +909,24 @@ func _rebuild_mine_sweep_preview() -> void:
 		if _ship_can_preview_mine_scoop(ship):
 			_apply_ship_mine_scoop(working_fields, ship, sweep_pos)
 
+	for i: int in range(working_fields.size()):
+		working_fields[i] = _apply_minefield_decay(working_fields[i])
+
 	for field: Dictionary in working_fields:
-		if not bool(field.get("swept", false)) and not bool(field.get("laid", false)):
+		if not bool(field.get("swept", false)) and not bool(field.get("laid", false)) and not bool(field.get("decayed", false)):
 			continue
 		var start_radius: float = float(field.get("start_radius", 0.0))
 		var start_units: float = float(field.get("start_units", 0.0))
 		if bool(field.get("swept", false)):
 			start_radius = float(field.get("sweep_start_radius", start_radius))
 			start_units = float(field.get("sweep_start_units", start_units))
+		var has_action: bool = bool(field.get("swept", false)) or bool(field.get("laid", false))
 		var end_radius: float = float(field.get("radius", start_radius))
 		var end_units: float = float(field["units"])
-		if is_equal_approx(end_radius, start_radius) and is_equal_approx(end_units, start_units):
+		if has_action and bool(field.get("decayed", false)):
+			end_radius = float(field.get("decay_start_radius", end_radius))
+			end_units = float(field.get("decay_start_units", end_units))
+		if is_equal_approx(end_radius, start_radius) and is_equal_approx(end_units, start_units) and not bool(field.get("decayed", false)):
 			continue
 		_mine_sweep_preview_by_id[int(field["id"])] = {
 			"x": float(field["x"]),
@@ -877,6 +939,11 @@ func _rebuild_mine_sweep_preview() -> void:
 			"new_field": bool(field.get("new_field", false)),
 			"laid": bool(field.get("laid", false)),
 			"swept": bool(field.get("swept", false)),
+			"decayed": bool(field.get("decayed", false)),
+			"decay_start_units": float(field.get("decay_start_units", end_units)),
+			"decay_end_units": float(field.get("decay_end_units", field["units"])),
+			"decay_start_radius": float(field.get("decay_start_radius", end_radius)),
+			"decay_end_radius": float(field.get("decay_end_radius", field["radius"])),
 			"sweepers": field["sweepers"]
 		}
 
@@ -924,6 +991,7 @@ func _apply_ship_lay_mines(
 			"new_field": true,
 			"laid": false,
 			"swept": false,
+			"decayed": false,
 			"sweepers": PackedInt32Array()
 		})
 		field_index = working_fields.size() - 1
@@ -1059,6 +1127,48 @@ func _apply_minefield_unit_loss(field: Dictionary, removed: float, ship: Starshi
 	sweepers_for_field.append(int(ship.ship_id))
 	field["sweepers"] = sweepers_for_field
 	return field
+
+func _apply_minefield_decay(field: Dictionary) -> Dictionary:
+	var current_units: float = float(field.get("units", 0.0))
+	var current_radius: float = float(field.get("radius", 0.0))
+	if current_units <= 0.0 or current_radius <= 0.0:
+		return field
+
+	var in_nebula: bool = _minefield_overlaps_nebula(field)
+	var decay: float = 0.85 if in_nebula else 0.95
+	if current_units > 22500.0:
+		decay = 1.0 - (0.05 * _minefield_density(current_units) * (3.0 if in_nebula else 1.0))
+
+	var next_units: float = maxf(0.0, (current_units * decay) - 1.0)
+	var next_radius: float = _minefield_radius_from_units(next_units)
+	if is_equal_approx(next_units, current_units):
+		return field
+
+	field["decay_start_units"] = current_units
+	field["decay_start_radius"] = current_radius
+	field["decay_end_units"] = next_units
+	field["decay_end_radius"] = next_radius
+	field["units"] = next_units
+	field["radius"] = next_radius
+	field["decayed"] = true
+	return field
+
+func _minefield_density(units: float) -> float:
+	return maxf(1.0, floor(units / 22500.0))
+
+func _minefield_overlaps_nebula(field: Dictionary) -> bool:
+	var center: Vector2 = Vector2(float(field.get("x", 0.0)), float(field.get("y", 0.0)))
+	var radius: float = float(field.get("radius", 0.0))
+	for nebula: NebulaData in game_state.nebulas:
+		if nebula == null:
+			continue
+		for circle: NebulaCircleData in nebula.circles:
+			if circle == null:
+				continue
+			var nebula_center: Vector2 = Vector2(circle.x, circle.y)
+			if center.distance_to(nebula_center) < circle.radius + radius:
+				return true
+	return false
 
 func _apply_ship_mine_scoop(working_fields: Array[Dictionary], ship: StarshipData, scoop_pos: Vector2) -> void:
 	var open_cargo: int = _ship_open_cargo(ship)
