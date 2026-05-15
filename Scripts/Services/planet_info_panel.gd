@@ -38,6 +38,11 @@ var location_nav_row: HBoxContainer = null
 @onready var m_col_happy_d: Label = %M_ColonistHappyDelta
 @onready var m_mc_total: Label = get_node_or_null("%M_Megacredits")
 @onready var m_sup_next: Label = get_node_or_null("%M_Supplies")
+@onready var economy_section: Control = %V_Megacredits.get_parent().get_parent().get_parent()
+@onready var economy_title: Control = %V_Megacredits.get_parent().get_parent()
+@onready var economy_grid: Control = %V_Megacredits.get_parent()
+const ECONOMY_HEIGHT_NO_NATIVES: float = 198.0
+const ECONOMY_HEIGHT_WITH_NATIVES: float = 318.0
 
 # -------------------------
 # Natives (block)
@@ -102,6 +107,7 @@ var location_nav_row: HBoxContainer = null
 func _ready() -> void:
 	_setup_planet_fc_editor()
 	_setup_location_nav_row()
+	_setup_static_layout()
 	close_btn.pressed.connect(_on_close_pressed)
 	game_state.selection_changed.connect(_on_selection_changed)
 	_update()
@@ -111,6 +117,9 @@ func _ready() -> void:
 	v_mines.value_changed.connect(_on_mines_changed)
 	v_def.value_changed.connect(_on_defense_changed)
 	GameState.orders_changed.connect(_on_orders_changed)
+
+func _setup_static_layout() -> void:
+	v_nat_race.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 
 func _setup_planet_fc_editor() -> void:
 	if planet_fc_lbl == null or planet_fc_edit != null:
@@ -173,6 +182,11 @@ func _fmt_int_unknown(v: float) -> String:
 
 func _dash() -> String:
 	return "—"
+
+func _fmt_signed_delta(value: int) -> String:
+	if value > 0:
+		return "+%d" % value
+	return str(value)
 
 func _set_label(lbl: Label, value: String) -> void:
 	if lbl == null:
@@ -262,11 +276,20 @@ func _update() -> void:
 	# -------------------------
 	_set_label(v_mc, _fmt_int_unknown(p.megacredits))
 	_set_label(v_sup, _fmt_int_unknown(p.supplies))
+	var sup_produced: int = Planet_Math.supplies_produced_next_turn(p)
+	var climate_projection: Dictionary = PlanetMath.colonist_climate_projection(
+		p,
+		rid,
+		game_state.planet_has_starbase(int(p.planet_id)),
+		sup_produced
+	)
 
-	# Supplies produced next turn = factories
 	if m_sup_next != null:
-		var sup_next: int = Planet_Math.supplies_produced_next_turn(p)
-		_set_label(m_sup_next, "+%d" % sup_next if sup_next >= 0 else _dash())
+		if sup_produced < 0 or not bool(climate_projection.get("known", false)):
+			_set_label(m_sup_next, _dash())
+		else:
+			var supplies_consumed: int = int(climate_projection.get("supplies_consumed", 0))
+			_set_label(m_sup_next, _fmt_signed_delta(sup_produced - supplies_consumed))
 
 	_set_label(v_col, _fmt_int_unknown(p.clans))
 	var col_growth: int = PlanetMath.colonist_growth_clans_most(
@@ -279,12 +302,16 @@ func _update() -> void:
 	if p.nativeracename == "Amorphous":
 		if col_growth >= 5: col_growth -= 5
 		else: col_growth = 0
+	if bool(climate_projection.get("known", false)):
+		var climate_loss: int = int(climate_projection.get("colonist_loss", 0))
+		if climate_loss > 0:
+			col_growth = -climate_loss
 	if col_growth > 0:
 		_set_label(m_col_growth, "+" + str(col_growth))
 	elif col_growth == 0:
 		_set_label(m_col_growth, "0")
 	else:
-		_set_label(m_col_growth, _dash())
+		_set_label(m_col_growth, str(col_growth))
 	
 	# Colonist happiness (may be negative!) -> do NOT treat negative as unknown in display
 	_set_label(v_col_happy, _fmt_int(p.colonisthappypoints) if p.raw.has("colonisthappypoints") else "?")
@@ -417,9 +444,6 @@ func _update() -> void:
 			_set_label(m_mc_total, "+%d" % (col_mc + nat_mc))
 
 # --- Supplies produced next turn (= factories) in M_Supplies ---
-	if m_sup_next != null:
-		var sup_next: int = Planet_Math.supplies_produced_next_turn(p)
-		_set_label(m_sup_next, "+%d" % sup_next if sup_next >= 0 else "—")
 	var owner_race_id: int = GameState.get_owner_race_id_of_planet(p)
 
 	var pleasure: bool = false # TODO later from game config/campaigns
@@ -455,6 +479,16 @@ func _set_natives_block_visible(is_visible_v: bool) -> void:
 	_set_visible(l_nat_tax, is_visible_v)
 	_set_visible(l_nat_happy, is_visible_v)
 	_set_visible(m_nat_tax_income, is_visible_v)
+	_update_economy_layout(is_visible_v)
+
+func _update_economy_layout(has_natives: bool) -> void:
+	var height: float = ECONOMY_HEIGHT_WITH_NATIVES if has_natives else ECONOMY_HEIGHT_NO_NATIVES
+	if economy_section != null:
+		economy_section.custom_minimum_size = Vector2(economy_section.custom_minimum_size.x, height)
+	if economy_title != null:
+		economy_title.custom_minimum_size = Vector2(economy_title.custom_minimum_size.x, height)
+	if economy_grid != null:
+		economy_grid.set_deferred("offset_bottom", height - 10.0)
 
 func _set_all_unknown() -> void:
 	# Economy

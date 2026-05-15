@@ -460,6 +460,70 @@ static func colonist_growth_clans_most(
 
 	return g
 
+static func colonist_climate_projection(
+	p: PlanetData,
+	owner_race_id: int,
+	has_mining_station: bool = false,
+	produced_supplies: int = 0
+) -> Dictionary:
+	if not (_known_nonneg(p.clans) and _known_nonneg(p.temperature)):
+		return {"known": false}
+
+	var clans: int = int(p.clans)
+	if clans <= 0:
+		return {
+			"known": true,
+			"max_supported": 0,
+			"excess_clans": 0,
+			"supplies_needed": 0,
+			"supplies_consumed": 0,
+			"colonist_loss": 0
+		}
+
+	var max_supported: int = colonist_max_clans(
+		int(p.temperature),
+		owner_race_id,
+		true,
+		int(p.debrisdisk) > 0,
+		has_mining_station,
+		int(p.burrowsize),
+		int(p.nativetype),
+		int(p.nativeclans)
+	)
+	var excess_clans: int = max(0, clans - max_supported)
+	if excess_clans <= 0:
+		return {
+			"known": true,
+			"max_supported": max_supported,
+			"excess_clans": 0,
+			"supplies_needed": 0,
+			"supplies_consumed": 0,
+			"colonist_loss": 0
+		}
+
+	if not _known_nonneg(p.supplies):
+		return {
+			"known": false,
+			"max_supported": max_supported,
+			"excess_clans": excess_clans
+		}
+
+	var available_supplies: int = int(p.supplies) + max(produced_supplies, 0)
+	var supplies_needed: int = int(ceil(float(excess_clans) * 4.0))
+	var supplies_consumed: int = min(max(available_supplies, 0), supplies_needed)
+	var supply_supported_clans: int = int(round(float(supplies_consumed) * 10.0 / 40.0))
+	var unsupported_clans: int = max(0, excess_clans - supply_supported_clans)
+	var colonist_loss: int = int(ceil(float(unsupported_clans) * 0.10))
+
+	return {
+		"known": true,
+		"max_supported": max_supported,
+		"excess_clans": excess_clans,
+		"supplies_needed": supplies_needed,
+		"supplies_consumed": supplies_consumed,
+		"colonist_loss": colonist_loss
+	}
+
 static func colonist_min_to_grow_most(temp: int) -> int:
 	var t: int = clamp(temp, 0, 100)
 	if t < 15 or t > 84:
