@@ -508,10 +508,11 @@ static func colonist_climate_projection(
 			"excess_clans": excess_clans
 		}
 
-	var available_supplies: int = int(p.supplies) + max(produced_supplies, 0)
-	var supplies_needed: int = int(ceil(float(excess_clans) * 4.0))
-	var supplies_consumed: int = min(max(available_supplies, 0), supplies_needed)
-	var supply_supported_clans: int = int(round(float(supplies_consumed) * 10.0 / 40.0))
+	var available_supplies: int = max(0, int(p.supplies) + max(produced_supplies, 0))
+	var supplies_consumed: int = min(available_supplies, int(floor(float(excess_clans) / 400.0)) + 1)
+	var supplies_after_consumption: int = max(0, available_supplies - supplies_consumed)
+	var supplies_needed: int = excess_clans * 4 + supplies_consumed
+	var supply_supported_clans: int = int(floor(float(supplies_after_consumption) / 4.0))
 	var unsupported_clans: int = max(0, excess_clans - supply_supported_clans)
 	var colonist_loss: int = int(ceil(float(unsupported_clans) * 0.10))
 
