@@ -24,6 +24,12 @@ const SHIP_MODE_DOT: int = 0
 const SHIP_MODE_SUMMARY: int = 1
 const SHIP_MODE_COMPACT: int = 2
 const SHIP_MODE_FULL: int = 3
+const DETAIL_GRID_ZOOM: float = 20.0
+const ACADEMY_DETAIL_GRID_ZOOM: float = 10.0
+const WARP_WELL_ZOOM: float = 10.0
+const WARP_WELL_RADIUS: int = 3
+const PLANET_MIN_DETAIL_RADIUS: float = 0.5
+const PLANETOID_MIN_DETAIL_RADIUS: float = 0.22
 const MINE_SWEEP_ANIM_START_HOLD_SECONDS: float = 0.6
 const MINE_SWEEP_ANIM_SHRINK_SECONDS: float = 5.2
 const MINE_SWEEP_ANIM_END_HOLD_SECONDS: float = 0.8
@@ -122,10 +128,12 @@ func _draw() -> void:
 	and game_state.ionstorms.is_empty() \
 	and game_state.nebulas.is_empty():
 		return
+	_draw_detail_grid()
 	_draw_starclusters()
 	_draw_nebulas()
 	_draw_ionstorms()
 	_draw_minefields()
+	_draw_warp_wells()
 	for p in game_state.planets:
 		var center: Vector2 = _map_to_world(p)
 		var col: Color = _planet_color(p)
@@ -137,7 +145,8 @@ func _draw() -> void:
 
 		draw_circle(center, radius, col)
 		col.a = 0.4
-		draw_circle(center, radius - 3, col)
+		var inner_radius: float = maxf(radius * 0.55, radius - _screen_px_to_world(3.0))
+		draw_circle(center, inner_radius, col)
 		
 		if game_state.planet_has_starbase(int(p.planet_id)):
 			if _is_debris_planetoid(p):
@@ -170,6 +179,65 @@ func _draw_starbase_marker(center: Vector2, color: Color) -> void:
 	])
 
 	draw_polyline(points, color, 2.0)
+
+func _draw_detail_grid() -> void:
+	var zoom: float = maxf($Camera2D.zoom.x, 0.001)
+	var threshold: float = ACADEMY_DETAIL_GRID_ZOOM if _dict_bool(_settings_from_rst(), ["isacademy"], false) else DETAIL_GRID_ZOOM
+	if zoom < threshold:
+		return
+
+	var viewport_size: Vector2 = get_viewport_rect().size
+	var top_left: Vector2 = _screen_to_world(Vector2.ZERO)
+	var bottom_right: Vector2 = _screen_to_world(viewport_size)
+	var min_x: float = minf(top_left.x, bottom_right.x) - 1.0
+	var max_x: float = maxf(top_left.x, bottom_right.x) + 1.0
+	var min_y: float = minf(top_left.y, bottom_right.y) - 1.0
+	var max_y: float = maxf(top_left.y, bottom_right.y) + 1.0
+	var width: float = _screen_px_to_world(1.0)
+	var grid_color: Color = Color(0.24, 0.26, 0.28, 0.42)
+	var dot_color: Color = Color(0.35, 0.38, 0.40, 0.36)
+	var dot_radius: float = _screen_px_to_world(1.2)
+
+	var first_x: int = int(floor(min_x - 0.5))
+	var last_x: int = int(ceil(max_x + 0.5))
+	for x: int in range(first_x, last_x + 1):
+		var boundary_x: float = float(x) + 0.5
+		draw_line(Vector2(boundary_x, min_y), Vector2(boundary_x, max_y), grid_color, width)
+
+	var first_y: int = int(floor(min_y - 0.5))
+	var last_y: int = int(ceil(max_y + 0.5))
+	for y: int in range(first_y, last_y + 1):
+		var boundary_y: float = float(y) + 0.5
+		draw_line(Vector2(min_x, boundary_y), Vector2(max_x, boundary_y), grid_color, width)
+
+	for x: int in range(int(floor(min_x)), int(ceil(max_x)) + 1):
+		for y: int in range(int(floor(min_y)), int(ceil(max_y)) + 1):
+			draw_circle(Vector2(float(x), float(y)), dot_radius, dot_color)
+
+func _draw_warp_wells() -> void:
+	if $Camera2D.zoom.x < WARP_WELL_ZOOM:
+		return
+	var settings: Dictionary = _settings_from_rst()
+	if _dict_bool(settings, ["isacademy"], false) or _dict_bool(settings, ["nowarpwells"], false):
+		return
+
+	var fill_color: Color = Color(0.0, 0.0, 0.0, 0.58)
+	var line_color: Color = Color(0.58, 0.60, 0.62, 0.60)
+	var width: float = _screen_px_to_world(1.0)
+	for p in game_state.planets:
+		if _is_debris_disk_anchor(p) or _is_debris_planetoid(p):
+			continue
+		var px: int = int(round(p.x))
+		var py: int = int(round(p.y))
+		for x: int in range(px - WARP_WELL_RADIUS, px + WARP_WELL_RADIUS + 1):
+			for y: int in range(py - WARP_WELL_RADIUS, py + WARP_WELL_RADIUS + 1):
+				if Vector2(float(x), float(y)).distance_to(Vector2(float(px), float(py))) > float(WARP_WELL_RADIUS):
+					continue
+				var center: Vector2 = Vector2(float(x), game_state.map_max_y + game_state.map_min_y - float(y))
+				var rect: Rect2 = Rect2(center - Vector2(0.5, 0.5), Vector2.ONE)
+				draw_rect(rect, fill_color, true)
+				draw_rect(rect, line_color, false, width)
+
 func _draw_selected_highlight(p: PlanetData) -> void:
 	var pos: Vector2 = _map_to_world(p)
 	var base_radius: float = _get_planet_draw_radius(p)
@@ -247,6 +315,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			if picked_ship_id != -1:
 				game_state.select_ship(picked_ship_id)
 				get_viewport().set_input_as_handled()
+			else:
+				var selected_ship: StarshipData = game_state.get_selected_ship()
+				if selected_ship != null and game_state.is_my_ship(selected_ship):
+					var map_pos: Vector2 = _world_to_map(world_pos)
+					if game_state.set_ship_waypoint(int(selected_ship.ship_id), map_pos.x, map_pos.y):
+						queue_redraw()
+					get_viewport().set_input_as_handled()
 		"starbase":
 			var picked_starbase_planet_id: int = _pick_starbase(world_pos, radius_world)
 			if picked_starbase_planet_id != -1:
@@ -2354,9 +2429,10 @@ func _is_debris_disk_anchor(p: PlanetData) -> bool:
 	return p.name.strip_edges().ends_with(" - 1")
 
 func _get_planet_draw_radius(p: PlanetData) -> float:
+	var zoom: float = maxf($Camera2D.zoom.x, 0.001)
 	if _is_debris_planetoid(p):
-		return PLANET_RADIUS_DRAW * 0.35
-	return PLANET_RADIUS_DRAW
+		return clampf((PLANET_RADIUS_DRAW * 0.35) / zoom, PLANETOID_MIN_DETAIL_RADIUS, PLANET_RADIUS_DRAW * 0.35)
+	return clampf(PLANET_RADIUS_DRAW / zoom, PLANET_MIN_DETAIL_RADIUS, PLANET_RADIUS_DRAW)
 
 func _draw_debris_disk_outline(p: PlanetData) -> void:
 	var center: Vector2 = _map_to_world(p)

@@ -903,6 +903,38 @@ func set_ship_name(ship_id: int, ship_name: String) -> bool:
 		emit_signal("orders_changed")
 	return true
 
+func set_ship_waypoint(ship_id: int, target_x: float, target_y: float) -> bool:
+	if ship_id <= 0:
+		return false
+
+	var found: bool = false
+	var rounded_x: float = float(int(round(target_x)))
+	var rounded_y: float = float(int(round(target_y)))
+	for ship: StarshipData in starships:
+		if ship != null and int(ship.ship_id) == ship_id:
+			if not is_my_ship(ship):
+				return false
+			found = true
+			if is_equal_approx(ship.targetx, rounded_x) and is_equal_approx(ship.targety, rounded_y):
+				return false
+			ship.targetx = rounded_x
+			ship.targety = rounded_y
+			ship.raw["targetx"] = rounded_x
+			ship.raw["targety"] = rounded_y
+			break
+	if not found:
+		return false
+
+	_set_ship_field_in_rst(ship_id, "targetx", rounded_x)
+	_set_ship_field_in_rst(ship_id, "targety", rounded_y)
+
+	if _batch_mode:
+		_batch_dirty = true
+	else:
+		_save_latest_turn_json()
+		emit_signal("orders_changed")
+	return true
+
 func set_ship_enemy(ship_id: int, enemy_id: int) -> bool:
 	if ship_id <= 0 or enemy_id < 0:
 		return false

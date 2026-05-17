@@ -2,7 +2,7 @@ extends Camera2D
 
 @export var zoom_step: float = 1.15
 @export var min_zoom: float = 0.2
-@export var max_zoom: float = 5.0
+@export var max_zoom: float = 80.0
 @onready var game_state: GameState = get_node("/root/GameState")
 var _dragging: bool = false
 var _last_mouse_pos: Vector2 = Vector2.ZERO
