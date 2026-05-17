@@ -23,6 +23,8 @@ var planet_fc_edit: LineEdit = null
 var planet_fc_edit_planet_id: int = -1
 var planet_fc_random_armed: bool = true
 var location_nav_row: HBoxContainer = null
+var content_scroll: ScrollContainer = null
+var scroll_content: VBoxContainer = null
 
 # -------------------------
 # Economy (GridContainer columns=3)
@@ -107,6 +109,7 @@ const ECONOMY_HEIGHT_WITH_NATIVES: float = 318.0
 func _ready() -> void:
 	_setup_planet_fc_editor()
 	_setup_location_nav_row()
+	_setup_scroll_layout()
 	_setup_static_layout()
 	close_btn.pressed.connect(_on_close_pressed)
 	game_state.selection_changed.connect(_on_selection_changed)
@@ -161,6 +164,45 @@ func _setup_location_nav_row() -> void:
 	location_nav_row.visible = false
 	content.add_child(location_nav_row)
 	content.move_child(location_nav_row, header_row.get_index() + 1)
+
+func _setup_scroll_layout() -> void:
+	if content_scroll != null:
+		return
+	var header_row: Control = planet_id_lbl.get_parent() as Control
+	if header_row == null:
+		return
+	var content: VBoxContainer = header_row.get_parent() as VBoxContainer
+	if content == null:
+		return
+	var footer: Control = close_btn.get_parent() as Control
+	if footer == null or footer.get_parent() != content:
+		return
+
+	content_scroll = ScrollContainer.new()
+	content_scroll.name = "PlanetInfoScroll"
+	content_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	content_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	content_scroll.custom_minimum_size = Vector2(0.0, 120.0)
+
+	scroll_content = VBoxContainer.new()
+	scroll_content.name = "PlanetInfoScrollContent"
+	scroll_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll_content.add_theme_constant_override("separation", content.get_theme_constant("separation"))
+
+	content.add_child(content_scroll)
+	content.move_child(content_scroll, footer.get_index())
+	content_scroll.add_child(scroll_content)
+
+	var movable: Array[Node] = []
+	for child: Node in content.get_children():
+		if child == header_row or child == location_nav_row or child == content_scroll or child == footer:
+			continue
+		movable.append(child)
+	for child: Node in movable:
+		content.remove_child(child)
+		scroll_content.add_child(child)
 	
 func _on_close_pressed() -> void:
 	hide()
