@@ -77,6 +77,8 @@ func _ready() -> void:
 	if game_state.has_signal("turn_loaded"):
 		game_state.connect("turn_loaded", Callable(self, "_update_status"))
 		game_state.connect("turn_loaded", Callable(self, "_refresh_open_info_panel"))
+	if game_state.has_signal("orders_changed"):
+		game_state.connect("orders_changed", Callable(self, "_refresh_open_info_panel"))
 	if game_state.has_signal("selection_changed"):
 		game_state.connect("selection_changed", Callable(self, "_on_selection_changed"))
 
@@ -274,11 +276,19 @@ func _on_selection_changed(kind: String, selected_id: int) -> void:
 	if kind == "planet" and selected_id >= 0:
 		_hide_aux_info_panels()
 	elif kind == "ship":
+		if selected_id < 0:
+			if _ships_panel != null and _ships_panel.visible:
+				_populate_ships_panel()
+			return
 		_ensure_ships_panel()
 		_hide_all_info_panels()
 		_populate_ships_panel()
 		_ships_panel.visible = true
 	elif kind == "starbase":
+		if selected_id < 0:
+			if _starbases_panel != null and _starbases_panel.visible:
+				_populate_starbases_panel()
+			return
 		_ensure_starbases_panel()
 		_hide_all_info_panels()
 		_populate_starbases_panel()
@@ -383,6 +393,10 @@ func _create_info_panel(title: String) -> Dictionary:
 	close_btn.text = "Close"
 	close_btn.pressed.connect(func() -> void:
 		panel.visible = false
+		if title == "Ships":
+			game_state.clear_selection_for_kind("ship")
+		elif title == "Starbases":
+			game_state.clear_selection_for_kind("starbase")
 	)
 	footer.add_child(close_btn)
 

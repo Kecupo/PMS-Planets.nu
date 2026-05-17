@@ -311,16 +311,16 @@ func _unhandled_input(event: InputEvent) -> void:
 	var selection_mode: String = game_state.get_selection_mode()
 	match selection_mode:
 		"ship":
-			var picked_ship_id: int = _pick_ship_cycle(world_pos, _screen_px_to_world(maxf(22.0, SHIP_RADIUS_DRAW * 3.0)))
-			if picked_ship_id != -1:
-				game_state.select_ship(picked_ship_id)
+			var selected_ship: StarshipData = game_state.get_selected_ship()
+			if selected_ship != null and game_state.is_my_ship(selected_ship):
+				var map_pos: Vector2 = _world_to_map(world_pos)
+				if game_state.set_ship_waypoint(int(selected_ship.ship_id), map_pos.x, map_pos.y):
+					queue_redraw()
 				get_viewport().set_input_as_handled()
 			else:
-				var selected_ship: StarshipData = game_state.get_selected_ship()
-				if selected_ship != null and game_state.is_my_ship(selected_ship):
-					var map_pos: Vector2 = _world_to_map(world_pos)
-					if game_state.set_ship_waypoint(int(selected_ship.ship_id), map_pos.x, map_pos.y):
-						queue_redraw()
+				var picked_ship_id: int = _pick_ship_cycle(world_pos, _screen_px_to_world(maxf(22.0, SHIP_RADIUS_DRAW * 3.0)))
+				if picked_ship_id != -1:
+					game_state.select_ship(picked_ship_id)
 					get_viewport().set_input_as_handled()
 		"starbase":
 			var picked_starbase_planet_id: int = _pick_starbase(world_pos, radius_world)
