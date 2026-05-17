@@ -52,10 +52,16 @@ func _ready() -> void:
 	_create_hover_overlay()
 	GameState.turn_loaded.connect(_on_turn_loaded)
 	GameState.selection_changed.connect(_on_selection_changed)
+	if not RandAI_Config.config_changed.is_connected(_on_config_changed):
+		RandAI_Config.config_changed.connect(_on_config_changed)
 	GameState.orders_changed.connect(func() -> void:
 		_rebuild_mine_sweep_preview()
 		queue_redraw()
 )
+
+func _on_config_changed() -> void:
+	queue_redraw()
+
 func _on_turn_loaded() -> void:
 	var center := Vector2(
 		(game_state.map_min_x + game_state.map_max_x) * 0.5,
@@ -200,6 +206,13 @@ func _draw_selected_ship_highlight() -> void:
 		return
 
 	var pos: Vector2 = _ship_to_world(ship)
+	if RandAI_Config.show_ship_scan_range:
+		var scan_range: float = _ship_scan_range()
+		if scan_range > 0.0:
+			var scan_color: Color = _ship_color(ship)
+			scan_color.a = 0.38
+			draw_arc(pos, scan_range, 0.0, TAU, 192, scan_color, _screen_px_to_world(1.0))
+
 	var outer_radius: float = _screen_px_to_world(13.0)
 	var inner_radius: float = _screen_px_to_world(9.0)
 	var outer_width: float = _screen_px_to_world(2.4)
@@ -2448,6 +2461,20 @@ func _settings_from_rst() -> Dictionary:
 	if settings_v is Dictionary:
 		return settings_v as Dictionary
 	return {}
+
+func _ship_scan_range() -> float:
+	var settings: Dictionary = _settings_from_rst()
+	return maxf(0.0, _dict_float(settings, [
+		"shipscanrange",
+		"ship_scan_range",
+		"shipscan",
+		"scanrange",
+		"scan_range",
+		"scanningrange",
+		"scannerange",
+		"sensorrange",
+		"sensor_range"
+	], 300.0))
 
 func _dict_int(d: Dictionary, keys: Array[String], fallback: int = 0) -> int:
 	for key: String in keys:

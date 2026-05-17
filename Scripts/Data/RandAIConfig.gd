@@ -1,4 +1,6 @@
 extends Node
+signal config_changed
+
 var current_game_id: int = 0
 var dirty: bool = false
 
@@ -56,6 +58,11 @@ var planet_mining_in_turns: int = 30
 var planet_mining_to_turn: int = 40
 var build_defense_enabled: bool = false
 var planet_defense_build_mode: int = PlanetDefenseBuildMode.BUILD_21
+
+# -------------------------
+# Star Map Config
+# -------------------------
+var show_ship_scan_range: bool = false
 
 # -------------------------
 # Colonist Tax Config
@@ -160,6 +167,7 @@ func save_for_game(game_id: int) -> void:
 
 func mark_dirty() -> void:
 	dirty = true
+	config_changed.emit()
 
 # -----------------------------------------------------------------------------
 # Defaults / load / save
@@ -178,6 +186,9 @@ func _apply_defaults() -> void:
 	planet_mining_to_turn = 40
 	build_defense_enabled = false
 	planet_defense_build_mode = PlanetDefenseBuildMode.BUILD_21
+
+	# Star map
+	show_ship_scan_range = false
 
 	# Colonists
 	col_tax_enabled = false
@@ -213,6 +224,7 @@ func _apply_from_dict(d: Dictionary) -> void:
 	planet_mining_to_turn = max(1, _read_int(d, "planet_mining_to_turn", 40))
 	build_defense_enabled = _read_bool(d, "build_defense_enabled", false)
 	planet_defense_build_mode = _read_int(d, "planet_defense_build_mode", PlanetDefenseBuildMode.BUILD_21)
+	show_ship_scan_range = _read_bool(d, "show_ship_scan_range", false)
 
 	if planet_mining_target_mode < PlanetMiningTargetMode.IN_TURNS or planet_mining_target_mode > PlanetMiningTargetMode.TO_TURN:
 		planet_mining_target_mode = PlanetMiningTargetMode.IN_TURNS
@@ -287,6 +299,7 @@ func _to_dict() -> Dictionary:
 	d["planet_mining_to_turn"] = planet_mining_to_turn
 	d["build_defense_enabled"] = build_defense_enabled
 	d["planet_defense_build_mode"] = planet_defense_build_mode
+	d["show_ship_scan_range"] = show_ship_scan_range
 
 	# Colonists
 	d["col_tax_enabled"] = col_tax_enabled

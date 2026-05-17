@@ -36,8 +36,11 @@ var spin_mine_to_turn: SpinBox = null
 var chk_build_defense: CheckButton = null
 var btn_build_21_defense: Button = null
 var btn_max_defense: Button = null
+var ships_vbox: VBoxContainer = null
+var chk_show_ship_scan_range: CheckButton = null
 
 func _ready() -> void:
+	_build_ships_tab()
 	_build_manage_planets_controls()
 	close_btn.pressed.connect(_on_close_pressed)
 	close_requested.connect(_on_close_pressed)
@@ -47,6 +50,7 @@ func _ready() -> void:
 	txt_never.text_changed.connect(_on_txt_never_changed)
 	chk_randomize.toggled.connect(_on_chk_randomize_toggled)
 	_wire_manage_planets_tab()
+	_wire_ships_tab()
 	_wire_colonist_tab()
 	_wire_native_tab()
 	# Initial pull
@@ -147,6 +151,36 @@ func _build_manage_planets_controls() -> void:
 	defense_row.add_child(btn_build_21_defense)
 	defense_row.add_child(btn_max_defense)
 
+func _build_ships_tab() -> void:
+	if ships_vbox != null:
+		return
+
+	var margin: MarginContainer = MarginContainer.new()
+	margin.name = "Ships"
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	margin.add_theme_constant_override("margin_left", 20)
+	margin.add_theme_constant_override("margin_top", 14)
+	margin.add_theme_constant_override("margin_right", 20)
+	margin.add_theme_constant_override("margin_bottom", 14)
+	tabs.add_child(margin)
+
+	ships_vbox = VBoxContainer.new()
+	ships_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ships_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	margin.add_child(ships_vbox)
+
+	var title: Label = Label.new()
+	title.text = "Ship settings"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ships_vbox.add_child(title)
+	ships_vbox.add_child(HSeparator.new())
+
+	chk_show_ship_scan_range = CheckButton.new()
+	chk_show_ship_scan_range.text = "Show selected ship scan range"
+	chk_show_ship_scan_range.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	ships_vbox.add_child(chk_show_ship_scan_range)
+
 func _make_toggle_option(text: String, group: ButtonGroup) -> Button:
 	var btn: Button = Button.new()
 	btn.text = text
@@ -180,6 +214,10 @@ func _wire_manage_planets_tab() -> void:
 	chk_build_defense.toggled.connect(_on_build_defense_toggled)
 	btn_build_21_defense.toggled.connect(_on_defense_build_mode_changed)
 	btn_max_defense.toggled.connect(_on_defense_build_mode_changed)
+
+func _wire_ships_tab() -> void:
+	chk_show_ship_scan_range.toggled.connect(_on_show_ship_scan_range_toggled)
+
 # -------------------------
 # Sync UI <- Config
 # -------------------------
@@ -187,6 +225,7 @@ func sync_from_config() -> void:
 	_syncing = true
 
 	_sync_planet_manage_tab_from_config()
+	_sync_ships_tab_from_config()
 	_sync_colonist_tab_from_config()
 	_sync_native_tab_from_config()
 
@@ -224,6 +263,9 @@ func _sync_planet_manage_tab_from_config() -> void:
 	btn_build_21_defense.button_pressed = int(RandAI_Config.planet_defense_build_mode) == RandAI_Config.PlanetDefenseBuildMode.BUILD_21
 	btn_max_defense.button_pressed = int(RandAI_Config.planet_defense_build_mode) == RandAI_Config.PlanetDefenseBuildMode.MAX_DEFENSE
 	_update_manage_planets_controls()
+
+func _sync_ships_tab_from_config() -> void:
+	chk_show_ship_scan_range.button_pressed = bool(RandAI_Config.show_ship_scan_range)
 	
 func _sync_colonist_tab_from_config() -> void:
 	chk_col_tax_enabled.button_pressed = bool(RandAI_Config.col_tax_enabled)
@@ -299,6 +341,12 @@ func _on_chk_randomize_toggled(on: bool) -> void:
 	if _syncing:
 		return
 	RandAI_Config.randomize_other_fcs = on
+	RandAI_Config.mark_dirty()
+
+func _on_show_ship_scan_range_toggled(on: bool) -> void:
+	if _syncing:
+		return
+	RandAI_Config.show_ship_scan_range = on
 	RandAI_Config.mark_dirty()
 
 func _on_calc_optimal_buildings_toggled(on: bool) -> void:
