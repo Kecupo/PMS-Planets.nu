@@ -935,6 +935,34 @@ func set_ship_waypoint(ship_id: int, target_x: float, target_y: float) -> bool:
 		emit_signal("orders_changed")
 	return true
 
+func set_ship_warp(ship_id: int, warp: int) -> bool:
+	if ship_id <= 0:
+		return false
+
+	var value: int = clampi(warp, 0, 9)
+	var found: bool = false
+	for ship: StarshipData in starships:
+		if ship != null and int(ship.ship_id) == ship_id:
+			if not is_my_ship(ship):
+				return false
+			found = true
+			if int(round(ship.warp)) == value:
+				return false
+			ship.warp = float(value)
+			ship.raw["warp"] = value
+			break
+	if not found:
+		return false
+
+	_set_ship_field_in_rst(ship_id, "warp", value)
+
+	if _batch_mode:
+		_batch_dirty = true
+	else:
+		_save_latest_turn_json()
+		emit_signal("orders_changed")
+	return true
+
 func set_ship_enemy(ship_id: int, enemy_id: int) -> bool:
 	if ship_id <= 0 or enemy_id < 0:
 		return false

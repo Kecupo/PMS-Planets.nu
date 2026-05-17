@@ -1147,10 +1147,12 @@ func _add_ship_cargo_layout(parent: VBoxContainer, ship: StarshipData, fuel_capa
 	_add_kv(supplies_people, "Megacredits", "%d" % _dict_int(ship.raw, ["megacredits"], 0))
 
 	var fuel: GridContainer = _add_key_value_grid(parent)
-	_add_center_kv(fuel, "Neutronium", "%d / %s kt" % [
-		_dict_int(ship.raw, ["neutronium", "fuel"], 0),
-		str(fuel_capacity) if fuel_capacity > 0 else "?"
-	])
+	var fuel_now: int = _dict_int(ship.raw, ["neutronium", "fuel"], 0)
+	var fuel_usage: int = _ship_fuel_needed(ship)
+	var fuel_text: String = "%d / %s kt" % [fuel_now, str(fuel_capacity) if fuel_capacity > 0 else "?"]
+	if fuel_usage > 0:
+		fuel_text += " (-%d)" % fuel_usage
+	_add_center_kv(fuel, "Neutronium", fuel_text)
 
 func _add_ship_weapons_layout(parent: VBoxContainer, ship: StarshipData, hull: Dictionary, beam_count: int, torp_tubes: int, fighter_bays: int, ammo: int) -> void:
 	var grid: GridContainer = GridContainer.new()
@@ -1265,7 +1267,10 @@ func _add_ship_orders_layout(parent: VBoxContainer, ship: StarshipData) -> void:
 	parent.add_child(orders)
 
 	_add_kv(orders, "Position", _ship_position_label(ship.x, ship.y))
-	_add_kv(orders, "Warp", str(int(ship.warp)))
+	if game_state.is_my_ship(ship):
+		_add_ship_warp_editor(orders, ship)
+	else:
+		_add_kv(orders, "Warp", str(int(ship.warp)))
 	_add_kv(orders, "Target", _ship_position_label(ship.targetx, ship.targety) if ship.has_target() else "-")
 	_add_kv(orders, "Heading", str(int(ship.heading)) if ship.heading >= 0.0 else "-")
 	_add_kv(orders, "Next Turn", _ship_next_turn_label(ship))
@@ -1283,6 +1288,45 @@ func _add_ship_orders_layout(parent: VBoxContainer, ship: StarshipData) -> void:
 		_add_ship_enemy_editor(orders, ship)
 	else:
 		_add_kv(orders, "Enemy", _enemy_label(_dict_int(ship.raw, ["enemy"], 0)))
+
+func _add_ship_warp_editor(parent: GridContainer, ship: StarshipData) -> void:
+	var key_label: Label = Label.new()
+	key_label.text = "Warp"
+	key_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	key_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	parent.add_child(key_label)
+
+	var option: OptionButton = OptionButton.new()
+	option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	option.alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	option.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+
+	var current_warp: int = clampi(int(round(ship.warp)), 0, 9)
+	var max_warp: int = _ship_damage_max_warp(ship)
+	var engine_id: int = _dict_int(ship.raw, ["engineid"], int(current_warp))
+	var selected_index: int = current_warp
+	for warp: int in range(0, 10):
+		var label: String = str(warp)
+		if warp > engine_id:
+			label += " overdrive"
+		if warp > max_warp:
+			label += " damaged"
+		option.add_item(label, warp)
+		option.set_item_metadata(warp, warp)
+		option.set_item_disabled(warp, warp > max_warp)
+		if warp == current_warp:
+			selected_index = warp
+	option.select(selected_index)
+
+	var ship_id: int = int(ship.ship_id)
+	option.item_selected.connect(func(index: int) -> void:
+		var warp: int = int(option.get_item_metadata(index))
+		if warp == current_warp:
+			return
+		if game_state.set_ship_warp(ship_id, warp):
+			_populate_ships_panel()
+	)
+	parent.add_child(option)
 
 func _add_ship_mission_editor(parent: GridContainer, ship: StarshipData, hull: Dictionary) -> void:
 	var key_label: Label = Label.new()
@@ -2043,6 +2087,25 @@ func _hull_info(hull_id: int) -> Dictionary:
 			return hull
 	return {}
 
+func _engine_info(engine_id: int) -> Dictionary:
+	if game_state.last_turn_json.is_empty():
+		return {}
+	var rst_v: Variant = game_state.last_turn_json.get("rst")
+	if not (rst_v is Dictionary):
+		return {}
+	var engines_v: Variant = (rst_v as Dictionary).get("engines", [])
+	if not (engines_v is Array):
+		return {}
+	for engine_v: Variant in engines_v as Array:
+		if engine_v is Dictionary and _dict_int(engine_v as Dictionary, ["id"], -1) == engine_id:
+			return engine_v as Dictionary
+	return {}
+
+func _engine_xv(engine: Dictionary, warp: int) -> float:
+	if warp <= 0:
+		return 0.0
+	return _dict_float(engine, ["warp%d" % warp], 0.0)
+
 func _ship_cargo_used(raw: Dictionary) -> int:
 	return _dict_int(raw, ["duranium"], 0) \
 		+ _dict_int(raw, ["tritanium"], 0) \
@@ -2056,6 +2119,13 @@ func _ship_stack_index(stack: Array[StarshipData], ship_id: int) -> int:
 		if int(stack[i].ship_id) == ship_id:
 			return i
 	return -1
+
+func _ship_damage_max_warp(ship: StarshipData) -> int:
+	var damage: int = _dict_int(ship.raw, ["damage"], 0)
+	var max_warp: int = int(ceil(float(100 - damage) / 10.0))
+	if game_state.get_race_id_of_player(ship.ownerid) == 2:
+		max_warp += 5
+	return clampi(max_warp, 0, 9)
 
 func _ship_travel_distance(ship: StarshipData) -> float:
 	if ship.has_target():
@@ -2087,6 +2157,79 @@ func _ship_distance_label(ship: StarshipData) -> String:
 		return "%.1f ly / -" % distance
 	var turns: int = int(ceil(distance / turn_distance))
 	return "%.1f ly / %d turn%s" % [distance, turns, "" if turns == 1 else "s"]
+
+func _ship_fuel_needed(ship: StarshipData) -> int:
+	if not _game_uses_fuel():
+		return 0
+	var warp: int = clampi(int(round(ship.warp)), 0, 9)
+	if warp <= 0:
+		return 0
+	var distance: float = _ship_travel_distance(ship)
+	if distance <= 0.0:
+		return 0
+	var turn_distance: float = _ship_speed(ship, float(warp))
+	if turn_distance <= 0.0:
+		return 0
+	var engine: Dictionary = _engine_info(_dict_int(ship.raw, ["engineid"], 0))
+	if engine.is_empty():
+		return 0
+	var xv: float = _engine_xv(engine, warp)
+	var mass: float = _ship_movement_mass(ship)
+	var remaining: float = distance
+	var fuel: int = 0
+	while remaining > turn_distance:
+		remaining -= turn_distance
+		var turn_fuel: int = _ship_turn_fuel(turn_distance, mass, xv, turn_distance)
+		fuel += turn_fuel
+		mass = maxf(0.0, mass - float(turn_fuel))
+	if remaining > 0.0:
+		fuel += _ship_turn_fuel(remaining, mass, xv, turn_distance)
+	return fuel
+
+func _ship_turn_fuel(distance: float, mass: float, xv: float, turn_distance: float) -> int:
+	return int(floor(xv * floor(mass / 10.0) * ((floor(distance) / turn_distance) / 10000.0)))
+
+func _ship_speed(ship: StarshipData, warp: float) -> float:
+	if _dict_bool(_settings_from_rst(), ["isacademy"], false):
+		return 2.5
+	var speed: float = warp * warp
+	if ship.hullid == 44 or ship.hullid == 45 or ship.hullid == 46:
+		speed *= 2.0
+	return speed
+
+func _ship_movement_mass(ship: StarshipData) -> float:
+	var hull: Dictionary = _hull_info(ship.hullid)
+	var mass: float = float(_dict_int(hull, ["mass"], _dict_int(ship.raw, ["mass"], 0)))
+	mass += float(_dict_int(ship.raw, ["clans"], 0))
+	mass += float(_dict_int(ship.raw, ["neutronium", "fuel"], 0))
+	mass += float(_dict_int(ship.raw, ["tritanium"], 0))
+	mass += float(_dict_int(ship.raw, ["duranium"], 0))
+	mass += float(_dict_int(ship.raw, ["molybdenum"], 0))
+	mass += float(_dict_int(ship.raw, ["supplies"], 0))
+	mass += float(_dict_int(ship.raw, ["ammo"], 0))
+	var beam_count: int = _dict_int(ship.raw, ["beams"], _dict_int(hull, ["beams"], 0))
+	var beam_id: int = _dict_int(ship.raw, ["beamid"], 0)
+	if beam_count > 0 and beam_id > 0:
+		mass += float(_equipment_mass("beams", beam_id) * beam_count)
+	var torp_count: int = _dict_int(ship.raw, ["torps", "launchers"], _dict_int(hull, ["launchers"], 0))
+	var torp_id: int = _dict_int(ship.raw, ["torpedoid"], 0)
+	if torp_count > 0 and torp_id > 0:
+		mass += float(_equipment_mass("torpedos", torp_id) * torp_count)
+	return mass
+
+func _equipment_mass(rst_key: String, equipment_id: int) -> int:
+	if game_state.last_turn_json.is_empty():
+		return 0
+	var rst_v: Variant = game_state.last_turn_json.get("rst")
+	if not (rst_v is Dictionary):
+		return 0
+	var items_v: Variant = (rst_v as Dictionary).get(rst_key, [])
+	if not (items_v is Array):
+		return 0
+	for item_v: Variant in items_v as Array:
+		if item_v is Dictionary and _dict_int(item_v as Dictionary, ["id"], -1) == equipment_id:
+			return _dict_int(item_v as Dictionary, ["mass"], 0)
+	return 0
 
 func _ship_next_turn_label(ship: StarshipData) -> String:
 	var distance: float = _ship_turn_distance(ship)
@@ -2275,6 +2418,18 @@ func _dict_int(d: Dictionary, keys: Array[String], fallback: int = 0) -> int:
 			return s.to_int()
 		if s.is_valid_float():
 			return int(float(s))
+	return fallback
+
+func _dict_float(d: Dictionary, keys: Array[String], fallback: float = 0.0) -> float:
+	for key: String in keys:
+		if not d.has(key):
+			continue
+		var v: Variant = d.get(key)
+		if typeof(v) == TYPE_INT or typeof(v) == TYPE_FLOAT:
+			return float(v)
+		var s: String = String(v)
+		if s.is_valid_float():
+			return float(s)
 	return fallback
 
 func _dict_string(d: Dictionary, keys: Array[String], fallback: String = "") -> String:
