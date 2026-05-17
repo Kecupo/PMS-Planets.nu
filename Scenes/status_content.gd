@@ -1273,7 +1273,7 @@ func _add_ship_orders_layout(parent: VBoxContainer, ship: StarshipData) -> void:
 		_add_ship_mission_editor(orders, ship, _hull_info(ship.hullid))
 	else:
 		_add_kv(orders, "Mission", _mission_label(_dict_int(ship.raw, ["mission"], 0), ship.ownerid))
-	_add_kv(orders, "Distance", "%.1f ly" % _ship_travel_distance(ship))
+	_add_kv(orders, "Distance", _ship_distance_label(ship))
 	if game_state.is_my_ship(ship) and _ship_mission_uses_target(_dict_int(ship.raw, ["mission"], 0)):
 		_add_ship_mission_target_editor(orders, ship)
 	else:
@@ -2058,11 +2058,19 @@ func _ship_stack_index(stack: Array[StarshipData], ship_id: int) -> int:
 	return -1
 
 func _ship_travel_distance(ship: StarshipData) -> float:
+	if ship.has_target():
+		return Vector2(ship.x, ship.y).distance_to(Vector2(ship.targetx, ship.targety))
+	var max_distance: float = ship.warp * ship.warp
+	if ship.heading >= 0.0:
+		return max_distance
+	return 0.0
+
+func _ship_turn_distance(ship: StarshipData) -> float:
 	var max_distance: float = ship.warp * ship.warp
 	if max_distance <= 0.0:
 		return 0.0
 	if ship.has_target():
-		var target_distance: float = Vector2(ship.x, ship.y).distance_to(Vector2(ship.targetx, ship.targety))
+		var target_distance: float = _ship_travel_distance(ship)
 		if target_distance <= 0.0:
 			return 0.0
 		return min(max_distance, target_distance)
@@ -2070,8 +2078,18 @@ func _ship_travel_distance(ship: StarshipData) -> float:
 		return max_distance
 	return 0.0
 
-func _ship_next_turn_label(ship: StarshipData) -> String:
+func _ship_distance_label(ship: StarshipData) -> String:
 	var distance: float = _ship_travel_distance(ship)
+	if distance <= 0.0:
+		return "0.0 ly / 0 turns"
+	var turn_distance: float = ship.warp * ship.warp
+	if turn_distance <= 0.0:
+		return "%.1f ly / -" % distance
+	var turns: int = int(ceil(distance / turn_distance))
+	return "%.1f ly / %d turn%s" % [distance, turns, "" if turns == 1 else "s"]
+
+func _ship_next_turn_label(ship: StarshipData) -> String:
+	var distance: float = _ship_turn_distance(ship)
 	if distance <= 0.0:
 		return _ship_position_label(ship.x, ship.y)
 
@@ -2093,7 +2111,22 @@ func _ship_next_turn_label(ship: StarshipData) -> String:
 
 	var next_world: Vector2 = origin_world + dir * distance
 	var next_game: Vector2 = _ship_world_to_game(next_world)
+	var warpwell_planet: PlanetData = _warp_well_planet_at(next_game)
+	if ship.warp > 1.0 and (not is_equal_approx(next_game.x, ship.x) or not is_equal_approx(next_game.y, ship.y)) and warpwell_planet != null:
+		next_game = Vector2(warpwell_planet.x, warpwell_planet.y)
 	return _ship_position_label(next_game.x, next_game.y)
+
+func _warp_well_planet_at(pos: Vector2) -> PlanetData:
+	var settings: Dictionary = _settings_from_rst()
+	if _dict_bool(settings, ["isacademy"], false) or _dict_bool(settings, ["nowarpwells"], false):
+		return null
+	for p: PlanetData in game_state.planets:
+		if p == null or p.debrisdisk > 0.0:
+			continue
+		var dist: float = Vector2(pos.x, pos.y).distance_to(Vector2(p.x, p.y))
+		if dist <= 3.0 and dist > 0.0:
+			return p
+	return null
 
 func _ship_position_label(x: float, y: float) -> String:
 	return "%.0f / %.0f" % [x, y]

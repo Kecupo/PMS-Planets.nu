@@ -1573,7 +1573,7 @@ func _draw_ship_vector(ship: StarshipData, center: Vector2, color: Color) -> voi
 		if target_distance <= 0.0:
 			return
 		dir = to_target / target_distance
-		max_distance = min(max_distance, target_distance)
+		max_distance = target_distance
 	elif ship.heading >= 0.0:
 		var heading_rad: float = deg_to_rad(ship.heading - 90.0)
 		dir = Vector2(cos(heading_rad), sin(heading_rad)).normalized()
@@ -2466,7 +2466,8 @@ func _is_in_starcluster_radiation_zone(p: PlanetData) -> bool:
 	return false
 
 func _draw_debris_station_marker(center: Vector2, color: Color) -> void:
-	var r: float = PLANET_RADIUS_DRAW * 0.4
+	var r: float = clampf((PLANET_RADIUS_DRAW * 0.4) / maxf($Camera2D.zoom.x, 0.001), 0.14, PLANET_RADIUS_DRAW * 0.4)
+	var width: float = _screen_px_to_world(2.0)
 	var points: PackedVector2Array = PackedVector2Array([
 		center + Vector2(0.0, -r),
 		center + Vector2(r, r),
@@ -2475,7 +2476,7 @@ func _draw_debris_station_marker(center: Vector2, color: Color) -> void:
 
 	draw_polyline(PackedVector2Array([
 		points[0], points[1], points[2], points[0]
-	]), color, 2.0)
+	]), color, width)
 
 func _draw_radiation_station_marker(center: Vector2, color: Color) -> void:
 	var r: float = PLANET_RADIUS_DRAW
