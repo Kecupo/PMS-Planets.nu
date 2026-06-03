@@ -1156,6 +1156,120 @@ func set_starbase_ship_order(planet_id: int, shipmission: int, target_ship_id: i
 		emit_signal("orders_changed")
 	return true
 
+func set_starbase_tech_level(planet_id: int, tech_kind: String, target_level: int) -> bool:
+	if planet_id <= 0:
+		return false
+	if not starbases_by_planet_id.has(planet_id):
+		return false
+
+	var field_names: Dictionary = _starbase_tech_field_names(tech_kind)
+	if field_names.is_empty():
+		return false
+
+	var current_v: Variant = starbases_by_planet_id[planet_id]
+	if not (current_v is Dictionary):
+		return false
+	var sb: Dictionary = current_v as Dictionary
+
+	var level_key: String = String(field_names.get("level", ""))
+	var up_key: String = String(field_names.get("up", ""))
+	var current_level: int = int(float(sb.get(level_key, 1)))
+	var current_up: int = int(float(sb.get(up_key, 0)))
+	var original_level: int = clamp(current_level - current_up, 1, 10)
+	var next_level: int = clamp(target_level, original_level, 10)
+	if next_level == current_level:
+		return false
+
+	var p: PlanetData = _planet_by_id(planet_id)
+	if p == null or not is_my_planet(p):
+		return false
+
+	var max_level: int = _starbase_max_tech_level_for_planet(p)
+	if next_level > max_level and next_level > current_level:
+		return false
+
+	var mc_delta: int = _starbase_tech_mc_delta(current_level, next_level)
+	var current_mc: int = int(p.megacredits)
+	if mc_delta > current_mc:
+		return false
+
+	var final_mc: int = current_mc - mc_delta
+	var final_up: int = next_level - original_level
+
+	sb[level_key] = next_level
+	sb[up_key] = final_up
+	starbases_by_planet_id[planet_id] = sb
+	_set_starbase_field_in_rst(planet_id, level_key, next_level)
+	_set_starbase_field_in_rst(planet_id, up_key, final_up)
+
+	p.megacredits = float(final_mc)
+	p.raw["megacredits"] = final_mc
+	_set_planet_field_in_rst(planet_id, "megacredits", final_mc)
+
+	if _batch_mode:
+		_batch_dirty = true
+	else:
+		_save_latest_turn_json()
+		emit_signal("orders_changed")
+	return true
+
+func _starbase_tech_field_names(tech_kind: String) -> Dictionary:
+	match tech_kind.to_lower():
+		"hull":
+			return {"level": "hulltechlevel", "up": "hulltechup"}
+		"engine":
+			return {"level": "enginetechlevel", "up": "enginetechup"}
+		"beam":
+			return {"level": "beamtechlevel", "up": "beamtechup"}
+		"torp":
+			return {"level": "torptechlevel", "up": "torptechup"}
+		_:
+			return {}
+
+func _starbase_tech_mc_delta(current_level: int, target_level: int) -> int:
+	var delta: int = 0
+	if target_level > current_level:
+		for level: int in range(current_level, target_level):
+			delta += level * 100
+	elif target_level < current_level:
+		for level: int in range(target_level, current_level):
+			delta -= level * 100
+	return delta
+
+func _starbase_max_tech_level_for_planet(p: PlanetData) -> int:
+	if _is_my_player_premium() or (p != null and int(p.flag) == 1):
+		return 10
+	return 7
+
+func _is_my_player_premium() -> bool:
+	var player: Dictionary = get_player_info(my_player_id)
+	if player.is_empty():
+		var rst_v: Variant = last_turn_json.get("rst", {})
+		if rst_v is Dictionary:
+			var player_v: Variant = (rst_v as Dictionary).get("player", {})
+			if player_v is Dictionary:
+				player = player_v as Dictionary
+	for key: String in ["isregistered", "ispremium", "is_premium", "premium"]:
+		if _dict_bool_value(player.get(key, false)):
+			return true
+	return false
+
+func _dict_bool_value(value: Variant) -> bool:
+	if typeof(value) == TYPE_BOOL:
+		return bool(value)
+	if typeof(value) == TYPE_INT:
+		return int(value) != 0
+	if typeof(value) == TYPE_FLOAT:
+		return not is_zero_approx(float(value))
+	var text: String = String(value).strip_edges().to_lower()
+	return text == "true" or text == "yes" or text == "1"
+
+func _planet_by_id(planet_id: int) -> PlanetData:
+	for p: PlanetData in planets:
+		if p != null and int(p.planet_id) == planet_id:
+			return p
+	return null
+
 func begin_batch_changes() -> void:
 	_batch_mode = true
 	_batch_dirty = false

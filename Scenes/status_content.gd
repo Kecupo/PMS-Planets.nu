@@ -483,10 +483,16 @@ func _populate_starbases_panel() -> void:
 	_add_section_title(_starbases_list, "Shipyard / Resources")
 	var shipyard: GridContainer = _add_key_value_grid(_starbases_list)
 	if can_build_ships:
-		_add_kv(shipyard, "Hull Tech", str(_dict_int(sb, ["hulltechlevel", "hulltech"], 0)))
-		_add_kv(shipyard, "Engine Tech", str(_dict_int(sb, ["enginetechlevel", "enginetech"], 0)))
-		_add_kv(shipyard, "Beam Tech", str(_dict_int(sb, ["beamtechlevel", "beamtech"], 0)))
-		_add_kv(shipyard, "Torp Tech", str(_dict_int(sb, ["torptechlevel", "torptech"], 0)))
+		if p != null and game_state.is_my_planet(p):
+			_add_starbase_tech_editor(shipyard, planet_id, p, sb, "Hull Tech", "hull", "hulltechlevel", "hulltechup")
+			_add_starbase_tech_editor(shipyard, planet_id, p, sb, "Engine Tech", "engine", "enginetechlevel", "enginetechup")
+			_add_starbase_tech_editor(shipyard, planet_id, p, sb, "Beam Tech", "beam", "beamtechlevel", "beamtechup")
+			_add_starbase_tech_editor(shipyard, planet_id, p, sb, "Torp Tech", "torp", "torptechlevel", "torptechup")
+		else:
+			_add_kv(shipyard, "Hull Tech", str(_dict_int(sb, ["hulltechlevel", "hulltech"], 0)))
+			_add_kv(shipyard, "Engine Tech", str(_dict_int(sb, ["enginetechlevel", "enginetech"], 0)))
+			_add_kv(shipyard, "Beam Tech", str(_dict_int(sb, ["beamtechlevel", "beamtech"], 0)))
+			_add_kv(shipyard, "Torp Tech", str(_dict_int(sb, ["torptechlevel", "torptech"], 0)))
 		_add_kv(shipyard, "Building", _starbase_build_label(sb))
 	else:
 		_add_kv(shipyard, "Shipyard", "not available")
@@ -512,6 +518,51 @@ func _populate_starbases_panel() -> void:
 	else:
 		_add_kv(orders, "Repair Ship", _starbase_ship_order_target(sb, 1))
 		_add_kv(orders, "Recycle Ship", _starbase_ship_order_target(sb, 2))
+
+func _add_starbase_tech_editor(parent: GridContainer, planet_id: int, p: PlanetData, sb: Dictionary, label_text: String, tech_kind: String, level_key: String, up_key: String) -> void:
+	var current_level: int = _dict_int(sb, [level_key], 1)
+	var current_up: int = _dict_int(sb, [up_key], 0)
+	var original_level: int = clamp(current_level - current_up, 1, 10)
+	var max_level: int = _starbase_tech_max_level(p)
+	var highest_selectable: int = _max_affordable_starbase_tech_level(current_level, max_level, int(p.megacredits))
+
+	var key_label: Label = Label.new()
+	key_label.text = label_text if current_up <= 0 else "%s (+%d)" % [label_text, current_up]
+	key_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	key_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	parent.add_child(key_label)
+
+	var row: HBoxContainer = HBoxContainer.new()
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_theme_constant_override("separation", 8)
+
+	var spin: SpinBox = SpinBox.new()
+	spin.min_value = original_level
+	spin.max_value = max(highest_selectable, current_level)
+	spin.step = 1
+	spin.value = current_level
+	spin.allow_greater = false
+	spin.allow_lesser = false
+	spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	spin.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	spin.tooltip_text = _starbase_tech_tooltip(current_level, max_level, int(p.megacredits))
+	spin.value_changed.connect(func(value: float) -> void:
+		if game_state.set_starbase_tech_level(planet_id, tech_kind, int(value)):
+			_populate_starbases_panel()
+		else:
+			_populate_starbases_panel()
+	)
+	row.add_child(spin)
+
+	var cost_label: Label = Label.new()
+	cost_label.text = _starbase_tech_next_cost_label(current_level, max_level, int(p.megacredits))
+	cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	cost_label.custom_minimum_size = Vector2(72.0, 0.0)
+	cost_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	cost_label.add_theme_color_override("font_color", Color(0.54, 1.0, 0.58, 1.0))
+	row.add_child(cost_label)
+
+	parent.add_child(row)
 
 func _add_starbase_mission_editor(parent: GridContainer, planet_id: int, current_mission: int) -> void:
 	var key_label: Label = Label.new()
@@ -1773,6 +1824,47 @@ func _starbase_build_label(sb: Dictionary) -> String:
 	if torp_count > 0:
 		parts.append("%d %s" % [torp_count, _torpedo_name(_dict_int(sb, ["buildtorpedoid"], 0))])
 	return ", ".join(parts)
+
+func _starbase_tech_max_level(p: PlanetData) -> int:
+	if _is_current_player_premium() or (p != null and int(p.flag) == 1):
+		return 10
+	return 7
+
+func _is_current_player_premium() -> bool:
+	var player: Dictionary = _player_from_rst()
+	if player.is_empty():
+		player = game_state.get_player_info(game_state.my_player_id)
+	for key: String in ["isregistered", "ispremium", "is_premium", "premium"]:
+		if _dict_bool(player, [key], false):
+			return true
+	return false
+
+func _max_affordable_starbase_tech_level(current_level: int, max_level: int, megacredits: int) -> int:
+	var level: int = clamp(current_level, 1, 10)
+	var mc_left: int = max(megacredits, 0)
+	while level < max_level:
+		var cost: int = level * 100
+		if mc_left < cost:
+			break
+		mc_left -= cost
+		level += 1
+	return level
+
+func _starbase_tech_next_cost_label(current_level: int, max_level: int, megacredits: int) -> String:
+	if current_level >= max_level:
+		return "Max"
+	var cost: int = current_level * 100
+	if megacredits < cost:
+		return "%d MC" % cost
+	return "-%d MC" % cost
+
+func _starbase_tech_tooltip(current_level: int, max_level: int, megacredits: int) -> String:
+	if current_level >= max_level:
+		return "Maximum tech level"
+	var cost: int = current_level * 100
+	if megacredits < cost:
+		return "Need %d MC for tech %d" % [cost, current_level + 1]
+	return "Tech %d to %d costs %d MC" % [current_level, current_level + 1, cost]
 
 func _hull_name(hull_id: int) -> String:
 	var hull: Dictionary = _hull_info(hull_id)
