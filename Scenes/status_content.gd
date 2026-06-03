@@ -53,6 +53,7 @@ const ENGINE_NAMES: PackedStringArray = [
 var _ships_panel: PanelContainer = null
 var _ships_list: VBoxContainer = null
 var _starbases_panel: PanelContainer = null
+var _starbases_header: HBoxContainer = null
 var _starbases_list: VBoxContainer = null
 var _messages_panel: PanelContainer = null
 var _messages_list: VBoxContainer = null
@@ -322,6 +323,7 @@ func _ensure_starbases_panel() -> void:
 		return
 	var parts: Dictionary = _create_info_panel("Starbases")
 	_starbases_panel = parts["panel"] as PanelContainer
+	_starbases_header = parts["header"] as HBoxContainer
 	_starbases_list = parts["list"] as VBoxContainer
 
 func _ensure_messages_panel() -> void:
@@ -368,11 +370,11 @@ func _create_info_panel(title: String) -> Dictionary:
 	content.add_theme_constant_override("separation", 6)
 	margin.add_child(content)
 
-	var header: Label = Label.new()
-	header.text = title
-	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	header.add_theme_color_override("font_color", Color(0.04, 0.55, 0.96, 1.0))
+	var header: HBoxContainer = HBoxContainer.new()
+	header.alignment = BoxContainer.ALIGNMENT_CENTER
+	header.add_theme_constant_override("separation", 6)
 	content.add_child(header)
+	_add_panel_header_title(header, title)
 	content.add_child(HSeparator.new())
 
 	var scroll: ScrollContainer = ScrollContainer.new()
@@ -400,7 +402,7 @@ func _create_info_panel(title: String) -> Dictionary:
 	)
 	footer.add_child(close_btn)
 
-	return {"panel": panel, "list": list}
+	return {"panel": panel, "header": header, "list": list}
 
 func _panel_style() -> StyleBoxFlat:
 	var style: StyleBoxFlat = StyleBoxFlat.new()
@@ -408,6 +410,32 @@ func _panel_style() -> StyleBoxFlat:
 	style.border_color = Color(0.45, 0.56, 0.62, 0.55)
 	style.set_border_width_all(1)
 	return style
+
+func _add_panel_header_title(parent: HBoxContainer, title: String) -> Label:
+	var header_title: Label = Label.new()
+	header_title.text = title
+	header_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	header_title.add_theme_color_override("font_color", Color(0.04, 0.55, 0.96, 1.0))
+	parent.add_child(header_title)
+	return header_title
+
+func _set_starbase_panel_header(p: PlanetData) -> void:
+	if _starbases_header == null:
+		return
+	_clear_children(_starbases_header)
+	if p != null:
+		_add_location_nav_button(_starbases_header, "Planet", false, func() -> void:
+			game_state.select_planet(int(p.planet_id))
+		)
+	_add_panel_header_title(_starbases_header, "Starbases")
+	if p != null:
+		var ships: Array[StarshipData] = _ships_at_position(p.x, p.y)
+		if ships.size() > 0:
+			var first_ship_id: int = int(ships[0].ship_id)
+			var label: String = "Ship #%d" % first_ship_id if ships.size() == 1 else "Ships (%d)" % ships.size()
+			_add_location_nav_button(_starbases_header, label, false, func() -> void:
+				game_state.select_ship(first_ship_id)
+			)
 
 func _populate_ships_panel() -> void:
 	_clear_children(_ships_list)
@@ -444,6 +472,7 @@ func _populate_starbases_panel() -> void:
 	_clear_children(_starbases_list)
 	var sb: Dictionary = game_state.get_selected_starbase()
 	if sb.is_empty():
+		_set_starbase_panel_header(null)
 		_add_summary_label(_starbases_list, "No selection")
 		return
 
@@ -451,10 +480,8 @@ func _populate_starbases_panel() -> void:
 	var p: PlanetData = _planet_by_id(planet_id)
 	var can_build_ships: bool = _starbase_can_build_ships(p, sb)
 	var base_type: String = _starbase_type_label(p, sb)
-	_add_summary_label(_starbases_list, "#%d  %s - %s" % [planet_id, p.name if p != null else "Unknown", base_type])
-	if p != null:
-		_add_wrapped_label(_starbases_list, "%s  %.0f / %.0f" % [_player_owner_label(int(p.ownerid)), p.x, p.y], false).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_add_location_nav(_starbases_list, "starbase", p.x, p.y, -1)
+	_set_starbase_panel_header(p)
+	_add_starbase_header(_starbases_list, planet_id, p, base_type)
 
 	var base_defense: int = _dict_int(sb, ["defense", "defenseposts", "defense_posts"], 0)
 	var base_fighters: int = _dict_int(sb, ["fighters", "fightercount", "fighter_count"], 0)
@@ -470,19 +497,7 @@ func _populate_starbases_panel() -> void:
 	)
 
 	_add_section_title(_starbases_list, "Defense")
-	var defense: GridContainer = _add_key_value_grid(_starbases_list)
-	if p != null and game_state.is_my_planet(p):
-		_add_starbase_defense_editor(defense, planet_id, sb)
-		_add_starbase_fighter_editor(defense, planet_id, sb)
-	else:
-		_add_kv(defense, "Base Defense", str(base_defense))
-		_add_kv(defense, "Fighters", str(base_fighters))
-	_add_kv(defense, "Planet Defense", str(planet_defense) if p != null else "?")
-	_add_kv(defense, "Combat Mass", "%d kt" % int(defense_summary.get("combat_mass", 0)))
-	_add_kv(defense, "Beams", _weapon_count_name(int(defense_summary.get("beam_count", 0)), String(defense_summary.get("beam_name", "Beam"))))
-	_add_kv(defense, "Bays", str(int(defense_summary.get("bays", 0))))
-	if _dict_int(sb, ["damage"], 0) > 0:
-		_add_kv(defense, "Damage", "%d%%" % _dict_int(sb, ["damage"], 0))
+	_add_starbase_defense_layout(_starbases_list, planet_id, p, sb, defense_summary)
 
 	_add_section_title(_starbases_list, "Shipyard / Resources")
 	var shipyard: GridContainer = _add_key_value_grid(_starbases_list)
@@ -528,29 +543,124 @@ func _populate_starbases_panel() -> void:
 		_add_kv(orders, "Repair Ship", _starbase_ship_order_target(sb, 1))
 		_add_kv(orders, "Recycle Ship", _starbase_ship_order_target(sb, 2))
 
-func _add_starbase_defense_editor(parent: GridContainer, planet_id: int, sb: Dictionary) -> void:
+func _add_starbase_defense_layout(parent: VBoxContainer, planet_id: int, p: PlanetData, sb: Dictionary, defense_summary: Dictionary) -> void:
+	var grid: GridContainer = GridContainer.new()
+	grid.columns = 4
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 3)
+	parent.add_child(grid)
+
+	var base_defense: int = _dict_int(sb, ["defense", "defenseposts", "defense_posts"], 0)
+	var base_fighters: int = _dict_int(sb, ["fighters", "fightercount", "fighter_count"], 0)
+	var planet_defense: int = max(0, int(p.defense)) if p != null else 0
+	var editable: bool = p != null and game_state.is_my_planet(p)
+
+	if editable:
+		_add_compact_starbase_defense_editor(grid, planet_id, sb)
+		_add_compact_starbase_fighter_editor(grid, planet_id, sb)
+	else:
+		_add_compact_kv(grid, "Defense", str(base_defense))
+		_add_compact_kv(grid, "Fighters", str(base_fighters))
+
+	_add_compact_kv(grid, "Planet Def", str(planet_defense) if p != null else "?")
+	_add_compact_kv(grid, "Mass", "%d kt" % int(defense_summary.get("combat_mass", 0)))
+	_add_compact_kv(grid, "Beams", _weapon_count_name(int(defense_summary.get("beam_count", 0)), String(defense_summary.get("beam_name", "Beam"))))
+	_add_compact_kv(grid, "Total Fighters", str(int(defense_summary.get("fighters", 0))))
+	_add_compact_kv(grid, "Bays", str(int(defense_summary.get("bays", 0))))
+	if _dict_int(sb, ["damage"], 0) > 0:
+		_add_compact_kv(grid, "Damage", "%d%%" % _dict_int(sb, ["damage"], 0))
+
+func _add_compact_starbase_defense_editor(parent: GridContainer, planet_id: int, sb: Dictionary) -> void:
 	var current: int = _dict_int(sb, ["defense"], 0)
 	var built: int = _dict_int(sb, ["builtdefense"], 0)
 	var original: int = max(0, current - built)
 	var max_value: int = _starbase_max_defense_posts(sb)
-	_add_int_spin_row(parent, "Base Defense" if built <= 0 else "Base Defense (+%d)" % built, current, original, max_value, func(value: int) -> void:
+	_add_compact_int_spin_row(parent, "Defense" if built <= 0 else "Defense (+%d)" % built, current, original, max_value, func(value: int) -> void:
 		if game_state.set_starbase_defense_posts(planet_id, value):
 			_populate_starbases_panel()
 		else:
 			_populate_starbases_panel()
 	)
 
-func _add_starbase_fighter_editor(parent: GridContainer, planet_id: int, sb: Dictionary) -> void:
+func _add_compact_starbase_fighter_editor(parent: GridContainer, planet_id: int, sb: Dictionary) -> void:
 	var current: int = _dict_int(sb, ["fighters"], 0)
 	var built: int = _dict_int(sb, ["builtfighters"], 0)
 	var original: int = max(0, current - built)
 	var max_value: int = _starbase_max_fighters(sb)
-	_add_int_spin_row(parent, "Fighters" if built <= 0 else "Fighters (+%d)" % built, current, original, max_value, func(value: int) -> void:
+	_add_compact_int_spin_row(parent, "Fighters" if built <= 0 else "Fighters (+%d)" % built, current, original, max_value, func(value: int) -> void:
 		if game_state.set_starbase_fighters(planet_id, value):
 			_populate_starbases_panel()
 		else:
 			_populate_starbases_panel()
 	)
+
+func _add_compact_int_spin_row(parent: GridContainer, label_text: String, current: int, min_value: int, max_value: int, changed: Callable) -> void:
+	var key_label: Label = Label.new()
+	key_label.text = label_text
+	key_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	key_label.clip_text = true
+	key_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	parent.add_child(key_label)
+
+	var spin: SpinBox = SpinBox.new()
+	spin.min_value = min_value
+	spin.max_value = max(max_value, min_value)
+	spin.step = 1
+	spin.rounded = true
+	spin.value = current
+	spin.allow_greater = false
+	spin.allow_lesser = false
+	spin.custom_minimum_size = Vector2(58.0, 0.0)
+	spin.size_flags_horizontal = Control.SIZE_SHRINK_END
+	spin.alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	spin.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	spin.value_changed.connect(func(value: float) -> void:
+		changed.call(int(round(value)))
+	)
+	parent.add_child(spin)
+
+func _add_compact_kv(parent: GridContainer, key: String, value: String) -> void:
+	var key_label: Label = Label.new()
+	key_label.text = key
+	key_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	key_label.clip_text = true
+	key_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	parent.add_child(key_label)
+
+	var value_label: Label = Label.new()
+	value_label.text = value if not value.is_empty() else "-"
+	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	value_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	value_label.clip_text = true
+	value_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	value_label.add_theme_color_override("font_color", Color(0.54, 1.0, 0.58, 1.0))
+	parent.add_child(value_label)
+
+func _add_starbase_header(parent: VBoxContainer, planet_id: int, p: PlanetData, base_type: String) -> void:
+	var row: HBoxContainer = HBoxContainer.new()
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 10)
+	parent.add_child(row)
+
+	var title_label: Label = Label.new()
+	var planet_name: String = p.name if p != null else "Unknown"
+	var owner: String = _owner_name_number_label(int(p.ownerid)) if p != null else ""
+	title_label.text = "%s  #%d  %s - %s" % [owner, planet_id, planet_name, base_type]
+	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title_label.clip_text = true
+	title_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE + 1)
+	title_label.add_theme_color_override("font_color", Color(0.78, 0.93, 0.98, 1.0))
+	row.add_child(title_label)
+
+	if p != null:
+		var coords: Label = Label.new()
+		coords.text = "%.0f / %.0f" % [p.x, p.y]
+		coords.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		coords.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE + 1)
+		coords.add_theme_color_override("font_color", Color(0.78, 0.93, 0.98, 1.0))
+		row.add_child(coords)
 
 func _add_starbase_torpedo_editors(parent: GridContainer, planet_id: int, p: PlanetData, sb: Dictionary) -> void:
 	var starbase_id: int = _dict_int(sb, ["id"], 0)
@@ -626,29 +736,6 @@ func _add_starbase_torpedo_editors(parent: GridContainer, planet_id: int, p: Pla
 	option.select(0)
 	configure_spin.call(0)
 	parent.add_child(row)
-
-func _add_int_spin_row(parent: GridContainer, label_text: String, current: int, min_value: int, max_value: int, changed: Callable) -> void:
-	var key_label: Label = Label.new()
-	key_label.text = label_text
-	key_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	key_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
-	parent.add_child(key_label)
-
-	var spin: SpinBox = SpinBox.new()
-	spin.min_value = min_value
-	spin.max_value = max(max_value, min_value)
-	spin.step = 1
-	spin.rounded = true
-	spin.value = current
-	spin.allow_greater = false
-	spin.allow_lesser = false
-	spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	spin.alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	spin.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
-	spin.value_changed.connect(func(value: float) -> void:
-		changed.call(int(round(value)))
-	)
-	parent.add_child(spin)
 
 func _add_planet_resource_kv(parent: GridContainer, p: PlanetData, label_text: String, raw_key: String, unit: String) -> void:
 	var start: Dictionary = game_state.get_planet_start_state(int(p.planet_id))
@@ -1910,6 +1997,13 @@ func _player_owner_label(player_id: int) -> String:
 	if race_id <= 0:
 		return "Player %d" % player_id
 	return "%s / Player %d" % [game_state.config.get_owner_abbrev(race_id), player_id]
+
+func _owner_name_number_label(player_id: int) -> String:
+	if player_id <= 0:
+		return "unowned"
+	var race_id: int = game_state.get_race_id_of_player(player_id)
+	var race_label: String = game_state.config.get_owner_abbrev(race_id) if race_id > 0 else "Player"
+	return "%s %d" % [race_label, player_id]
 
 func _compact_player_label(player_id: int) -> String:
 	if player_id <= 0:
