@@ -479,6 +479,8 @@ func set_planet_building_counts(
 
 	var supplies_after_build: int = start_supplies - needed_supplies
 	var supplies_to_sell: int = max(needed_mc - start_mc, 0)
+	if supplies_to_sell > 0 and not bool(RandAI_Config.auto_sell_supplies):
+		return false
 	if supplies_to_sell > supplies_after_build:
 		return false
 
@@ -595,7 +597,11 @@ func rebuild_planet_start_state_cache() -> void:
 			"defense": int(p.defense),
 			"megacredits": int(p.megacredits),
 			"supplies": int(p.supplies),
-			"suppliessold": int(p.raw.get("suppliessold", 0))
+			"suppliessold": int(p.raw.get("suppliessold", 0)),
+			"neutronium": int(p.neutronium),
+			"duranium": int(p.duranium),
+			"tritanium": int(p.tritanium),
+			"molybdenum": int(p.molybdenum)
 		}
 
 func annotate_minefield_friendly_codes(rst: Dictionary) -> void:
@@ -1190,10 +1196,10 @@ func set_starbase_tech_level(planet_id: int, tech_kind: String, target_level: in
 
 	var mc_delta: int = _starbase_tech_mc_delta(current_level, next_level)
 	var current_mc: int = int(p.megacredits)
-	if mc_delta > current_mc:
+	if not _can_pay_mc_with_supplies(p, mc_delta):
 		return false
 
-	var final_mc: int = current_mc - mc_delta
+	_apply_planet_resource_delta(planet_id, p, -mc_delta, 0, 0, 0, 0, true)
 	var final_up: int = next_level - original_level
 
 	sb[level_key] = next_level
@@ -1202,16 +1208,244 @@ func set_starbase_tech_level(planet_id: int, tech_kind: String, target_level: in
 	_set_starbase_field_in_rst(planet_id, level_key, next_level)
 	_set_starbase_field_in_rst(planet_id, up_key, final_up)
 
-	p.megacredits = float(final_mc)
-	p.raw["megacredits"] = final_mc
-	_set_planet_field_in_rst(planet_id, "megacredits", final_mc)
-
 	if _batch_mode:
 		_batch_dirty = true
 	else:
 		_save_latest_turn_json()
 		emit_signal("orders_changed")
 	return true
+
+func set_starbase_defense_posts(planet_id: int, target_defense: int) -> bool:
+	var sb: Dictionary = get_starbase_for_planet(planet_id)
+	var p: PlanetData = _planet_by_id(planet_id)
+	if sb.is_empty() or p == null or not is_my_planet(p):
+		return false
+
+	var current: int = int(float(sb.get("defense", 0)))
+	var built: int = int(float(sb.get("builtdefense", 0)))
+	var original: int = max(0, current - built)
+	var max_value: int = _starbase_max_defense_posts(sb)
+	var next_value: int = clamp(target_defense, original, max_value)
+	var change: int = next_value - current
+	if change == 0:
+		return false
+
+	if change > 0:
+		if int(p.duranium) < change:
+			return false
+		if not _can_pay_mc_with_supplies(p, change * 10):
+			return false
+
+	_apply_planet_resource_delta(planet_id, p, -change * 10, 0, -change, 0, 0, true)
+	sb["defense"] = next_value
+	sb["builtdefense"] = built + change
+	starbases_by_planet_id[planet_id] = sb
+	_set_starbase_field_in_rst(planet_id, "defense", next_value)
+	_set_starbase_field_in_rst(planet_id, "builtdefense", built + change)
+	_commit_order_change()
+	return true
+
+func set_starbase_fighters(planet_id: int, target_fighters: int) -> bool:
+	var sb: Dictionary = get_starbase_for_planet(planet_id)
+	var p: PlanetData = _planet_by_id(planet_id)
+	if sb.is_empty() or p == null or not is_my_planet(p):
+		return false
+
+	var current: int = int(float(sb.get("fighters", 0)))
+	var built: int = int(float(sb.get("builtfighters", 0)))
+	var original: int = max(0, current - built)
+	var max_value: int = _starbase_max_fighters(sb)
+	var next_value: int = clamp(target_fighters, original, max_value)
+	var change: int = next_value - current
+	if change == 0:
+		return false
+
+	if change > 0:
+		if int(p.tritanium) < change * 3 or int(p.molybdenum) < change * 2:
+			return false
+		if not _can_pay_mc_with_supplies(p, change * 100):
+			return false
+
+	_apply_planet_resource_delta(planet_id, p, -change * 100, 0, 0, -change * 3, -change * 2, true)
+	sb["fighters"] = next_value
+	sb["builtfighters"] = built + change
+	starbases_by_planet_id[planet_id] = sb
+	_set_starbase_field_in_rst(planet_id, "fighters", next_value)
+	_set_starbase_field_in_rst(planet_id, "builtfighters", built + change)
+	_commit_order_change()
+	return true
+
+func set_starbase_torpedo_stock(planet_id: int, torpedo_id: int, target_amount: int) -> bool:
+	if torpedo_id <= 0:
+		return false
+	var sb: Dictionary = get_starbase_for_planet(planet_id)
+	var p: PlanetData = _planet_by_id(planet_id)
+	if sb.is_empty() or p == null or not is_my_planet(p):
+		return false
+
+	var starbase_id: int = int(float(sb.get("id", 0)))
+	var stock: Dictionary = get_starbase_stock_item(starbase_id, 5, torpedo_id)
+	if stock.is_empty():
+		return false
+
+	var torp_info: Dictionary = _torpedo_info(torpedo_id)
+	if torp_info.is_empty():
+		return false
+	var tech_level: int = int(float(torp_info.get("techlevel", 0)))
+	if tech_level > int(float(sb.get("torptechlevel", 0))):
+		return false
+	var torp_cost: int = int(float(torp_info.get("torpedocost", torp_info.get("cost", 0))))
+
+	var current: int = int(float(stock.get("amount", 0)))
+	var built: int = int(float(stock.get("builtamount", 0)))
+	var original: int = max(0, current - built)
+	var next_value: int = max(target_amount, original)
+	var change: int = next_value - current
+	if change == 0:
+		return false
+
+	if change > 0:
+		if int(p.duranium) < change or int(p.tritanium) < change or int(p.molybdenum) < change:
+			return false
+		if not _can_pay_mc_with_supplies(p, change * torp_cost):
+			return false
+
+	_apply_planet_resource_delta(planet_id, p, -change * torp_cost, 0, -change, -change, -change, true)
+	_set_stock_amounts(int(stock.get("id", 0)), next_value, built + change)
+	_commit_order_change()
+	return true
+
+func _starbase_max_defense_posts(sb: Dictionary) -> int:
+	match int(float(sb.get("starbasetype", 0))):
+		1:
+			return 250
+		2:
+			return 50
+		_:
+			return 200
+
+func _starbase_max_fighters(sb: Dictionary) -> int:
+	match int(float(sb.get("starbasetype", 0))):
+		1:
+			return 80
+		2:
+			return 20
+		_:
+			return 60
+
+func _can_pay_mc_with_supplies(p: PlanetData, mc_needed: int) -> bool:
+	if mc_needed <= 0:
+		return true
+	var missing_mc: int = mc_needed - int(p.megacredits)
+	if missing_mc <= 0:
+		return true
+	if not bool(RandAI_Config.auto_sell_supplies):
+		return false
+	return int(p.supplies) >= missing_mc
+
+func _apply_planet_resource_delta(
+	planet_id: int,
+	p: PlanetData,
+	mc_delta: int,
+	supplies_delta: int,
+	duranium_delta: int,
+	tritanium_delta: int,
+	molybdenum_delta: int,
+	allow_supply_sale: bool
+) -> void:
+	var final_mc: int = int(p.megacredits) + mc_delta
+	var final_supplies: int = int(p.supplies) + supplies_delta
+	var final_supplies_sold: int = int(p.raw.get("suppliessold", 0))
+	var start: Dictionary = get_planet_start_state(planet_id)
+	var start_supplies_sold: int = int(start.get("suppliessold", final_supplies_sold))
+	if allow_supply_sale and final_mc < 0 and bool(RandAI_Config.auto_sell_supplies):
+		var sell_amount: int = min(-final_mc, final_supplies)
+		final_mc += sell_amount
+		final_supplies -= sell_amount
+		final_supplies_sold += sell_amount
+	elif allow_supply_sale and final_mc > 0 and final_supplies_sold > start_supplies_sold:
+		var buyback_amount: int = min(final_mc, final_supplies_sold - start_supplies_sold)
+		final_mc -= buyback_amount
+		final_supplies += buyback_amount
+		final_supplies_sold -= buyback_amount
+
+	p.megacredits = float(final_mc)
+	p.supplies = float(final_supplies)
+	p.duranium = float(int(p.duranium) + duranium_delta)
+	p.tritanium = float(int(p.tritanium) + tritanium_delta)
+	p.molybdenum = float(int(p.molybdenum) + molybdenum_delta)
+	p.raw["megacredits"] = final_mc
+	p.raw["supplies"] = final_supplies
+	p.raw["suppliessold"] = final_supplies_sold
+	p.raw["duranium"] = int(p.duranium)
+	p.raw["tritanium"] = int(p.tritanium)
+	p.raw["molybdenum"] = int(p.molybdenum)
+	_set_planet_field_in_rst(planet_id, "megacredits", final_mc)
+	_set_planet_field_in_rst(planet_id, "supplies", final_supplies)
+	_set_planet_field_in_rst(planet_id, "suppliessold", final_supplies_sold)
+	_set_planet_field_in_rst(planet_id, "duranium", int(p.duranium))
+	_set_planet_field_in_rst(planet_id, "tritanium", int(p.tritanium))
+	_set_planet_field_in_rst(planet_id, "molybdenum", int(p.molybdenum))
+
+func get_starbase_stock_item(starbase_id: int, stock_type: int, stock_id: int) -> Dictionary:
+	var rst_v: Variant = last_turn_json.get("rst", {})
+	if not (rst_v is Dictionary):
+		return {}
+	var stock_v: Variant = (rst_v as Dictionary).get("stock", [])
+	if not (stock_v is Array):
+		return {}
+	for item: Variant in stock_v as Array:
+		if not (item is Dictionary):
+			continue
+		var stock: Dictionary = item as Dictionary
+		if int(float(stock.get("starbaseid", -1))) == starbase_id \
+			and int(float(stock.get("stocktype", -1))) == stock_type \
+			and int(float(stock.get("stockid", -1))) == stock_id:
+			return stock
+	return {}
+
+func _set_stock_amounts(stock_entry_id: int, amount: int, built_amount: int) -> void:
+	var rst_v: Variant = last_turn_json.get("rst", {})
+	if not (rst_v is Dictionary):
+		return
+	var rst: Dictionary = rst_v as Dictionary
+	var stock_v: Variant = rst.get("stock", [])
+	if not (stock_v is Array):
+		return
+	var stock_arr: Array = stock_v as Array
+	for i: int in range(stock_arr.size()):
+		var item: Variant = stock_arr[i]
+		if not (item is Dictionary):
+			continue
+		var stock: Dictionary = item as Dictionary
+		if int(float(stock.get("id", -1))) != stock_entry_id:
+			continue
+		stock["amount"] = amount
+		stock["builtamount"] = built_amount
+		stock["changed"] = 1
+		stock_arr[i] = stock
+		rst["stock"] = stock_arr
+		last_turn_json["rst"] = rst
+		return
+
+func _torpedo_info(torpedo_id: int) -> Dictionary:
+	var rst_v: Variant = last_turn_json.get("rst", {})
+	if not (rst_v is Dictionary):
+		return {}
+	var torps_v: Variant = (rst_v as Dictionary).get("torpedos", [])
+	if not (torps_v is Array):
+		return {}
+	for item: Variant in torps_v as Array:
+		if item is Dictionary and int(float((item as Dictionary).get("id", -1))) == torpedo_id:
+			return item as Dictionary
+	return {}
+
+func _commit_order_change() -> void:
+	if _batch_mode:
+		_batch_dirty = true
+	else:
+		_save_latest_turn_json()
+		emit_signal("orders_changed")
 
 func _starbase_tech_field_names(tech_kind: String) -> Dictionary:
 	match tech_kind.to_lower():

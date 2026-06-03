@@ -365,6 +365,18 @@ func _save_turn_with_savekey_and_merge(fresh_wrapper: Dictionary) -> void:
 		command_count += 1
 
 	# -------------------------
+	# add changed stock entries
+	# -------------------------
+	for stock: Dictionary in _stock_dicts(_pending_save_rst):
+		var stock_id: int = _to_int(stock.get("id", 0))
+		if stock_id <= 0:
+			continue
+		if not _stock_has_relevant_changes(fresh_rst, _pending_save_rst, stock_id):
+			continue
+		fields["Stock" + str(stock_id)] = _pack_stock_command(stock)
+		command_count += 1
+
+	# -------------------------
 	# add changed relations
 	# -------------------------
 	if _relations_have_relevant_changes(fresh_rst, _pending_save_rst):
@@ -495,10 +507,26 @@ static func _relation_dicts(rst: Dictionary) -> Array[Dictionary]:
 			result.append(it as Dictionary)
 	return result
 
+static func _stock_dicts(rst: Dictionary) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var stock_v: Variant = rst.get("stock")
+	if not (stock_v is Array):
+		return result
+	for it: Variant in stock_v as Array:
+		if it is Dictionary:
+			result.append(it as Dictionary)
+	return result
+
 static func _find_relation_dict_by_id(rst: Dictionary, relation_id: int) -> Dictionary:
 	for relation: Dictionary in _relation_dicts(rst):
 		if _to_int(relation.get("id", -1)) == relation_id:
 			return relation
+	return {}
+
+static func _find_stock_dict_by_id(rst: Dictionary, stock_id: int) -> Dictionary:
+	for stock: Dictionary in _stock_dicts(rst):
+		if _to_int(stock.get("id", -1)) == stock_id:
+			return stock
 	return {}
 
 static func _build_planet_save_command(orig_rst: Dictionary, pending_rst: Dictionary, planet_id: int) -> Dictionary:
@@ -780,6 +808,13 @@ static func _pack_relation_command(relation: Dictionary) -> String:
 	parts.append("Color:::" + _pack_field_value(String(relation.get("color", ""))))
 	return "|||".join(parts)
 
+static func _pack_stock_command(stock: Dictionary) -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	parts.append("Id:::" + _pack_field_value(_to_int(stock.get("id", 0))))
+	parts.append("Amount:::" + _pack_field_value(_to_int(stock.get("amount", 0))))
+	parts.append("BuiltAmount:::" + _pack_field_value(_to_int(stock.get("builtamount", 0))))
+	return "|||".join(parts)
+
 static func _pack_waypoints(value: Variant) -> String:
 	if value is Array:
 		var out: PackedStringArray = PackedStringArray()
@@ -910,4 +945,15 @@ static func _relations_have_relevant_changes(orig_rst: Dictionary, pending_rst: 
 			return true
 		if String(orig_relation.get("color", "")) != String(mod_relation.get("color", "")):
 			return true
+	return false
+
+static func _stock_has_relevant_changes(orig_rst: Dictionary, pending_rst: Dictionary, stock_id: int) -> bool:
+	var orig_stock: Dictionary = _find_stock_dict_by_id(orig_rst, stock_id)
+	var mod_stock: Dictionary = _find_stock_dict_by_id(pending_rst, stock_id)
+	if orig_stock.is_empty() or mod_stock.is_empty():
+		return false
+	if _to_int(orig_stock.get("amount", 0)) != _to_int(mod_stock.get("amount", 0)):
+		return true
+	if _to_int(orig_stock.get("builtamount", 0)) != _to_int(mod_stock.get("builtamount", 0)):
+		return true
 	return false

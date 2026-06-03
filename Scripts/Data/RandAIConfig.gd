@@ -58,6 +58,7 @@ var planet_mining_in_turns: int = 30
 var planet_mining_to_turn: int = 40
 var build_defense_enabled: bool = false
 var planet_defense_build_mode: int = PlanetDefenseBuildMode.BUILD_21
+var auto_sell_supplies: bool = true
 
 # -------------------------
 # Star Map Config
@@ -186,6 +187,7 @@ func _apply_defaults() -> void:
 	planet_mining_to_turn = 40
 	build_defense_enabled = false
 	planet_defense_build_mode = PlanetDefenseBuildMode.BUILD_21
+	auto_sell_supplies = true
 
 	# Star map
 	show_ship_scan_range = false
@@ -224,6 +226,7 @@ func _apply_from_dict(d: Dictionary) -> void:
 	planet_mining_to_turn = max(1, _read_int(d, "planet_mining_to_turn", 40))
 	build_defense_enabled = _read_bool(d, "build_defense_enabled", false)
 	planet_defense_build_mode = _read_int(d, "planet_defense_build_mode", PlanetDefenseBuildMode.BUILD_21)
+	auto_sell_supplies = _read_bool(d, "auto_sell_supplies", true)
 	show_ship_scan_range = _read_bool(d, "show_ship_scan_range", false)
 
 	if planet_mining_target_mode < PlanetMiningTargetMode.IN_TURNS or planet_mining_target_mode > PlanetMiningTargetMode.TO_TURN:
@@ -299,6 +302,7 @@ func _to_dict() -> Dictionary:
 	d["planet_mining_to_turn"] = planet_mining_to_turn
 	d["build_defense_enabled"] = build_defense_enabled
 	d["planet_defense_build_mode"] = planet_defense_build_mode
+	d["auto_sell_supplies"] = auto_sell_supplies
 	d["show_ship_scan_range"] = show_ship_scan_range
 
 	# Colonists

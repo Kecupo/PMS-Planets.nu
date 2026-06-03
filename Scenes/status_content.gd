@@ -471,9 +471,13 @@ func _populate_starbases_panel() -> void:
 
 	_add_section_title(_starbases_list, "Defense")
 	var defense: GridContainer = _add_key_value_grid(_starbases_list)
-	_add_kv(defense, "Base Defense", str(base_defense))
+	if p != null and game_state.is_my_planet(p):
+		_add_starbase_defense_editor(defense, planet_id, sb)
+		_add_starbase_fighter_editor(defense, planet_id, sb)
+	else:
+		_add_kv(defense, "Base Defense", str(base_defense))
+		_add_kv(defense, "Fighters", str(base_fighters))
 	_add_kv(defense, "Planet Defense", str(planet_defense) if p != null else "?")
-	_add_kv(defense, "Fighters", str(base_fighters))
 	_add_kv(defense, "Combat Mass", "%d kt" % int(defense_summary.get("combat_mass", 0)))
 	_add_kv(defense, "Beams", _weapon_count_name(int(defense_summary.get("beam_count", 0)), String(defense_summary.get("beam_name", "Beam"))))
 	_add_kv(defense, "Bays", str(int(defense_summary.get("bays", 0))))
@@ -497,12 +501,17 @@ func _populate_starbases_panel() -> void:
 	else:
 		_add_kv(shipyard, "Shipyard", "not available")
 	if p != null:
-		_add_kv(shipyard, "Neutronium", _planet_amount(p.neutronium, "kt"))
-		_add_kv(shipyard, "Duranium", _planet_amount(p.duranium, "kt"))
-		_add_kv(shipyard, "Tritanium", _planet_amount(p.tritanium, "kt"))
-		_add_kv(shipyard, "Molybdenum", _planet_amount(p.molybdenum, "kt"))
-		_add_kv(shipyard, "Supplies", _planet_amount(p.supplies, ""))
-		_add_kv(shipyard, "Megacredits", _planet_amount(p.megacredits, ""))
+		_add_planet_resource_kv(shipyard, p, "Neutronium", "neutronium", "kt")
+		_add_planet_resource_kv(shipyard, p, "Duranium", "duranium", "kt")
+		_add_planet_resource_kv(shipyard, p, "Tritanium", "tritanium", "kt")
+		_add_planet_resource_kv(shipyard, p, "Molybdenum", "molybdenum", "kt")
+		_add_planet_resource_kv(shipyard, p, "Supplies", "supplies", "")
+		_add_planet_resource_kv(shipyard, p, "Megacredits", "megacredits", "")
+
+	if can_build_ships and p != null and game_state.is_my_planet(p):
+		_add_section_title(_starbases_list, "Torpedoes")
+		var torp_grid: GridContainer = _add_key_value_grid(_starbases_list)
+		_add_starbase_torpedo_editors(torp_grid, planet_id, p, sb)
 
 	_add_section_title(_starbases_list, "Orders")
 	var orders: GridContainer = _add_key_value_grid(_starbases_list)
@@ -519,12 +528,133 @@ func _populate_starbases_panel() -> void:
 		_add_kv(orders, "Repair Ship", _starbase_ship_order_target(sb, 1))
 		_add_kv(orders, "Recycle Ship", _starbase_ship_order_target(sb, 2))
 
+func _add_starbase_defense_editor(parent: GridContainer, planet_id: int, sb: Dictionary) -> void:
+	var current: int = _dict_int(sb, ["defense"], 0)
+	var built: int = _dict_int(sb, ["builtdefense"], 0)
+	var original: int = max(0, current - built)
+	var max_value: int = _starbase_max_defense_posts(sb)
+	_add_int_spin_row(parent, "Base Defense" if built <= 0 else "Base Defense (+%d)" % built, current, original, max_value, func(value: int) -> void:
+		if game_state.set_starbase_defense_posts(planet_id, value):
+			_populate_starbases_panel()
+		else:
+			_populate_starbases_panel()
+	)
+
+func _add_starbase_fighter_editor(parent: GridContainer, planet_id: int, sb: Dictionary) -> void:
+	var current: int = _dict_int(sb, ["fighters"], 0)
+	var built: int = _dict_int(sb, ["builtfighters"], 0)
+	var original: int = max(0, current - built)
+	var max_value: int = _starbase_max_fighters(sb)
+	_add_int_spin_row(parent, "Fighters" if built <= 0 else "Fighters (+%d)" % built, current, original, max_value, func(value: int) -> void:
+		if game_state.set_starbase_fighters(planet_id, value):
+			_populate_starbases_panel()
+		else:
+			_populate_starbases_panel()
+	)
+
+func _add_starbase_torpedo_editors(parent: GridContainer, planet_id: int, p: PlanetData, sb: Dictionary) -> void:
+	var starbase_id: int = _dict_int(sb, ["id"], 0)
+	var torp_tech: int = _dict_int(sb, ["torptechlevel"], 0)
+	for torp: Dictionary in _torpedo_infos():
+		var torp_id: int = _dict_int(torp, ["id"], 0)
+		if torp_id <= 0 or _dict_int(torp, ["techlevel"], 0) > torp_tech:
+			continue
+		var stock: Dictionary = game_state.get_starbase_stock_item(starbase_id, 5, torp_id)
+		if stock.is_empty():
+			continue
+		var current: int = _dict_int(stock, ["amount"], 0)
+		var built: int = _dict_int(stock, ["builtamount"], 0)
+		var original: int = max(0, current - built)
+		var torp_cost: int = _dict_int(torp, ["torpedocost", "cost"], 0)
+		var max_value: int = _max_affordable_torpedo_stock(current, int(p.megacredits), int(p.supplies), int(p.duranium), int(p.tritanium), int(p.molybdenum), torp_cost)
+		var label: String = _dict_string(torp, ["name"], _torpedo_name(torp_id))
+		if built > 0:
+			label += " (+%d)" % built
+		_add_int_spin_row(parent, label, current, original, max(max_value, current), func(value: int) -> void:
+			if game_state.set_starbase_torpedo_stock(planet_id, torp_id, value):
+				_populate_starbases_panel()
+			else:
+				_populate_starbases_panel()
+		)
+
+func _add_int_spin_row(parent: GridContainer, label_text: String, current: int, min_value: int, max_value: int, changed: Callable) -> void:
+	var key_label: Label = Label.new()
+	key_label.text = label_text
+	key_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	key_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	parent.add_child(key_label)
+
+	var spin: SpinBox = SpinBox.new()
+	spin.min_value = min_value
+	spin.max_value = max(max_value, min_value)
+	spin.step = 1
+	spin.rounded = true
+	spin.value = current
+	spin.allow_greater = false
+	spin.allow_lesser = false
+	spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	spin.alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	spin.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	spin.value_changed.connect(func(value: float) -> void:
+		changed.call(int(round(value)))
+	)
+	parent.add_child(spin)
+
+func _add_planet_resource_kv(parent: GridContainer, p: PlanetData, label_text: String, raw_key: String, unit: String) -> void:
+	var start: Dictionary = game_state.get_planet_start_state(int(p.planet_id))
+	var current: int = _planet_resource_value(p, raw_key)
+	var delta: int = current - int(start.get(raw_key, current))
+	_add_center_delta_kv(parent, label_text, _planet_amount(float(current), unit), delta)
+
+func _planet_resource_value(p: PlanetData, raw_key: String) -> int:
+	match raw_key:
+		"neutronium":
+			return int(p.neutronium)
+		"duranium":
+			return int(p.duranium)
+		"tritanium":
+			return int(p.tritanium)
+		"molybdenum":
+			return int(p.molybdenum)
+		"supplies":
+			return int(p.supplies)
+		"megacredits":
+			return int(p.megacredits)
+		_:
+			return int(p.raw.get(raw_key, 0))
+
+func _add_center_delta_kv(parent: GridContainer, key: String, value: String, delta: int) -> void:
+	var key_label: Label = Label.new()
+	key_label.text = key
+	key_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	key_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	parent.add_child(key_label)
+
+	var row: HBoxContainer = HBoxContainer.new()
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var value_label: Label = Label.new()
+	value_label.text = value if not value.is_empty() else "-"
+	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	value_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	value_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	value_label.add_theme_color_override("font_color", Color(0.54, 1.0, 0.58, 1.0))
+	row.add_child(value_label)
+
+	var delta_label: Label = Label.new()
+	delta_label.custom_minimum_size = Vector2(58.0, 0.0)
+	delta_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	delta_label.text = "" if delta == 0 else "%+d" % delta
+	delta_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	delta_label.add_theme_color_override("font_color", Color(0.54, 1.0, 0.58, 1.0) if delta >= 0 else Color(1.0, 0.48, 0.42, 1.0))
+	row.add_child(delta_label)
+	parent.add_child(row)
+
 func _add_starbase_tech_editor(parent: GridContainer, planet_id: int, p: PlanetData, sb: Dictionary, label_text: String, tech_kind: String, level_key: String, up_key: String) -> void:
 	var current_level: int = _dict_int(sb, [level_key], 1)
 	var current_up: int = _dict_int(sb, [up_key], 0)
 	var original_level: int = clamp(current_level - current_up, 1, 10)
 	var max_level: int = _starbase_tech_max_level(p)
-	var highest_selectable: int = _max_affordable_starbase_tech_level(current_level, max_level, int(p.megacredits))
+	var highest_selectable: int = _max_affordable_starbase_tech_level(current_level, max_level, int(p.megacredits), int(p.supplies))
 
 	var key_label: Label = Label.new()
 	key_label.text = label_text if current_up <= 0 else "%s (+%d)" % [label_text, current_up]
@@ -1830,6 +1960,24 @@ func _starbase_tech_max_level(p: PlanetData) -> int:
 		return 10
 	return 7
 
+func _starbase_max_defense_posts(sb: Dictionary) -> int:
+	match _dict_int(sb, ["starbasetype"], 0):
+		1:
+			return 250
+		2:
+			return 50
+		_:
+			return 200
+
+func _starbase_max_fighters(sb: Dictionary) -> int:
+	match _dict_int(sb, ["starbasetype"], 0):
+		1:
+			return 80
+		2:
+			return 20
+		_:
+			return 60
+
 func _is_current_player_premium() -> bool:
 	if _dict_bool(game_state.last_turn_json, ["ispremium", "is_premium", "premium", "isregistered"], false):
 		return true
@@ -1842,9 +1990,11 @@ func _is_current_player_premium() -> bool:
 			return true
 	return false
 
-func _max_affordable_starbase_tech_level(current_level: int, max_level: int, megacredits: int) -> int:
+func _max_affordable_starbase_tech_level(current_level: int, max_level: int, megacredits: int, supplies: int = 0) -> int:
 	var level: int = clamp(current_level, 1, 10)
 	var mc_left: int = max(megacredits, 0)
+	if bool(RandAI_Config.auto_sell_supplies):
+		mc_left += max(supplies, 0)
 	while level < max_level:
 		var cost: int = level * 100
 		if mc_left < cost:
@@ -1852,6 +2002,34 @@ func _max_affordable_starbase_tech_level(current_level: int, max_level: int, meg
 		mc_left -= cost
 		level += 1
 	return level
+
+func _max_affordable_torpedo_stock(current: int, megacredits: int, supplies: int, duranium: int, tritanium: int, molybdenum: int, torp_cost: int) -> int:
+	var mc_available: int = max(megacredits, 0)
+	if bool(RandAI_Config.auto_sell_supplies):
+		mc_available += max(supplies, 0)
+	var by_mc: int = 999
+	if torp_cost > 0:
+		by_mc = int(floor(float(mc_available) / float(torp_cost)))
+	var extra: int = min(by_mc, min(max(duranium, 0), min(max(tritanium, 0), max(molybdenum, 0))))
+	return current + max(extra, 0)
+
+func _torpedo_infos() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if game_state.last_turn_json.is_empty():
+		return result
+	var rst_v: Variant = game_state.last_turn_json.get("rst")
+	if not (rst_v is Dictionary):
+		return result
+	var torps_v: Variant = (rst_v as Dictionary).get("torpedos", [])
+	if not (torps_v is Array):
+		return result
+	for item: Variant in torps_v as Array:
+		if item is Dictionary:
+			result.append(item as Dictionary)
+	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return _dict_int(a, ["id"], 0) < _dict_int(b, ["id"], 0)
+	)
+	return result
 
 func _starbase_tech_next_cost_label(current_level: int, max_level: int, megacredits: int) -> String:
 	if current_level >= max_level:

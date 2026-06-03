@@ -36,6 +36,7 @@ var spin_mine_to_turn: SpinBox = null
 var chk_build_defense: CheckButton = null
 var btn_build_21_defense: Button = null
 var btn_max_defense: Button = null
+var chk_auto_sell_supplies: CheckButton = null
 var ships_vbox: VBoxContainer = null
 var chk_show_ship_scan_range: CheckButton = null
 
@@ -151,6 +152,12 @@ func _build_manage_planets_controls() -> void:
 	defense_row.add_child(btn_build_21_defense)
 	defense_row.add_child(btn_max_defense)
 
+	manage_planets_vbox.add_child(HSeparator.new())
+	chk_auto_sell_supplies = CheckButton.new()
+	chk_auto_sell_supplies.text = "Auto sell supplies"
+	chk_auto_sell_supplies.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	manage_planets_vbox.add_child(chk_auto_sell_supplies)
+
 func _build_ships_tab() -> void:
 	if ships_vbox != null:
 		return
@@ -214,6 +221,7 @@ func _wire_manage_planets_tab() -> void:
 	chk_build_defense.toggled.connect(_on_build_defense_toggled)
 	btn_build_21_defense.toggled.connect(_on_defense_build_mode_changed)
 	btn_max_defense.toggled.connect(_on_defense_build_mode_changed)
+	chk_auto_sell_supplies.toggled.connect(_on_auto_sell_supplies_toggled)
 
 func _wire_ships_tab() -> void:
 	chk_show_ship_scan_range.toggled.connect(_on_show_ship_scan_range_toggled)
@@ -262,6 +270,7 @@ func _sync_planet_manage_tab_from_config() -> void:
 	chk_build_defense.button_pressed = bool(RandAI_Config.build_defense_enabled)
 	btn_build_21_defense.button_pressed = int(RandAI_Config.planet_defense_build_mode) == RandAI_Config.PlanetDefenseBuildMode.BUILD_21
 	btn_max_defense.button_pressed = int(RandAI_Config.planet_defense_build_mode) == RandAI_Config.PlanetDefenseBuildMode.MAX_DEFENSE
+	chk_auto_sell_supplies.button_pressed = bool(RandAI_Config.auto_sell_supplies)
 	_update_manage_planets_controls()
 
 func _sync_ships_tab_from_config() -> void:
@@ -396,6 +405,12 @@ func _on_defense_build_mode_changed(on: bool) -> void:
 		RandAI_Config.planet_defense_build_mode = RandAI_Config.PlanetDefenseBuildMode.MAX_DEFENSE
 	else:
 		RandAI_Config.planet_defense_build_mode = RandAI_Config.PlanetDefenseBuildMode.BUILD_21
+	RandAI_Config.mark_dirty()
+
+func _on_auto_sell_supplies_toggled(on: bool) -> void:
+	if _syncing:
+		return
+	RandAI_Config.auto_sell_supplies = on
 	RandAI_Config.mark_dirty()
 
 func _on_col_tax_mode_selected(idx: int) -> void:
