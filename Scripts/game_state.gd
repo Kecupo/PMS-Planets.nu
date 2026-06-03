@@ -1285,8 +1285,6 @@ func set_starbase_torpedo_stock(planet_id: int, torpedo_id: int, target_amount: 
 
 	var starbase_id: int = int(float(sb.get("id", 0)))
 	var stock: Dictionary = get_starbase_stock_item(starbase_id, 5, torpedo_id)
-	if stock.is_empty():
-		return false
 
 	var torp_info: Dictionary = _torpedo_info(torpedo_id)
 	if torp_info.is_empty():
@@ -1295,6 +1293,11 @@ func set_starbase_torpedo_stock(planet_id: int, torpedo_id: int, target_amount: 
 	if tech_level > int(float(sb.get("torptechlevel", 0))):
 		return false
 	var torp_cost: int = int(float(torp_info.get("torpedocost", torp_info.get("cost", 0))))
+
+	if stock.is_empty():
+		stock = _create_starbase_stock_item(starbase_id, 5, torpedo_id)
+		if stock.is_empty():
+			return false
 
 	var current: int = int(float(stock.get("amount", 0)))
 	var built: int = int(float(stock.get("builtamount", 0)))
@@ -1403,6 +1406,33 @@ func get_starbase_stock_item(starbase_id: int, stock_type: int, stock_id: int) -
 			and int(float(stock.get("stockid", -1))) == stock_id:
 			return stock
 	return {}
+
+func _create_starbase_stock_item(starbase_id: int, stock_type: int, stock_id: int) -> Dictionary:
+	var rst_v: Variant = last_turn_json.get("rst", {})
+	if not (rst_v is Dictionary):
+		return {}
+	var rst: Dictionary = rst_v as Dictionary
+	var stock_v: Variant = rst.get("stock", [])
+	if not (stock_v is Array):
+		stock_v = []
+	var stock_arr: Array = stock_v as Array
+	var new_id: int = 1
+	for item: Variant in stock_arr:
+		if item is Dictionary:
+			new_id = max(new_id, int(float((item as Dictionary).get("id", 0))) + 1)
+	var stock: Dictionary = {
+		"id": new_id,
+		"starbaseid": starbase_id,
+		"stocktype": stock_type,
+		"stockid": stock_id,
+		"amount": 0,
+		"builtamount": 0,
+		"changed": 0
+	}
+	stock_arr.append(stock)
+	rst["stock"] = stock_arr
+	last_turn_json["rst"] = rst
+	return stock
 
 func _set_stock_amounts(stock_entry_id: int, amount: int, built_amount: int) -> void:
 	var rst_v: Variant = last_turn_json.get("rst", {})
@@ -1576,7 +1606,7 @@ func get_player_info(player_id: int) -> Dictionary:
 		if int(p.get("id", -1)) == player_id:
 			return p
 	return {}
-	
+
 func planet_has_starbase(planet_id: int) -> bool:
 	return starbase_planet_ids.has(planet_id)
 

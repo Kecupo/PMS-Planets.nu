@@ -950,8 +950,10 @@ static func _relations_have_relevant_changes(orig_rst: Dictionary, pending_rst: 
 static func _stock_has_relevant_changes(orig_rst: Dictionary, pending_rst: Dictionary, stock_id: int) -> bool:
 	var orig_stock: Dictionary = _find_stock_dict_by_id(orig_rst, stock_id)
 	var mod_stock: Dictionary = _find_stock_dict_by_id(pending_rst, stock_id)
-	if orig_stock.is_empty() or mod_stock.is_empty():
+	if mod_stock.is_empty():
 		return false
+	if orig_stock.is_empty():
+		return _to_int(mod_stock.get("amount", 0)) > 0 or _to_int(mod_stock.get("builtamount", 0)) > 0
 	if _to_int(orig_stock.get("amount", 0)) != _to_int(mod_stock.get("amount", 0)):
 		return true
 	if _to_int(orig_stock.get("builtamount", 0)) != _to_int(mod_stock.get("builtamount", 0)):

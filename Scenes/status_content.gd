@@ -554,28 +554,78 @@ func _add_starbase_fighter_editor(parent: GridContainer, planet_id: int, sb: Dic
 
 func _add_starbase_torpedo_editors(parent: GridContainer, planet_id: int, p: PlanetData, sb: Dictionary) -> void:
 	var starbase_id: int = _dict_int(sb, ["id"], 0)
-	var torp_tech: int = _dict_int(sb, ["torptechlevel"], 0)
-	for torp: Dictionary in _torpedo_infos():
+	var torps: Array[Dictionary] = _available_starbase_torpedoes(sb)
+	if torps.is_empty():
+		_add_kv(parent, "Build Torpedoes", "none available")
+		return
+
+	var key_label: Label = Label.new()
+	key_label.text = "Build Torpedoes"
+	key_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	key_label.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	parent.add_child(key_label)
+
+	var row: HBoxContainer = HBoxContainer.new()
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_theme_constant_override("separation", 8)
+
+	var option: OptionButton = OptionButton.new()
+	option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	option.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	for torp: Dictionary in torps:
 		var torp_id: int = _dict_int(torp, ["id"], 0)
-		if torp_id <= 0 or _dict_int(torp, ["techlevel"], 0) > torp_tech:
-			continue
 		var stock: Dictionary = game_state.get_starbase_stock_item(starbase_id, 5, torp_id)
-		if stock.is_empty():
-			continue
+		var built: int = _dict_int(stock, ["builtamount"], 0)
+		var label: String = _dict_string(torp, ["name"], _torpedo_name(torp_id))
+		if built > 0:
+			label += " (+%d)" % built
+		option.add_item(label, torp_id)
+		var index: int = option.get_item_count() - 1
+		option.set_item_metadata(index, torp_id)
+	row.add_child(option)
+
+	var spin: SpinBox = SpinBox.new()
+	spin.step = 1
+	spin.rounded = true
+	spin.allow_greater = false
+	spin.allow_lesser = false
+	spin.custom_minimum_size = Vector2(86.0, 0.0)
+	spin.alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	spin.add_theme_font_size_override("font_size", PANEL_BODY_FONT_SIZE)
+	row.add_child(spin)
+
+	var configure_spin := func(index: int) -> void:
+		var torp_id: int = int(option.get_item_metadata(index))
+		var torp: Dictionary = _torpedo_info_by_id(torp_id)
+		var stock: Dictionary = game_state.get_starbase_stock_item(starbase_id, 5, torp_id)
 		var current: int = _dict_int(stock, ["amount"], 0)
 		var built: int = _dict_int(stock, ["builtamount"], 0)
 		var original: int = max(0, current - built)
 		var torp_cost: int = _dict_int(torp, ["torpedocost", "cost"], 0)
 		var max_value: int = _max_affordable_torpedo_stock(current, int(p.megacredits), int(p.supplies), int(p.duranium), int(p.tritanium), int(p.molybdenum), torp_cost)
-		var label: String = _dict_string(torp, ["name"], _torpedo_name(torp_id))
-		if built > 0:
-			label += " (+%d)" % built
-		_add_int_spin_row(parent, label, current, original, max(max_value, current), func(value: int) -> void:
-			if game_state.set_starbase_torpedo_stock(planet_id, torp_id, value):
-				_populate_starbases_panel()
-			else:
-				_populate_starbases_panel()
-		)
+		spin.set_block_signals(true)
+		spin.min_value = original
+		spin.max_value = max(max_value, current)
+		spin.value = current
+		spin.tooltip_text = "%s: %d MC, 1 dur, 1 tri, 1 mol" % [_dict_string(torp, ["name"], _torpedo_name(torp_id)), torp_cost]
+		spin.set_block_signals(false)
+
+	option.item_selected.connect(func(index: int) -> void:
+		configure_spin.call(index)
+	)
+	spin.value_changed.connect(func(value: float) -> void:
+		var selected: int = option.selected
+		if selected < 0:
+			return
+		var torp_id: int = int(option.get_item_metadata(selected))
+		if game_state.set_starbase_torpedo_stock(planet_id, torp_id, int(round(value))):
+			_populate_starbases_panel()
+		else:
+			_populate_starbases_panel()
+	)
+	option.select(0)
+	configure_spin.call(0)
+	parent.add_child(row)
 
 func _add_int_spin_row(parent: GridContainer, label_text: String, current: int, min_value: int, max_value: int, changed: Callable) -> void:
 	var key_label: Label = Label.new()
@@ -2030,6 +2080,24 @@ func _torpedo_infos() -> Array[Dictionary]:
 		return _dict_int(a, ["id"], 0) < _dict_int(b, ["id"], 0)
 	)
 	return result
+
+func _available_starbase_torpedoes(sb: Dictionary) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var torp_tech: int = _dict_int(sb, ["torptechlevel"], 0)
+	for torp: Dictionary in _torpedo_infos():
+		var torp_id: int = _dict_int(torp, ["id"], 0)
+		if torp_id <= 0:
+			continue
+		if _dict_int(torp, ["techlevel"], 0) > torp_tech:
+			continue
+		result.append(torp)
+	return result
+
+func _torpedo_info_by_id(torpedo_id: int) -> Dictionary:
+	for torp: Dictionary in _torpedo_infos():
+		if _dict_int(torp, ["id"], 0) == torpedo_id:
+			return torp
+	return {}
 
 func _starbase_tech_next_cost_label(current_level: int, max_level: int, megacredits: int) -> String:
 	if current_level >= max_level:
