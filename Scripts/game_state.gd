@@ -61,6 +61,8 @@ func _ready() -> void:
 func _process_loaded_turn(parsed: Dictionary) -> void:
 	last_turn_json = parsed
 	# parsed: Dictionary = Root wrapper
+	my_player_id = -1
+	my_race_id = 0
 	
 	if not parsed.has("rst"):
 		push_error("Turn wrapper JSON has no 'rst' section")
@@ -117,9 +119,7 @@ func _process_loaded_turn(parsed: Dictionary) -> void:
 	rebuild_planet_start_state_cache()
 	annotate_minefield_friendly_codes(rst)
 	
-	# Load static game config once (races, advantages, etc.)
-	if config.races_by_id.is_empty():
-		config.load_from_turn_json(parsed)
+	config.load_from_turn_json(parsed)
 		
 	calculate_map_bounds()
 	emit_signal("turn_loaded")
@@ -192,6 +192,9 @@ func load_latest_turn_from_disk() -> bool:
 	var path: String = GameStorage.latest_turn_path(current_game_id)
 	var wrapper: Dictionary = GameStorage.load_json(path)
 	if wrapper.is_empty():
+		return false
+	if not wrapper.has("rst") or not (wrapper.get("rst") is Dictionary):
+		push_warning("Ignoring invalid local turn without rst: " + path)
 		return false
 
 	load_turn_from_parsed_wrapper(wrapper)

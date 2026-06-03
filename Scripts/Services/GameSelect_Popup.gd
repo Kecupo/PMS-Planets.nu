@@ -109,8 +109,6 @@ func _select_game(g: Dictionary) -> void:
 	, CONNECT_ONE_SHOT)
 
 	var player_id: int = _game_player_id(g)
-	if player_id <= 0:
-		player_id = GameState.my_player_id
 	PlanetsApi.download_turn(gid, player_id)
 
 func _game_list_label(g: Dictionary) -> String:
@@ -130,7 +128,20 @@ func _game_id(g: Dictionary) -> int:
 	return _variant_int(g.get("id", g.get("gameid", 0)))
 
 func _game_player_id(g: Dictionary) -> int:
-	return _variant_int(g.get("playerid", g.get("player_id", 0)))
+	for key: String in ["playerid", "player_id", "playerId"]:
+		var id_value: int = _variant_int(g.get(key, 0))
+		if id_value > 0:
+			return id_value
+
+	var player_v: Variant = g.get("player", {})
+	if player_v is Dictionary:
+		var player: Dictionary = player_v as Dictionary
+		for key: String in ["id", "playerid", "player_id", "playerId"]:
+			var id_value: int = _variant_int(player.get(key, 0))
+			if id_value > 0:
+				return id_value
+
+	return 0
 
 func _game_turn_hint(g: Dictionary) -> int:
 	for key: String in ["turn", "currentturn", "turnid", "turnnumber"]:

@@ -65,6 +65,11 @@ func _handle_login_response(data: Dictionary) -> void:
 # TURN RESPONSE
 # =========================
 func _handle_turn_response(data: Dictionary) -> void:
+	if not data.has("rst") or not (data.get("rst") is Dictionary):
+		var reason: String = String(data.get("error", data.get("message", "Turn response has no rst data")))
+		emit_signal("turn_download_failed", reason)
+		return
+
 	if _pending_save_forsave:
 		_pending_save_forsave = false
 		_save_turn_with_savekey_and_merge(data)

@@ -50,7 +50,7 @@ static func list_local_games() -> Array[Dictionary]:
 		if dir.current_is_dir() and not entry_name.begins_with(".") and entry_name.is_valid_int():
 			var game_id: int = int(entry_name)
 			var wrapper: Dictionary = load_json(latest_turn_path(game_id))
-			if not wrapper.is_empty():
+			if not wrapper.is_empty() and wrapper.has("rst") and wrapper.get("rst") is Dictionary:
 				result.append(_local_game_entry(game_id, wrapper))
 		entry_name = dir.get_next()
 	dir.list_dir_end()
