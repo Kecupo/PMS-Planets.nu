@@ -1831,6 +1831,9 @@ func _starbase_tech_max_level(p: PlanetData) -> int:
 	return 7
 
 func _is_current_player_premium() -> bool:
+	if _dict_bool(game_state.last_turn_json, ["ispremium", "is_premium", "premium", "isregistered"], false):
+		return true
+
 	var player: Dictionary = _player_from_rst()
 	if player.is_empty():
 		player = game_state.get_player_info(game_state.my_player_id)

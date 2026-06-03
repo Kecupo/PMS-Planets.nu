@@ -1242,6 +1242,10 @@ func _starbase_max_tech_level_for_planet(p: PlanetData) -> int:
 	return 7
 
 func _is_my_player_premium() -> bool:
+	for key: String in ["ispremium", "is_premium", "premium", "isregistered"]:
+		if _dict_bool_value(last_turn_json.get(key, false)):
+			return true
+
 	var player: Dictionary = get_player_info(my_player_id)
 	if player.is_empty():
 		var rst_v: Variant = last_turn_json.get("rst", {})
