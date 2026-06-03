@@ -553,7 +553,6 @@ func _add_starbase_defense_layout(parent: VBoxContainer, planet_id: int, p: Plan
 
 	var base_defense: int = _dict_int(sb, ["defense", "defenseposts", "defense_posts"], 0)
 	var base_fighters: int = _dict_int(sb, ["fighters", "fightercount", "fighter_count"], 0)
-	var planet_defense: int = max(0, int(p.defense)) if p != null else 0
 	var editable: bool = p != null and game_state.is_my_planet(p)
 
 	if editable:
@@ -563,11 +562,10 @@ func _add_starbase_defense_layout(parent: VBoxContainer, planet_id: int, p: Plan
 		_add_compact_kv(grid, "Defense", str(base_defense))
 		_add_compact_kv(grid, "Fighters", str(base_fighters))
 
-	_add_compact_kv(grid, "Planet Def", str(planet_defense) if p != null else "?")
-	_add_compact_kv(grid, "Mass", "%d kt" % int(defense_summary.get("combat_mass", 0)))
 	_add_compact_kv(grid, "Beams", _weapon_count_name(int(defense_summary.get("beam_count", 0)), String(defense_summary.get("beam_name", "Beam"))))
 	_add_compact_kv(grid, "Total Fighters", str(int(defense_summary.get("fighters", 0))))
 	_add_compact_kv(grid, "Bays", str(int(defense_summary.get("bays", 0))))
+	_add_compact_kv(grid, "Mass", "%d kt" % int(defense_summary.get("combat_mass", 0)))
 	if _dict_int(sb, ["damage"], 0) > 0:
 		_add_compact_kv(grid, "Damage", "%d%%" % _dict_int(sb, ["damage"], 0))
 
